@@ -21,11 +21,15 @@ Wayfare server.
 - Each booking type looks different, with its own icon and color: a flight
   is a boarding pass, a train has a track line, a stay shows its nights, a
   table is a reservation card. A journey line shows the whole trip.
-- Three views of each trip: **Day by day**, **Nights** (where you sleep each
-  night, and which nights have nothing booked) and **Bookings** (grouped by
-  type, with codes for the owner).
+- One simple view: **day by day**. A short header shows the dates, the
+  travellers, the journey and how many things need a check.
+- A problem shows inside the booking it is about, with **one button** for the
+  most useful next step (for example "Check the new time" or "Search stays").
+  All other actions for that booking are in its **⋯** menu. Trip-wide actions
+  (add to calendar, check inbox, check fares, show codes) are in the **⋯** menu
+  at the top.
 - On a trip page you can:
-  - mark a problem **Done**, **Not a problem** or **Later** (it comes back
+  - mark a problem **handled**, **not a problem** or **remind me in 3 days** (it comes back
     if the facts change),
   - open ready-made links: a stay search with the city and dates filled in,
     the map, the provider's manage-booking page,

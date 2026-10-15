@@ -36,7 +36,7 @@ from datetime import date, datetime, timedelta, timezone
 from pathlib import Path
 from typing import Any
 
-ENGINE_VERSION = "0.3.0"
+ENGINE_VERSION = "0.4.0"
 TRANSPORT = {"flight", "train", "transfer"}
 TYPES = TRANSPORT | {"hotel", "dining", "other"}
 STATUSES = {"confirmed", "changed", "cancelled"}
@@ -599,7 +599,35 @@ def enrich_alert(a: dict, by_id: dict[str, Item], travellers: int) -> dict:
             if m and m["url"] not in {l["url"] for l in links}:
                 links.append(m)
     a["links"] = links[:4]
+    # The card the alert is shown on: the last item it names (the dinner you
+    # may miss, the second flight of a tight connection, the hotel you reach late).
+    a["anchor"] = a["itemIds"][-1] if a["itemIds"] else None
+    a["primary"] = primary_action(a, by_id)
     return a
+
+
+PRIMARY_LABEL = {
+    "schedule_change": "Check the new time", "tight_connection": "Manage booking", "overlap": "Manage booking",
+    "tight_dining": "Change table time", "dining_conflict": "Change table time", "double_booking": "Manage booking",
+    "fare_drop": "Check the fare", "no_show_risk": "Contact the hotel", "late_checkin": "Contact the hotel",
+}
+
+
+def primary_action(a: dict, by_id: dict[str, Item]) -> dict | None:
+    """The one action shown on the card. `manage: true` lets the owner's page
+    swap in the direct manage-booking link from the email."""
+    if a["kind"] == "lodging_gap":
+        return {"label": "Search stays", "url": a["links"][0]["url"]} if a["links"] else None
+    it = by_id.get(a.get("anchor") or "")
+    if not it:
+        return None
+    label = PRIMARY_LABEL.get(a["kind"], "Manage booking")
+    if a["kind"] in ("no_show_risk", "late_checkin"):
+        return {"label": label, "url": maps_url(f"{it.raw.get('name')} {it.raw.get('city', '')}"), "itemId": it.id, "manage": False}
+    m = manage_link(it.raw)
+    if not m:
+        return None
+    return {"label": label, "url": m["url"], "itemId": it.id, "manage": True}
 
 
 # ----------------------------------------------------------------- output

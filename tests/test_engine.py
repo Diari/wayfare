@@ -156,6 +156,19 @@ class AlertsAndActions(unittest.TestCase):
         self.assertEqual(gap["ask"]["kind"], "find-stays")
         self.assertEqual(gap["ask"]["guests"], 2)
 
+    def test_anchor_and_primary(self):
+        lis = trips(build(SAMPLE))[0]
+        by = {a["kind"]: a for a in lis["alerts"]}
+        self.assertEqual(by["tight_dining"]["anchor"], "dining-taberna-azul-2026-11-06")
+        self.assertEqual(by["tight_dining"]["primary"]["label"], "Change table time")
+        self.assertIn("OpenTable", by["tight_dining"]["primary"]["url"])
+        self.assertTrue(by["tight_dining"]["primary"]["manage"])
+        self.assertEqual(by["schedule_change"]["anchor"], "flight-TP669-2026-11-06")
+        self.assertIsNone(by["lodging_gap"]["anchor"])
+        self.assertEqual(by["lodging_gap"]["primary"]["label"], "Search stays")
+        ber = trips(build(SAMPLE))[1]
+        self.assertEqual(ber["alerts"][0]["anchor"], "flight-LH992-2026-12-06")
+
     def test_action_hides_alert_until_facts_change(self):
         lis = trips(build(SAMPLE))[0]
         gap = next(a for a in lis["alerts"] if a["kind"] == "lodging_gap")

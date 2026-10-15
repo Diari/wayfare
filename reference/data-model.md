@@ -40,6 +40,17 @@ rules for each page. Shared viewers must be signed in to Claude to see data.
 An action applies only while the alert's `fingerprint` is unchanged: if the
 facts behind an alert change, it comes back.
 
+Each alert in `trip/data` also has:
+
+- `anchor`: the item id of the card that shows the alert (the last of its
+  `itemIds`). Other cards in `itemIds` get a colored border only. A
+  `lodging_gap` has no anchor; it shows on its gap card.
+- `primary`: the one visible button, `{label, url, itemId?, manage?}`, or
+  null. When `manage` is true, the owner's page uses the private
+  `manageUrl` of `itemId` instead of `url`. When the alert has `ask` and the
+  owner has the agent task, the page shows "Find stays with Claude" instead.
+  Everything else goes in the card's menu.
+
 ## Booking object
 
 Every booking is one JSON object. `scripts/wayfare.py validate` checks them.

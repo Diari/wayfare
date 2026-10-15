@@ -4,9 +4,9 @@
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
 <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Figtree:wght@400;500;600;700;800&display=swap">
 <style>
-/* Layout: a travel wallet. Trip name and the journey line on top, then what needs attention,
-   then one of three views (day by day, nights, bookings). Every booking type has its own shape,
-   icon and color: flight = boarding pass, train = track line, stay = nights, table = reservation card. */
+/* Layout: one column, day by day. A short header (trip, dates, journey, one menu),
+   then each day's bookings as typed cards. A problem shows inside the card it is about,
+   with one main action; everything else sits in that card's menu. */
 :root {
   --bg: #f4f5f7;
   --surface: #ffffff;
@@ -20,126 +20,112 @@
   --gap: #b7791f;
   --urgent: #c8322b;
   --info: #2b6cb0;
+  --shadow: 0 10px 30px rgba(20, 28, 40, .14);
   --font: "Figtree", system-ui, -apple-system, "Segoe UI", Roboto, sans-serif;
 }
 @media (prefers-color-scheme: dark) {
   :root:not([data-theme="light"]) {
     --bg: #12161c; --surface: #1b212a; --ink: #e8ecf1; --muted: #9aa5b4; --line: #2a323d;
     --flight: #6aa8f5; --train: #4cc18a; --stay: #a88bf0; --table: #f07ab2; --gap: #e3b04b; --urgent: #f2766c; --info: #7fb2e8;
+    --shadow: 0 10px 30px rgba(0, 0, 0, .5);
     color-scheme: dark;
   }
 }
 :root[data-theme="dark"] {
   --bg: #12161c; --surface: #1b212a; --ink: #e8ecf1; --muted: #9aa5b4; --line: #2a323d;
   --flight: #6aa8f5; --train: #4cc18a; --stay: #a88bf0; --table: #f07ab2; --gap: #e3b04b; --urgent: #f2766c; --info: #7fb2e8;
+  --shadow: 0 10px 30px rgba(0, 0, 0, .5);
   color-scheme: dark;
 }
 * { box-sizing: border-box; }
 body {
   background: var(--bg); color: var(--ink); font: 400 15px/1.5 var(--font); font-variant-numeric: tabular-nums;
   padding-left: max(16px, env(safe-area-inset-left, 0px)); padding-right: max(16px, env(safe-area-inset-right, 0px));
-  padding-block: 20px 56px;
+  padding-block: 18px 56px;
 }
 h1, h2, h3, h4, p { margin: 0; }
 h1, h2, h3 { text-wrap: balance; }
 a { color: inherit; }
-.page { max-width: 720px; margin: 0 auto; display: grid; gap: 28px; }
-.stack { display: grid; gap: 28px; min-width: 0; }
+.page { max-width: 640px; margin: 0 auto; display: grid; gap: 26px; }
+.stack { display: grid; gap: 26px; min-width: 0; }
 .muted { color: var(--muted); }
 .small { font-size: 13px; }
 svg.i { width: 18px; height: 18px; fill: currentColor; flex: none; }
+.row { display: flex; flex-wrap: wrap; gap: 8px; align-items: center; }
 
-/* buttons and links */
 .btn {
   font: 600 14px/1 var(--font); color: var(--ink); background: var(--surface); border: 1px solid var(--line);
   border-radius: 999px; padding: 9px 14px; cursor: pointer; text-decoration: none; display: inline-flex; align-items: center; gap: 6px;
 }
 .btn.dark { background: var(--ink); color: var(--bg); border-color: var(--ink); }
-.btn.plain { background: transparent; border-color: transparent; padding-inline: 8px; color: var(--muted); }
+.btn.plain { background: transparent; border-color: transparent; padding-inline: 6px; color: var(--muted); }
 .btn[disabled] { opacity: .5; cursor: default; }
-.btn:focus-visible, a:focus-visible, summary:focus-visible, input:focus-visible, [role="tab"]:focus-visible { outline: 2px solid var(--ink); outline-offset: 2px; }
-.links { display: flex; flex-wrap: wrap; gap: 6px; }
-.links a { font-size: 13px; font-weight: 600; padding: 6px 11px; border-radius: 999px; border: 1px solid var(--line); background: var(--surface); text-decoration: none; }
-.row { display: flex; flex-wrap: wrap; gap: 8px; align-items: center; }
+.btn:focus-visible, a:focus-visible, summary:focus-visible, input:focus-visible, .menu-list button:focus-visible { outline: 2px solid var(--ink); outline-offset: 2px; }
 .status { font-size: 13px; color: var(--muted); }
 .status.err { color: var(--urgent); }
-.banner { border: 1px solid var(--gap); color: var(--ink); background: color-mix(in srgb, var(--gap) 10%, var(--surface)); border-radius: 12px; padding: 10px 14px; font-size: 14px; }
+.banner { border: 1px solid var(--gap); background: color-mix(in srgb, var(--gap) 10%, var(--surface)); border-radius: 12px; padding: 10px 14px; font-size: 14px; }
 .banner.bad { border-color: var(--urgent); background: color-mix(in srgb, var(--urgent) 10%, var(--surface)); }
 
+/* menu (top and per card) */
+.menu { position: relative; }
+.menu > summary { list-style: none; cursor: pointer; width: 34px; height: 34px; border-radius: 50%; display: grid; place-items: center; color: var(--muted); border: 1px solid transparent; }
+.menu > summary::-webkit-details-marker { display: none; }
+.menu > summary:hover, .menu[open] > summary { border-color: var(--line); background: var(--surface); color: var(--ink); }
+.menu-list { position: absolute; right: 0; top: calc(100% + 6px); z-index: 20; min-width: 230px; max-width: min(300px, calc(100vw - 32px));
+  background: var(--surface); border: 1px solid var(--line); border-radius: 14px; box-shadow: var(--shadow); padding: 6px; display: grid; }
+.menu-list button, .menu-list a { font: 500 15px/1.3 var(--font); color: var(--ink); background: none; border: 0; text-align: left; padding: 10px 12px; border-radius: 10px; cursor: pointer; text-decoration: none; }
+.menu-list button:hover, .menu-list a:hover { background: var(--bg); }
+.menu-list a::after { content: " ↗"; color: var(--muted); }
+.menu-list .sep { height: 1px; background: var(--line); margin: 4px 6px; }
+.menu-list .hint { font-size: 12px; color: var(--muted); padding: 6px 12px 2px; }
+
 /* header */
-.head { display: grid; gap: 10px; }
-.topline { display: flex; justify-content: space-between; align-items: center; gap: 12px; flex-wrap: wrap; font-size: 13px; color: var(--muted); }
-.brand { font-weight: 800; color: var(--ink); letter-spacing: -.01em; }
-.trip-title { font-size: clamp(34px, 9vw, 52px); font-weight: 800; line-height: 1; letter-spacing: -.03em; }
-.facts { display: flex; flex-wrap: wrap; gap: 6px 14px; align-items: baseline; font-size: 16px; color: var(--muted); }
-.facts b { color: var(--ink); font-weight: 700; }
-.pill { font-weight: 700; color: var(--ink); background: var(--surface); border: 1px solid var(--line); border-radius: 999px; padding: 3px 10px; font-size: 14px; }
+.head { display: grid; gap: 8px; }
+.topline { display: flex; justify-content: space-between; align-items: center; gap: 12px; min-height: 34px; }
+.brand { font-weight: 800; letter-spacing: -.01em; }
+.top-right { display: flex; align-items: center; gap: 6px; font-size: 13px; color: var(--muted); }
+.trip-title { font-size: clamp(34px, 9vw, 50px); font-weight: 800; line-height: 1; letter-spacing: -.03em; }
+.meta { display: flex; flex-wrap: wrap; gap: 4px 12px; align-items: baseline; font-size: 16px; color: var(--muted); }
+.meta b { color: var(--ink); font-weight: 700; }
+.to-check { font: inherit; font-weight: 700; color: var(--gap); background: none; border: 0; padding: 0; cursor: pointer; text-decoration: underline; text-underline-offset: 3px; }
+.to-check.high { color: var(--urgent); }
+.route { display: flex; flex-wrap: wrap; align-items: center; gap: 4px 6px; font-weight: 600; font-size: 15px; }
+.route .flight { color: var(--flight); } .route .train { color: var(--train); } .route .unknown { color: var(--muted); }
+.route svg.i { width: 16px; height: 16px; }
 
-/* journey line: the one bold element */
-.journey { overflow-x: auto; padding: 6px 0 2px; }
-.journey ol { list-style: none; margin: 0; padding: 0; display: flex; align-items: flex-start; min-width: max-content; }
-.stop { display: grid; justify-items: start; gap: 2px; min-width: 92px; }
-.stop .dot { width: 14px; height: 14px; border-radius: 50%; border: 3px solid var(--ink); background: var(--surface); }
-.stop.home .dot { background: var(--ink); }
-.stop .city { font-weight: 700; font-size: 16px; margin-top: 6px; }
-.stop .n { font-size: 13px; color: var(--muted); display: flex; gap: 4px; align-items: center; }
-.stop .n.unbooked { color: var(--gap); font-weight: 600; }
-.leg { display: flex; align-items: center; gap: 6px; padding-top: 0; min-width: 72px; flex: 1 0 72px; margin: 0 8px; height: 14px; }
-.leg::before, .leg::after { content: ""; flex: 1; height: 3px; border-radius: 2px; background: currentColor; opacity: .5; }
-.leg.flight { color: var(--flight); }
-.leg.train, .leg.transfer { color: var(--train); }
-.leg.unknown { color: var(--muted); }
-
-/* attention */
-.attn { display: grid; gap: 8px; }
-.sec-head { display: flex; justify-content: space-between; align-items: baseline; gap: 12px; flex-wrap: wrap; }
-.sec-head h2 { font-size: 20px; font-weight: 800; letter-spacing: -.01em; }
-.alert { background: var(--surface); border: 1px solid var(--line); border-radius: 14px; }
-.alert summary { list-style: none; cursor: pointer; display: grid; grid-template-columns: 12px 1fr auto; gap: 12px; align-items: center; padding: 12px 14px; }
-.alert summary::-webkit-details-marker { display: none; }
-.alert .sev { width: 12px; height: 12px; border-radius: 50%; }
-.alert.high .sev { background: var(--urgent); }
-.alert.medium .sev { background: var(--gap); }
-.alert.info .sev { background: var(--info); }
-.alert .t { font-weight: 600; min-width: 0; overflow-wrap: anywhere; }
-.alert.high .t { font-weight: 700; }
-.alert .chev { color: var(--muted); transition: transform .15s; }
-.alert[open] .chev { transform: rotate(90deg); }
-.alert .body { padding: 0 14px 14px 38px; display: grid; gap: 10px; }
-.alert .cause { font-size: 13px; color: var(--muted); }
-.acts { display: flex; flex-wrap: wrap; gap: 6px; }
-.suggest { border-top: 1px solid var(--line); padding-top: 10px; display: grid; gap: 8px; }
-.suggest ol { margin: 0; padding-left: 18px; display: grid; gap: 8px; }
-.calm { color: var(--muted); }
-.handled { font-size: 14px; }
-.handled summary { cursor: pointer; color: var(--muted); }
-.handled-row { display: flex; justify-content: space-between; gap: 10px; align-items: center; padding-top: 8px; flex-wrap: wrap; }
-.handled-row span { min-width: 0; overflow-wrap: anywhere; color: var(--muted); }
-
-/* view switch */
-.tabs { justify-self: start; display: inline-flex; background: var(--surface); border: 1px solid var(--line); border-radius: 999px; padding: 3px; gap: 2px; max-width: 100%; overflow-x: auto; }
-.tabs [role="tab"] { font: 600 14px/1 var(--font); border: 0; background: transparent; color: var(--muted); padding: 9px 14px; border-radius: 999px; cursor: pointer; white-space: nowrap; }
-.tabs [role="tab"][aria-selected="true"] { background: var(--ink); color: var(--bg); }
-
-/* day by day */
-.days { display: grid; gap: 22px; }
+/* days */
+.days { display: grid; gap: 24px; }
 .day { display: grid; gap: 10px; }
-.day h3 { font-size: 16px; font-weight: 700; color: var(--muted); }
-.card { background: var(--surface); border: 1px solid var(--line); border-radius: 16px; overflow: hidden; --c: var(--muted); }
+.day h2 { font-size: 15px; font-weight: 700; color: var(--muted); }
+.card { background: var(--surface); border: 1px solid var(--line); border-radius: 16px; --c: var(--muted); scroll-margin-top: 16px; }
 .card.flight { --c: var(--flight); }
 .card.train, .card.transfer { --c: var(--train); }
 .card.hotel { --c: var(--stay); }
 .card.dining { --c: var(--table); }
-.card.flag-high { border-color: var(--urgent); box-shadow: 0 0 0 1px var(--urgent); }
-.card.flag-medium { border-color: var(--gap); }
-.card-top { display: flex; align-items: center; gap: 8px; padding: 10px 14px; background: color-mix(in srgb, var(--c) 10%, var(--surface)); color: var(--c); font-size: 13px; font-weight: 700; }
+.card.touch-high { border-color: color-mix(in srgb, var(--urgent) 55%, var(--line)); }
+.card.touch-medium { border-color: color-mix(in srgb, var(--gap) 55%, var(--line)); }
+.card-top { display: flex; align-items: center; gap: 8px; padding: 10px 14px; background: color-mix(in srgb, var(--c) 10%, var(--surface)); color: var(--c); font-size: 13px; font-weight: 700; border-radius: 15px 15px 0 0; }
 .card-top .what { color: var(--ink); font-weight: 600; min-width: 0; overflow-wrap: anywhere; }
 .card-top .flag { margin-left: auto; font-size: 12px; font-weight: 700; padding: 2px 8px; border-radius: 999px; background: var(--surface); color: var(--urgent); border: 1px solid currentColor; white-space: nowrap; }
 .card-main { padding: 14px; display: grid; gap: 10px; }
-.card-foot { display: flex; flex-wrap: wrap; gap: 8px 12px; align-items: center; padding: 10px 14px; border-top: 1px dashed var(--line); font-size: 13px; color: var(--muted); }
+.card-foot { display: flex; gap: 8px 12px; align-items: center; padding: 6px 8px 6px 14px; border-top: 1px dashed var(--line); font-size: 13px; color: var(--muted); min-height: 46px; }
+.card-foot .facts { display: flex; flex-wrap: wrap; gap: 4px 12px; min-width: 0; flex: 1; }
 .code { font-weight: 600; letter-spacing: .04em; }
 .code.full { color: var(--ink); }
-.card-foot a { font-weight: 600; color: var(--ink); }
+
+/* issue inside a card */
+.issue { margin: 0 14px 14px; padding: 12px 14px; border-radius: 12px; border-left: 4px solid; display: grid; gap: 8px; }
+.issue.high { border-color: var(--urgent); background: color-mix(in srgb, var(--urgent) 9%, var(--surface)); }
+.issue.medium { border-color: var(--gap); background: color-mix(in srgb, var(--gap) 11%, var(--surface)); }
+.issue.info { border-color: var(--info); background: color-mix(in srgb, var(--info) 9%, var(--surface)); }
+.issue b { font-weight: 700; }
+.issue p { font-size: 14px; }
+.issue .why { color: var(--muted); font-size: 13px; }
+.issue.done { border-color: var(--line); background: transparent; color: var(--muted); padding-block: 8px; display: flex; justify-content: space-between; align-items: center; gap: 10px; flex-wrap: wrap; }
+.suggest { display: grid; gap: 6px; padding-top: 4px; }
+.suggest ol { margin: 0; padding-left: 18px; display: grid; gap: 8px; font-size: 14px; }
+.suggest .links { display: flex; flex-wrap: wrap; gap: 6px; padding-top: 4px; }
+.suggest .links a { font-size: 13px; font-weight: 600; }
 
 /* flight: boarding pass */
 .pass { display: grid; grid-template-columns: auto 1fr auto; gap: 4px 12px; align-items: center; }
@@ -151,7 +137,6 @@ svg.i { width: 18px; height: 18px; fill: currentColor; flex: none; }
 .pass .nm { color: var(--muted); font-size: 13px; }
 .pass .r { text-align: right; justify-self: end; }
 .pass .mid { text-align: center; color: var(--muted); font-size: 12px; }
-
 /* train: track */
 .track { display: grid; grid-template-columns: 14px 1fr auto; gap: 0 12px; }
 .track .rail { grid-row: 1 / span 3; display: grid; grid-template-rows: 14px 1fr 14px; justify-items: center; }
@@ -159,51 +144,30 @@ svg.i { width: 18px; height: 18px; fill: currentColor; flex: none; }
 .track .rail b { width: 3px; background: repeating-linear-gradient(var(--c) 0 6px, transparent 6px 10px); }
 .track .st { font-weight: 700; min-width: 0; overflow-wrap: anywhere; }
 .track .tm { font-weight: 700; font-size: 18px; text-align: right; }
-.track .gapline { grid-column: 2 / span 2; height: 18px; color: var(--muted); font-size: 12px; }
-
-/* stay: nights */
-.stay h4 { font-size: 20px; font-weight: 800; letter-spacing: -.01em; }
+.track .gapline { grid-column: 2 / span 2; height: 18px; }
+/* stay */
+.stay h3 { font-size: 20px; font-weight: 800; letter-spacing: -.01em; }
 .moons { display: flex; flex-wrap: wrap; gap: 4px; color: var(--c); }
 .moons svg { width: 18px; height: 18px; fill: currentColor; }
 .stay .when { display: flex; flex-wrap: wrap; gap: 4px 10px; color: var(--muted); font-size: 14px; }
 .stay .when b { color: var(--ink); }
-
-/* table: reservation */
+/* table */
 .resv { display: grid; grid-template-columns: auto 1fr; gap: 2px 14px; align-items: center; }
 .resv .tm { grid-row: span 2; font-size: 26px; font-weight: 800; color: var(--c); }
-.resv h4 { font-size: 18px; font-weight: 700; }
-
+.resv h3 { font-size: 18px; font-weight: 700; }
 /* gap */
 .card.gap { background: transparent; border: 2px dashed var(--gap); }
-.card.gap .card-main { color: var(--gap); }
-.card.gap h4 { font-size: 17px; font-weight: 700; color: var(--ink); }
-
-/* nights grid */
-.nights { display: grid; grid-template-columns: repeat(auto-fill, minmax(150px, 1fr)); gap: 8px; }
-.night { background: var(--surface); border: 1px solid var(--line); border-radius: 14px; padding: 12px; display: grid; gap: 4px; min-height: 112px; align-content: start; }
-.night .d { font-size: 13px; color: var(--muted); font-weight: 600; }
-.night .num { font-size: 28px; font-weight: 800; line-height: 1; }
-.night .where { font-weight: 700; min-width: 0; overflow-wrap: anywhere; }
-.night.stay { border-top: 4px solid var(--stay); }
-.night.stay .where { color: var(--stay); }
-.night.transit { border-top: 4px solid var(--flight); }
-.night.gap { border: 2px dashed var(--gap); background: transparent; }
-.night.gap .where { color: var(--gap); }
-
-/* bookings by type */
-.groups { display: grid; gap: 18px; }
-.group h3 { display: flex; align-items: center; gap: 8px; font-size: 16px; font-weight: 800; padding-bottom: 6px; }
-.group.flight h3 { color: var(--flight); } .group.train h3 { color: var(--train); } .group.hotel h3 { color: var(--stay); } .group.dining h3 { color: var(--table); }
-.group h3 span { color: var(--muted); font-weight: 600; }
-.list { background: var(--surface); border: 1px solid var(--line); border-radius: 14px; }
-.li { display: grid; grid-template-columns: 1fr auto; gap: 2px 12px; padding: 12px 14px; border-bottom: 1px solid var(--line); }
-.li:last-child { border-bottom: 0; }
-.li b { min-width: 0; overflow-wrap: anywhere; }
-.li .meta { grid-column: 1 / -1; display: flex; flex-wrap: wrap; gap: 4px 12px; font-size: 13px; color: var(--muted); align-items: center; }
-.li .when { font-size: 14px; color: var(--muted); text-align: right; }
+.card.gap .card-main { padding: 8px 8px 6px 14px; }
+.card.gap .gap-top { display: flex; justify-content: space-between; align-items: center; min-height: 34px; }
+.card.gap h3 { padding-right: 6px; }
+.card.gap .label { color: var(--gap); font-weight: 700; display: flex; gap: 6px; align-items: center; }
+.card.gap h3 { font-size: 18px; font-weight: 700; }
+.card.gap .issue { margin-top: 0; }
 
 /* to-do */
-.todos { background: var(--surface); border: 1px solid var(--line); border-radius: 14px; padding: 4px 14px 12px; }
+.todo-sec { display: grid; gap: 10px; }
+.todo-sec h2 { font-size: 18px; font-weight: 800; }
+.todos { background: var(--surface); border: 1px solid var(--line); border-radius: 16px; padding: 4px 14px 12px; }
 .todo { display: grid; grid-template-columns: auto 1fr auto; gap: 12px; align-items: center; padding: 10px 0; border-bottom: 1px solid var(--line); }
 .todo .text { min-width: 0; overflow-wrap: anywhere; }
 .todo.done .text { text-decoration: line-through; color: var(--muted); }
@@ -215,35 +179,19 @@ svg.i { width: 18px; height: 18px; fill: currentColor; flex: none; }
 .foot { color: var(--muted); font-size: 13px; display: grid; gap: 6px; border-top: 1px solid var(--line); padding-top: 16px; }
 .empty { background: var(--surface); border: 1px dashed var(--line); border-radius: 16px; padding: 28px 20px; display: grid; gap: 8px; }
 .empty h2 { font-size: 24px; font-weight: 800; }
-@media (max-width: 560px) {
-  /* the journey runs top to bottom on a phone */
-  .journey { overflow: visible; }
-  .journey ol { flex-direction: column; min-width: 0; }
-  .stop { grid-template-columns: 14px auto 1fr; align-items: center; column-gap: 12px; min-width: 0; }
-  .stop .city { margin-top: 0; }
-  .stop .n { justify-self: end; }
-  .leg { flex-direction: column; flex: none; width: 14px; min-width: 0; height: 40px; margin: 3px 0; gap: 3px; }
-  .leg::before, .leg::after { width: 3px; height: auto; }
-  .leg svg.i { width: 16px; height: 16px; }
-}
-@media (max-width: 420px) {
-  .pass .code3 { font-size: 28px; }
-  .nights { grid-template-columns: repeat(2, minmax(0, 1fr)); }
-  .alert .body { padding-left: 14px; }
-}
-@media (prefers-reduced-motion: reduce) { .alert .chev { transition: none; } }
+@media (max-width: 420px) { .pass .code3 { font-size: 28px; } .issue { margin-inline: 10px; } }
 </style>
 
 <!--WAYFARE_STATIC_DATA-->
 <div class="page">
-  <div id="head" class="head">
-    <div class="topline"><span class="brand">Wayfare</span><span id="updated">Loading the trip…</span></div>
+  <header id="head" class="head">
+    <div class="topline"><span class="brand">Wayfare</span><span class="top-right" id="updated">Loading the trip…</span></div>
     <div class="empty">
       <h2>Your trip appears here</h2>
       <p>Wayfare builds this page from your travel confirmations: flights, stays, trains and tables, with nights that have no stay, tight connections and schedule changes.</p>
       <p class="muted">In Claude, run /wayfare:sync.</p>
     </div>
-  </div>
+  </header>
   <div id="main" class="stack"></div>
   <footer class="foot">
     <div>Only you and the people you invite can open this page. People you share it with never see full booking codes or prices.</div>
@@ -258,10 +206,8 @@ svg.i { width: 18px; height: 18px; fill: currentColor; flex: none; }
     trip: null, priv: null, actions: {}, todos: [], suggestions: {}, requests: {},
     db: null, mcp: null, uid: null, isOwner: false, canAct: false, canTodo: true,
     source: "none", showCodes: false, calAdded: {}, calMsg: "", calBusy: false, calConfirm: false, topMsg: "",
-    view: "days"
+    openMenu: null
   };
-  try { S.view = localStorage.getItem("wayfare-view") || "days"; } catch (e) {}
-
   var ICON = {
     flight: "M21 16v-2l-8-5V3.5a1.5 1.5 0 0 0-3 0V9l-8 5v2l8-2.5V19l-2 1.5V22l3.5-1 3.5 1v-1.5L13 19v-5.5z",
     train: "M12 2c-4 0-8 .5-8 4v9.5A3.5 3.5 0 0 0 7.5 19L6 20.5v.5h2.2l2-2h3.6l2 2H18v-.5L16.5 19a3.5 3.5 0 0 0 3.5-3.5V6c0-3.5-4-4-8-4zM7.5 17a1.5 1.5 0 1 1 0-3 1.5 1.5 0 0 1 0 3zm3.5-7H6V6h5v4zm2 0V6h5v4h-5zm3.5 7a1.5 1.5 0 1 1 0-3 1.5 1.5 0 0 1 0 3z",
@@ -269,9 +215,9 @@ svg.i { width: 18px; height: 18px; fill: currentColor; flex: none; }
     dining: "M11 9H9V2H7v7H5V2H3v7c0 2.12 1.66 3.84 3.75 3.97V22h2.5v-9.03C11.34 12.84 13 11.12 13 9V2h-2v7zm5-3v8h2.5v8H21V2c-2.76 0-5 2.24-5 4z",
     moon: "M12 3a9 9 0 1 0 9 9c0-.46-.04-.92-.1-1.36a5.4 5.4 0 0 1-4.4 2.26 5.4 5.4 0 0 1-3.14-9.8c-.44-.06-.9-.1-1.36-.1z",
     pin: "M12 2a7 7 0 0 0-7 7c0 5.25 7 13 7 13s7-7.75 7-13a7 7 0 0 0-7-7zm0 9.5a2.5 2.5 0 1 1 0-5 2.5 2.5 0 0 1 0 5z",
-    chev: "M9 6l6 6-6 6-1.4-1.4L12.2 12 7.6 7.4z"
+    dots: "M6 10.5a1.5 1.5 0 1 1 0 3 1.5 1.5 0 0 1 0-3zm6 0a1.5 1.5 0 1 1 0 3 1.5 1.5 0 0 1 0-3zm6 0a1.5 1.5 0 1 1 0 3 1.5 1.5 0 0 1 0-3z"
   };
-  ICON.train2 = ICON.train; ICON.transfer = ICON.train; ICON.other = ICON.pin;
+  ICON.transfer = ICON.train; ICON.other = ICON.pin;
   var TYPE_NAME = { flight: "Flight", train: "Train", transfer: "Transfer", hotel: "Stay", dining: "Table", other: "Plan" };
   var MONTHS = ["January", "February", "March", "April", "May", "June", "July", "August", "September", "October", "November", "December"];
   var WEEK = ["Sunday", "Monday", "Tuesday", "Wednesday", "Thursday", "Friday", "Saturday"];
@@ -296,7 +242,6 @@ svg.i { width: 18px; height: 18px; fill: currentColor; flex: none; }
     svg.appendChild(p); return svg;
   }
   function safeUrl(u) { return typeof u === "string" && /^https:\/\//.test(u) ? u : null; }
-  function link(label, url) { var u = safeUrl(url); return u ? el("a", { href: u, target: "_blank", rel: "noopener noreferrer", text: label }) : null; }
   function nowIso() { return new Date().toISOString(); }
   function longDay(iso) { var d = new Date(iso + "T12:00:00Z"); return WEEK[d.getUTCDay()] + " " + d.getUTCDate() + " " + MONTHS[d.getUTCMonth()]; }
   function ago(iso) {
@@ -307,6 +252,32 @@ svg.i { width: 18px; height: 18px; fill: currentColor; flex: none; }
     var h = Math.round(mins / 60);
     return h < 48 ? "Updated " + h + " h ago" : "Updated " + Math.round(h / 24) + " days ago";
   }
+  function closeMenus() { S.openMenu = null; document.querySelectorAll("details.menu[open]").forEach(function (d) { d.open = false; }); }
+  document.addEventListener("click", function (e) {
+    document.querySelectorAll("details.menu[open]").forEach(function (d) { if (!d.contains(e.target)) { d.open = false; if (S.openMenu === d.dataset.key) S.openMenu = null; } });
+  });
+  document.addEventListener("keydown", function (e) { if (e.key === "Escape") closeMenus(); });
+
+  // A menu: entries are {label, onClick} | {label, url} | {sep: true} | {hint: "text"}
+  function menu(key, label, entries) {
+    entries = entries.filter(Boolean);
+    while (entries.length && entries[entries.length - 1].sep) entries.pop();
+    if (!entries.length) return null;
+    var list = el("div", { class: "menu-list", role: "menu" });
+    entries.forEach(function (m) {
+      if (m.sep) { list.appendChild(el("div", { class: "sep", role: "separator" })); return; }
+      if (m.hint) { list.appendChild(el("div", { class: "hint", text: m.hint })); return; }
+      if (m.url) {
+        var u = safeUrl(m.url);
+        if (u) list.appendChild(el("a", { role: "menuitem", href: u, target: "_blank", rel: "noopener noreferrer", text: m.label, on: { click: closeMenus } }));
+        return;
+      }
+      list.appendChild(el("button", { role: "menuitem", type: "button", text: m.label, on: { click: function (e) { e.stopPropagation(); closeMenus(); m.onClick(e); } } }));
+    });
+    var d = el("details", { class: "menu", "data-key": key, open: S.openMenu === key }, [el("summary", { "aria-label": label, title: label }, [icon("dots")]), list]);
+    d.addEventListener("toggle", function () { if (d.open) { S.openMenu = key; document.querySelectorAll("details.menu[open]").forEach(function (o) { if (o !== d) o.open = false; }); } else if (S.openMenu === key) S.openMenu = null; });
+    return d;
+  }
 
   // ---------- alert state ----------
   function resolution(a) {
@@ -316,7 +287,7 @@ svg.i { width: 18px; height: 18px; fill: currentColor; flex: none; }
     if (act.status === "snoozed") return new Date(act.until) > new Date() ? "snoozed" : null;
     return act.status === "done" || act.status === "ignored" ? act.status : null;
   }
-  var RES_LABEL = { done: "Done", ignored: "Not a problem", snoozed: "Later" };
+  var RES_LABEL = { done: "Marked as handled", ignored: "Marked as not a problem", snoozed: "Hidden for 3 days" };
   function setAction(a, status) {
     if (!S.db) return;
     var body = { alertId: a.id, fingerprint: a.fingerprint, status: status, at: nowIso(), title: a.title };
@@ -390,7 +361,7 @@ svg.i { width: 18px; height: 18px; fill: currentColor; flex: none; }
       S.calMsg = (added ? "Added " + added + ", then stopped. " : "")
         + (code === "server_not_connected" ? "Connect Google Calendar in Claude: Settings → Connectors."
           : code === "needs_reauth" ? "Reconnect Google Calendar in Claude: Settings → Connectors."
-          : code === "approval_required" || code === "not_in_manifest" ? "Calendar needs your approval. Tap the button again and choose Allow."
+          : code === "approval_required" || code === "not_in_manifest" ? "Calendar needs your approval. Try again and choose Allow."
           : code === "tool_error" ? "Google Calendar refused an event."
           : "Google Calendar did not answer. Check your calendar before you try again, so you do not get doubles.");
     }).then(function () {
@@ -399,42 +370,86 @@ svg.i { width: 18px; height: 18px; fill: currentColor; flex: none; }
       render();
     });
   }
+  function copyCode(code) {
+    navigator.clipboard.writeText(code).then(function () { S.topMsg = ""; S.calMsg = "Copied booking code " + code + "."; render(); },
+      function () { S.calMsg = "Booking code: " + code; render(); });
+  }
 
-  // ---------- pieces ----------
-  function codeBits(it) {
+  // ---------- issues on cards ----------
+  function priv(id) { return S.priv && S.priv.items && S.priv.items[id]; }
+  function primaryFor(a) {
+    var p = a.primary;
+    if (!p) return null;
+    var mine = p.manage && S.isOwner && priv(p.itemId) && safeUrl(priv(p.itemId).manageUrl);
+    return { label: p.label, url: mine || p.url };
+  }
+  function suggestionsFor(a) {
+    var s = S.suggestions[a.id];
+    if (!s || !s.items || !s.items.length) return null;
+    var list = el("ol");
+    s.items.slice(0, 5).forEach(function (x) {
+      var li = el("li", null, [el("b", { text: x.name || "" }), x.area ? ", " + x.area : "", x.price ? ". " + x.price : ""]);
+      if (x.why) li.appendChild(el("div", { class: "muted small", text: x.why }));
+      var ls = el("div", { class: "links" });
+      (x.links || []).slice(0, 2).forEach(function (l) { var u = safeUrl(l.url); if (u) ls.appendChild(el("a", { href: u, target: "_blank", rel: "noopener noreferrer", text: l.label })); });
+      if (ls.childNodes.length) li.appendChild(ls);
+      list.appendChild(li);
+    });
+    return el("div", { class: "suggest" }, [el("b", { text: "Claude suggests" }), list, s.note ? el("div", { class: "muted small", text: s.note }) : null]);
+  }
+  // The visible part of an issue: what is wrong, why, and ONE button.
+  function issueBox(a) {
+    var r = resolution(a);
+    if (r) {
+      return el("div", { class: "issue done" }, [el("span", { class: "small", text: RES_LABEL[r] + ": " + a.title }),
+        S.canAct ? el("button", { class: "btn plain", type: "button", text: "Undo", on: { click: function () { undoAction(a); } } }) : null]);
+    }
+    var box = el("div", { class: "issue " + a.level, id: "issue-" + a.id }, [el("p", null, [el("b", { text: a.title })]), el("p", { class: "why", text: a.detail })]);
+    var req = latestRequest(function (x) { return x.alertId === a.id; });
+    var acts = el("div", { class: "row" });
+    if (a.ask && canAsk()) {
+      acts.appendChild(el("button", { class: "btn dark", type: "button", disabled: busy(req), text: S.suggestions[a.id] ? "Ask Claude again" : "Find stays with Claude",
+        on: { click: function () { var p = Object.assign({}, a.ask); delete p.label; delete p.kind; ask(a.ask.kind, a.id, p); } } }));
+    } else {
+      var p = primaryFor(a);
+      if (p && safeUrl(p.url)) acts.appendChild(el("a", { class: "btn dark", href: safeUrl(p.url), target: "_blank", rel: "noopener noreferrer", text: p.label }));
+    }
+    if (acts.childNodes.length) box.appendChild(acts);
+    var line = requestLine(req); if (line) box.appendChild(line);
+    var sug = suggestionsFor(a); if (sug) box.appendChild(sug);
+    return box;
+  }
+  // Menu entries for an issue: the rest of its links, then handled / not a problem / later.
+  function issueMenu(a, many) {
+    if (resolution(a)) return [];
     var out = [];
-    var p = S.priv && S.priv.items && S.priv.items[it.id];
-    if (S.showCodes && p && p.confirmation) {
-      out.push(el("span", { class: "code full", text: "Code " + p.confirmation }));
-      out.push(el("button", { class: "btn plain", type: "button", text: "Copy", on: { click: function (e) {
-        var b = e.currentTarget;
-        navigator.clipboard.writeText(p.confirmation).then(function () { b.textContent = "Copied"; }, function () { b.textContent = p.confirmation; });
-      } } }));
-    } else if (it.code) out.push(el("span", { class: "code", text: "Code " + it.code }));
-    if (S.isOwner && p && p.manageUrl) out.push(link("Open booking", p.manageUrl));
-    (it.links || []).forEach(function (l) { out.push(link(l.label, l.url)); });
+    if (many) out.push({ hint: a.title });
+    var p = primaryFor(a);
+    if (a.ask && canAsk() && p) out.push({ label: p.label, url: p.url });
+    (a.links || []).forEach(function (l) { if (!p || l.url !== a.primary.url) out.push({ label: l.label, url: l.url }); });
+    if (S.canAct) {
+      out.push({ label: "Mark as handled", onClick: function () { setAction(a, "done"); } });
+      out.push({ label: "Not a problem", onClick: function () { setAction(a, "ignored"); } });
+      out.push({ label: "Remind me in 3 days", onClick: function () { setAction(a, "snoozed"); } });
+    }
+    out.push({ sep: true });
     return out;
   }
+
+  // ---------- cards ----------
   function moons(n) {
     var box = el("span", { class: "moons", "aria-label": n + " night" + (n === 1 ? "" : "s") });
     for (var i = 0; i < Math.min(n, 14); i++) box.appendChild(icon("moon"));
     return box;
   }
-  function people(n, word) { return n > 1 ? n + " " + word + "s" : null; }
-
-  function card(it, flag) {
+  function cardBody(it) {
     var type = it.type === "transfer" ? "train" : it.type;
-    var top = el("div", { class: "card-top" }, [icon(it.type), el("span", null, [TYPE_NAME[it.type] || "Plan"]),
-      el("span", { class: "what", text: [it.number, it.operator].filter(Boolean).join(", ") })]);
-    if (it.status === "changed") top.appendChild(el("span", { class: "flag", text: "Time changed" }));
     var main = el("div", { class: "card-main" });
     if (it.type === "flight") {
       var depOld = it.previous && it.previous.depart ? it.previous.depart.split("· ")[1] : null;
       var arrOld = it.previous && it.previous.arrive ? it.previous.arrive.split("· ")[1] : null;
       main.appendChild(el("div", { class: "pass" }, [
-        el("span", { class: "code3", text: it.fromCode }),
-        el("span", { class: "path" }, [icon("flight")]),
-        el("span", { class: "code3 r", text: it.toCode }),
+        el("span", { class: "code3", text: it.fromCode }), el("span", { class: "path" }, [icon("flight")]), el("span", { class: "code3 r", text: it.toCode }),
         el("span", { class: "tm" }, [it.time, depOld ? el("s", { text: depOld }) : null]),
         el("span", { class: "mid", text: it.endDayOffset ? "arrives next day" : "" }),
         el("span", { class: "tm r" }, [it.endTime, arrOld ? el("s", { text: arrOld }) : null]),
@@ -444,66 +459,114 @@ svg.i { width: 18px; height: 18px; fill: currentColor; flex: none; }
       main.appendChild(el("div", { class: "track" }, [
         el("span", { class: "rail" }, [el("i"), el("b"), el("i")]),
         el("span", { class: "st", text: it.fromName }), el("span", { class: "tm", text: it.time }),
-        el("span", { class: "gapline", text: "" }),
+        el("span", { class: "gapline" }),
         el("span", { class: "st", text: it.toName }), el("span", { class: "tm", text: it.endTime })
       ]));
     } else if (it.type === "hotel") {
       main.className += " stay";
-      main.appendChild(el("h4", { text: it.title }));
+      main.appendChild(el("h3", { text: it.title }));
       main.appendChild(el("div", { class: "row" }, [moons(it.nights || 1), el("b", { text: (it.nights || 1) + " night" + ((it.nights || 1) === 1 ? "" : "s") })]));
       main.appendChild(el("div", { class: "when" }, [el("span", null, ["In ", el("b", { text: it.checkInLabel })]), el("span", null, ["Out ", el("b", { text: it.checkOutLabel })]), it.city ? el("span", { text: it.city }) : null]));
     } else {
-      main.appendChild(el("div", { class: "resv" }, [el("span", { class: "tm", text: it.time }), el("h4", { text: it.title }),
+      main.appendChild(el("div", { class: "resv" }, [el("span", { class: "tm", text: it.time }), el("h3", { text: it.title }),
         el("span", { class: "muted", text: [it.party ? "Table for " + it.party : null, it.city].filter(Boolean).join(", ") })]));
     }
-    var extra = [];
-    if (it.type === "flight" && it.cabin) extra.push(it.cabin);
-    var who = people(it.travellers, it.type === "hotel" ? "guest" : "traveller");
-    if (who && it.type !== "dining") extra.push(who);
-    var foot = el("div", { class: "card-foot" }, (extra.length ? [el("span", { text: extra.join(", ") })] : []).concat(codeBits(it)));
-    return el("article", { class: "card " + it.type + (flag ? " flag-" + flag : "") }, [top, main, foot]);
+    return main;
   }
 
-  function gapCard(g, alert) {
-    var links = el("div", { class: "links" });
-    if (alert) (alert.links || []).forEach(function (l) { var a = link(l.label, l.url); if (a) links.appendChild(a); });
-    return el("article", { class: "card gap" }, [el("div", { class: "card-main" }, [
-      el("div", { class: "row" }, [icon("hotel"), el("b", { text: "No stay booked" })]),
-      el("h4", { text: g.nights + " night" + (g.nights > 1 ? "s" : "") + (g.city ? " in " + g.city : "") }),
-      links.childNodes.length ? links : null
+  function card(it, issues, touch) {
+    var top = el("div", { class: "card-top" }, [icon(it.type), el("span", { text: TYPE_NAME[it.type] || "Plan" }),
+      el("span", { class: "what", text: [it.number, it.operator].filter(Boolean).join(", ") })]);
+    if (it.status === "changed") top.appendChild(el("span", { class: "flag", text: "Time changed" }));
+    if (issues.some(function (a) { return !resolution(a); })) touch = null;
+    var art = el("article", { class: "card " + it.type + (touch ? " touch-" + touch : ""), id: "card-" + it.id }, [top, cardBody(it)]);
+    issues.forEach(function (a) { art.appendChild(issueBox(a)); });
+
+    // foot: quiet facts on the left, the card's menu on the right
+    var facts = [];
+    if (it.type === "flight" && it.cabin) facts.push(it.cabin);
+    if (it.travellers > 1 && it.type !== "dining") facts.push(it.travellers + (it.type === "hotel" ? " guests" : " travellers"));
+    var p = priv(it.id);
+    var codeEl = S.showCodes && p && p.confirmation ? el("span", { class: "code full", text: "Code " + p.confirmation })
+      : it.code ? el("span", { class: "code", text: "Code " + it.code }) : null;
+    var entries = [];
+    var open = issues.filter(function (a) { return !resolution(a); });
+    open.forEach(function (a) { entries = entries.concat(issueMenu(a, open.length > 1)); });
+    if (S.isOwner && p && safeUrl(p.manageUrl)) entries.push({ label: "Open my booking", url: p.manageUrl });
+    (it.links || []).forEach(function (l) { entries.push({ label: l.label === "Map" ? "Show on the map" : l.label, url: l.url }); });
+    if (S.isOwner && p && p.confirmation) entries.push({ label: "Copy booking code", onClick: function () { copyCode(p.confirmation); } });
+    var seen = {};
+    entries = entries.filter(function (m) { if (!m.url) return true; if (seen[m.url]) return false; seen[m.url] = true; return true; });
+    art.appendChild(el("div", { class: "card-foot" }, [
+      el("span", { class: "facts" }, [facts.length ? el("span", { text: facts.join(", ") }) : null, codeEl]),
+      menu("card-" + it.id, "More for this booking", entries)
+    ]));
+    return art;
+  }
+
+  function gapCard(g, a) {
+    var gm = a ? menu("gap-" + a.id, "More for these nights", issueMenu(a, false)) : null;
+    var art = el("article", { class: "card gap", id: a ? "card-gap-" + a.id : null }, [el("div", { class: "card-main" }, [
+      el("div", { class: "gap-top" }, [el("span", { class: "label" }, [icon("hotel"), "No stay booked"]), gm]),
+      el("h3", { text: g.nights + " night" + (g.nights > 1 ? "s" : "") + (g.city ? " in " + g.city : "") })
     ])]);
+    if (a) {
+      var r = resolution(a);
+      if (r) art.appendChild(issueBox(a));
+      else {
+        var box = el("div", { class: "issue medium", id: "issue-" + a.id });
+        var req = latestRequest(function (x) { return x.alertId === a.id; });
+        var acts = el("div", { class: "row" });
+        if (a.ask && canAsk()) acts.appendChild(el("button", { class: "btn dark", type: "button", disabled: busy(req), text: S.suggestions[a.id] ? "Ask Claude again" : "Find stays with Claude",
+          on: { click: function () { var p = Object.assign({}, a.ask); delete p.label; delete p.kind; ask(a.ask.kind, a.id, p); } } }));
+        else if (a.primary && safeUrl(a.primary.url)) acts.appendChild(el("a", { class: "btn dark", href: a.primary.url, target: "_blank", rel: "noopener noreferrer", text: a.primary.label }));
+        box.appendChild(el("p", { class: "why", text: "Nothing in your bookings covers these nights." }));
+        box.appendChild(acts);
+        var line = requestLine(req); if (line) box.appendChild(line);
+        var sug = suggestionsFor(a); if (sug) box.appendChild(sug);
+        art.appendChild(box);
+      }
+    }
+    return art;
   }
 
-  // ---------- sections ----------
-  function renderHead(t) {
+  // ---------- header ----------
+  function renderHead(t, openIssues) {
     var head = document.getElementById("head");
     head.textContent = "";
-    var days = t.daysUntil;
-    var when = t.status === "past" ? "Trip ended" : t.status === "ongoing" ? "On the road" : days === 0 ? "Today" : days === 1 ? "Tomorrow" : "In " + days + " days";
-    head.appendChild(el("div", { class: "topline" }, [el("span", { class: "brand", text: "Wayfare" }), el("span", null, [
-      el("span", { text: ago(t.updatedAt) }),
-      S.isOwner && S.priv && S.priv.items ? el("button", { class: "btn plain", type: "button", "aria-pressed": String(S.showCodes),
-        text: S.showCodes ? "Hide codes" : "Show codes", on: { click: function () { S.showCodes = !S.showCodes; render(); } } }) : null
-    ])]));
-    head.appendChild(el("h1", { class: "trip-title", text: t.title }));
-    head.appendChild(el("div", { class: "facts" }, [el("b", { text: t.dates }), el("span", { text: t.travellers + (t.travellers > 1 ? " travellers" : " traveller") }), el("span", { class: "pill", text: when })]));
-    if (t.next && t.status !== "past") head.appendChild(el("div", { class: "facts" }, ["Next: ", el("b", { text: t.next.title }), el("span", { text: t.next.when })]));
-    if ((t.route || []).length) head.appendChild(renderJourney(t.route));
-    var bar = el("div", { class: "row" });
+    var top = [];
+    if (S.mcp && t.status !== "past" && calendarItems().length) top.push({ label: "Add trip to my calendar", onClick: function () { S.calConfirm = true; render(); } });
     if (canAsk()) {
       var r = latestRequest(function (x) { return x.kind === "sync" || x.kind === "fares"; });
-      bar.appendChild(el("button", { class: "btn", type: "button", disabled: busy(r), text: "Check inbox now", on: { click: function () { ask("sync"); } } }));
-      bar.appendChild(el("button", { class: "btn", type: "button", disabled: busy(r), text: "Check fares", on: { click: function () { ask("fares"); } } }));
+      if (!busy(r)) {
+        top.push({ label: "Check my inbox now", onClick: function () { ask("sync"); } });
+        top.push({ label: "Check fares", onClick: function () { ask("fares"); } });
+      }
     }
-    if (S.mcp && t.status !== "past") {
-      var n = calendarItems().length;
-      if (S.calConfirm) {
-        bar.appendChild(el("span", { class: "small", text: "Add " + n + " events to your Google Calendar?" }));
-        bar.appendChild(el("button", { class: "btn dark", type: "button", text: "Add events", on: { click: addToCalendar } }));
-        bar.appendChild(el("button", { class: "btn plain", type: "button", text: "Cancel", on: { click: function () { S.calConfirm = false; render(); } } }));
-      } else if (n) bar.appendChild(el("button", { class: "btn", type: "button", disabled: S.calBusy, text: "Add to my calendar", on: { click: function () { S.calConfirm = true; render(); } } }));
+    if (S.isOwner && S.priv && S.priv.items) top.push({ label: S.showCodes ? "Hide booking codes" : "Show booking codes", onClick: function () { S.showCodes = !S.showCodes; render(); } });
+    head.appendChild(el("div", { class: "topline" }, [el("span", { class: "brand", text: "Wayfare" }),
+      el("span", { class: "top-right" }, [el("span", { text: ago(t.updatedAt) }), menu("top", "Trip actions", top)])]));
+    head.appendChild(el("h1", { class: "trip-title", text: t.title }));
+    var days = t.daysUntil;
+    var when = t.status === "past" ? "Trip ended" : t.status === "ongoing" ? "On the road" : days === 0 ? "Today" : days === 1 ? "Tomorrow" : "In " + days + " days";
+    var meta = el("div", { class: "meta" }, [el("b", { text: t.dates }), el("span", { text: t.travellers + (t.travellers > 1 ? " travellers" : " traveller") }), el("span", { text: when })]);
+    if (openIssues.length) {
+      var high = openIssues.some(function (a) { return a.level === "high"; });
+      meta.appendChild(el("button", { class: "to-check" + (high ? " high" : ""), type: "button", text: openIssues.length + " to check",
+        on: { click: function () { var n = document.getElementById("issue-" + openIssues[0].id); if (n) n.scrollIntoView({ behavior: "smooth", block: "center" }); } } }));
     }
-    if (bar.childNodes.length) head.appendChild(bar);
+    head.appendChild(meta);
+    if ((t.route || []).length > 1) {
+      var route = el("div", { class: "route", "aria-label": "Journey" });
+      t.route.forEach(function (s, i) {
+        if (i > 0) { var m = s.mode === "transfer" ? "train" : s.mode; route.appendChild(el("span", { class: m || "unknown" }, [icon(m || "other")])); }
+        route.appendChild(el("span", { text: s.city + (s.kind === "stay" && s.unbooked ? " (" + s.unbooked + " unbooked)" : "") }));
+      });
+      head.appendChild(route);
+    }
+    if (S.calConfirm) head.appendChild(el("div", { class: "row" }, [el("span", { class: "small", text: "Add " + calendarItems().length + " events to your Google Calendar?" }),
+      el("button", { class: "btn dark", type: "button", text: "Add events", on: { click: addToCalendar } }),
+      el("button", { class: "btn plain", type: "button", text: "Cancel", on: { click: function () { S.calConfirm = false; render(); } } })]));
     var r2 = latestRequest(function (x) { return x.kind === "sync" || x.kind === "fares"; });
     if (r2) head.appendChild(requestLine(r2));
     if (S.calMsg) head.appendChild(el("div", { class: "status", role: "status", text: S.calMsg }));
@@ -512,165 +575,12 @@ svg.i { width: 18px; height: 18px; fill: currentColor; flex: none; }
     if (S.topMsg) head.appendChild(el("div", { class: "banner bad", role: "alert", text: S.topMsg }));
   }
 
-  function renderJourney(route) {
-    var ol = el("ol", { "aria-label": "Journey" });
-    route.forEach(function (s, i) {
-      if (i > 0) {
-        var mode = s.mode === "transfer" ? "train" : s.mode;
-        ol.appendChild(el("li", { class: "leg " + (mode || "unknown"), "aria-hidden": "true" }, [icon(mode || "other")]));
-      }
-      var n = null;
-      if (s.kind === "stay") {
-        var booked = s.nights - s.unbooked;
-        n = el("span", null, [
-          booked ? el("span", { class: "n" }, [icon("moon", "i"), booked + " night" + (booked === 1 ? "" : "s")]) : null,
-          s.unbooked ? el("span", { class: "n unbooked", text: s.unbooked + " not booked" }) : null
-        ]);
-      } else n = el("span", { class: "n", text: s.kind === "start" ? "Start" : "Home" });
-      ol.appendChild(el("li", { class: "stop" + (s.kind !== "stay" ? " home" : "") }, [el("span", { class: "dot" }), el("span", { class: "city", text: s.city }), n]));
-    });
-    return el("nav", { class: "journey" }, [ol]);
-  }
-
-  function renderSuggestions(a) {
-    var s = S.suggestions[a.id];
-    if (!s || !s.items || !s.items.length) return null;
-    var list = el("ol");
-    s.items.slice(0, 6).forEach(function (x) {
-      var li = el("li", null, [el("b", { text: x.name || "" }), x.area ? ", " + x.area : "", x.price ? ". " + x.price : ""]);
-      if (x.why) li.appendChild(el("div", { class: "muted small", text: x.why }));
-      var ls = el("div", { class: "links" });
-      (x.links || []).slice(0, 3).forEach(function (l) { var a2 = link(l.label, l.url); if (a2) ls.appendChild(a2); });
-      if (ls.childNodes.length) li.appendChild(ls);
-      list.appendChild(li);
-    });
-    return el("div", { class: "suggest" }, [el("b", { text: "Claude's suggestions" }), list, s.note ? el("div", { class: "muted small", text: s.note }) : null]);
-  }
-
-  function ownerLinks(a) {
-    if (!S.isOwner || !S.priv || !S.priv.items) return [];
-    return (a.itemIds || []).map(function (id) { var p = S.priv.items[id]; return p && p.manageUrl ? link("Open my booking" + (p.provider ? ", " + p.provider : ""), p.manageUrl) : null; });
-  }
-
-  function renderAlert(a, startOpen) {
-    var req = latestRequest(function (x) { return x.alertId === a.id; });
-    var body = el("div", { class: "body" }, [el("p", { text: a.detail })]);
-    if (a.fromChange) body.appendChild(el("div", { class: "cause", text: "This follows from a schedule change." }));
-    var links = el("div", { class: "links" });
-    ownerLinks(a).concat((a.links || []).map(function (l) { return link(l.label, l.url); })).forEach(function (x) { if (x) links.appendChild(x); });
-    if (links.childNodes.length) body.appendChild(links);
-    var sug = renderSuggestions(a); if (sug) body.appendChild(sug);
-    var line = requestLine(req); if (line) body.appendChild(line);
-    var acts = el("div", { class: "acts" });
-    if (a.ask && canAsk()) {
-      acts.appendChild(el("button", { class: "btn dark", type: "button", disabled: busy(req), text: S.suggestions[a.id] ? "Ask Claude again" : a.ask.label,
-        on: { click: function () { var p = Object.assign({}, a.ask); delete p.label; delete p.kind; ask(a.ask.kind, a.id, p); } } }));
-    }
-    if (S.canAct) {
-      acts.appendChild(el("button", { class: "btn", type: "button", text: "Done", on: { click: function () { setAction(a, "done"); } } }));
-      acts.appendChild(el("button", { class: "btn", type: "button", text: "Not a problem", on: { click: function () { setAction(a, "ignored"); } } }));
-      acts.appendChild(el("button", { class: "btn plain", type: "button", text: "Later", on: { click: function () { setAction(a, "snoozed"); } } }));
-    }
-    if (acts.childNodes.length) body.appendChild(acts);
-    var d = el("details", { class: "alert " + a.level, open: startOpen, id: "a-" + a.id }, [
-      el("summary", null, [el("span", { class: "sev", "aria-label": a.level === "high" ? "Urgent" : a.level === "medium" ? "Check" : "Good to know" }), el("span", { class: "t", text: a.title }), icon("chev", "i chev")]),
-      body
-    ]);
-    d.addEventListener("toggle", function () { S.openAlerts[a.id] = d.open; });
-    return d;
-  }
-
-  function renderAttention(t) {
-    var open = [], handled = [];
-    t.alerts.forEach(function (a) { (resolution(a) ? handled : open).push(a); });
-    var sec = el("section", { class: "attn", "aria-labelledby": "att" }, [el("div", { class: "sec-head" }, [
-      el("h2", { id: "att", text: open.length ? "Needs your attention" : "All clear" }),
-      open.length ? el("span", { class: "muted small", text: open.length + " to check" }) : null
-    ])]);
-    if (!open.length) sec.appendChild(el("p", { class: "calm", text: handled.length ? "Everything is handled. Wayfare checks again at the next sync." : "Nothing to fix. Wayfare checks again at the next sync." }));
-    open.forEach(function (a, i) {
-      var isOpen = S.openAlerts[a.id] !== undefined ? S.openAlerts[a.id] : (i === 0 && a.level === "high");
-      sec.appendChild(renderAlert(a, isOpen));
-    });
-    if (handled.length) {
-      var d = el("details", { class: "handled" }, [el("summary", { text: "Handled (" + handled.length + ")" })]);
-      handled.forEach(function (a) {
-        var r = resolution(a);
-        d.appendChild(el("div", { class: "handled-row" }, [el("span", { text: a.title + ": " + RES_LABEL[r] }),
-          S.canAct ? el("button", { class: "btn plain", type: "button", text: "Undo", on: { click: function () { undoAction(a); } } }) : null]));
-      });
-      sec.appendChild(d);
-    }
-    return { node: sec, open: open };
-  }
-
-  function renderTabs() {
-    var views = [["days", "Day by day"], ["nights", "Nights"], ["bookings", "Bookings"]];
-    var tabs = el("div", { class: "tabs", role: "tablist", "aria-label": "View" });
-    views.forEach(function (v) {
-      tabs.appendChild(el("button", { role: "tab", type: "button", id: "tab-" + v[0], "aria-selected": String(S.view === v[0]), "aria-controls": "view", text: v[1],
-        on: { click: function () { S.view = v[0]; try { localStorage.setItem("wayfare-view", v[0]); } catch (e) {} render(); } } }));
-    });
-    return tabs;
-  }
-
-  function viewDays(t, flags, gapAlerts) {
-    var days = {}, order = [];
-    function bucket(day) { if (!days[day]) { days[day] = []; order.push(day); } return days[day]; }
-    t.items.forEach(function (it) { bucket(it.day).push({ it: it }); });
-    (t.gaps || []).forEach(function (g) { bucket(g.firstNight).push({ g: g }); });
-    order.sort();
-    var box = el("div", { class: "days" });
-    order.forEach(function (day) {
-      var d = el("section", { class: "day" }, [el("h3", { text: longDay(day) })]);
-      days[day].forEach(function (r) { d.appendChild(r.g ? gapCard(r.g, gapAlerts[r.g.firstNight]) : card(r.it, flags[r.it.id])); });
-      box.appendChild(d);
-    });
-    return box;
-  }
-
-  function viewNights(t) {
-    var grid = el("div", { class: "nights" });
-    var byId = {};
-    t.items.forEach(function (it) { byId[it.id] = it; });
-    (t.nights || []).forEach(function (n) {
-      var d = new Date(n.date + "T12:00:00Z");
-      var where = n.kind === "stay" ? n.stay : n.kind === "transit" ? "On the move: " + n.stay : "No stay booked";
-      grid.appendChild(el("div", { class: "night " + n.kind }, [
-        el("span", { class: "d", text: WEEK[d.getUTCDay()].slice(0, 3) + ", " + MONTHS[d.getUTCMonth()].slice(0, 3) }),
-        el("span", { class: "num", text: String(d.getUTCDate()) }),
-        el("span", { class: "where", text: where }),
-        n.city ? el("span", { class: "small muted", text: n.city }) : null
-      ]));
-    });
-    if (!grid.childNodes.length) return el("p", { class: "calm", text: "No nights away on this trip." });
-    return grid;
-  }
-
-  function viewBookings(t) {
-    var groups = [["flight", "Flights"], ["train", "Trains"], ["hotel", "Stays"], ["dining", "Tables"], ["other", "Other plans"]];
-    var box = el("div", { class: "groups" });
-    groups.forEach(function (g) {
-      var items = t.items.filter(function (it) { return (it.type === "transfer" ? "train" : it.type) === g[0]; });
-      if (!items.length) return;
-      var list = el("div", { class: "list" });
-      items.forEach(function (it) {
-        var title = it.type === "flight" ? it.fromCode + " to " + it.toCode + ", " + it.number : it.title;
-        var when = it.type === "hotel" ? it.checkInLabel + " to " + it.checkOutLabel : it.dayLabel + ", " + it.time;
-        list.appendChild(el("div", { class: "li" }, [el("b", { text: title }), el("span", { class: "when", text: when }),
-          el("div", { class: "meta" }, [it.operator ? el("span", { text: it.operator }) : null].concat(codeBits(it)))]));
-      });
-      box.appendChild(el("section", { class: "group " + g[0] }, [el("h3", null, [icon(g[0]), g[1], el("span", { text: String(items.length) })]), list]));
-    });
-    return box;
-  }
-
+  // ---------- to-do ----------
   function renderTodos() {
     if (S.source !== "db") return null;
-    var sec = el("section", { class: "attn", "aria-labelledby": "todo-h" }, [el("div", { class: "sec-head" }, [el("h2", { id: "todo-h", text: "To do" })])]);
+    var sec = el("section", { class: "todo-sec", "aria-labelledby": "todo-h" }, [el("h2", { id: "todo-h", text: "To do" })]);
     var box = el("div", { class: "todos" });
     var items = S.todos.slice().sort(function (a, b) { return (a.done - b.done) || (a.at < b.at ? -1 : 1); });
-    if (!items.length) box.appendChild(el("p", { class: "muted", style: "padding:10px 0", text: "Nothing yet. Add things to sort out before you go, like travel insurance or a restaurant to book." }));
     items.forEach(function (td) {
       box.appendChild(el("div", { class: "todo" + (td.done ? " done" : "") }, [
         el("button", { class: "check", type: "button", "aria-label": td.done ? "Mark as not done" : "Mark as done", "aria-pressed": String(!!td.done), text: td.done ? "✓" : "",
@@ -680,7 +590,7 @@ svg.i { width: 18px; height: 18px; fill: currentColor; flex: none; }
       ]));
     });
     if (S.canTodo) {
-      var input = el("input", { id: "todo-input", type: "text", maxlength: "200", placeholder: "Add a to-do", "aria-label": "New to-do" });
+      var input = el("input", { id: "todo-input", type: "text", maxlength: "200", placeholder: items.length ? "Add a to-do" : "Add a to-do, like travel insurance", "aria-label": "New to-do" });
       box.appendChild(el("form", { class: "add-todo", on: { submit: function (e) {
         e.preventDefault();
         var text = input.value.trim(); if (!text) return;
@@ -688,16 +598,15 @@ svg.i { width: 18px; height: 18px; fill: currentColor; flex: none; }
         var body = { text: text, done: false, at: nowIso() }; if (S.uid) body.by = S.uid;
         S.db.collection("todos").add(body).catch(function () { S.canTodo = false; render(); });
       } } }, [input, el("button", { class: "btn", type: "submit", text: "Add" })]));
-    } else box.appendChild(el("p", { class: "muted small", style: "padding-top:8px", text: "You can view this list. Ask the trip owner for Contributor access to tick items." }));
+    } else if (!items.length) return null;
     sec.appendChild(box);
     return sec;
   }
 
-  S.openAlerts = {};
+  // ---------- page ----------
   function render() {
     var t = S.trip, main = document.getElementById("main");
     if (!t) {
-      var u = document.getElementById("updated"); if (u) u.textContent = "";
       if (S.source === "nodb" || S.source === "db") {
         document.getElementById("head").textContent = "";
         main.textContent = "";
@@ -709,20 +618,32 @@ svg.i { width: 18px; height: 18px; fill: currentColor; flex: none; }
     }
     document.title = t.pageTitle || document.title;
     var y = window.scrollY;
-    renderHead(t);
-    var flags = {}, gapAlerts = {};
+    var byAnchor = {}, touch = {}, gapAlert = {}, openIssues = [];
     t.alerts.forEach(function (a) {
-      if (a.kind === "lodging_gap" && a.gap) gapAlerts[a.gap.firstNight] = a;
-      if (resolution(a)) return;
-      (a.itemIds || []).forEach(function (id) { if (!flags[id] || a.level === "high") flags[id] = a.level; });
+      var res = resolution(a);
+      if (!res) openIssues.push(a);
+      if (a.kind === "lodging_gap" && a.gap) { gapAlert[a.gap.firstNight] = a; return; }
+      if (a.anchor) (byAnchor[a.anchor] = byAnchor[a.anchor] || []).push(a);
+      if (!res) (a.itemIds || []).forEach(function (id) { if (id !== a.anchor && (!touch[id] || a.level === "high")) touch[id] = a.level; });
     });
-    var att = renderAttention(t);
+    var order = { high: 0, medium: 1, info: 2 };
+    Object.keys(byAnchor).forEach(function (k) { byAnchor[k].sort(function (a, b) { return order[a.level] - order[b.level]; }); });
+    openIssues.sort(function (a, b) { return order[a.level] - order[b.level]; });
+    renderHead(t, openIssues);
+
+    var days = {}, keys = [];
+    function bucket(d) { if (!days[d]) { days[d] = []; keys.push(d); } return days[d]; }
+    t.items.forEach(function (it) { bucket(it.day).push({ it: it }); });
+    (t.gaps || []).forEach(function (g) { bucket(g.firstNight).push({ g: g }); });
+    keys.sort();
+    var list = el("div", { class: "days" });
+    keys.forEach(function (d) {
+      var sec = el("section", { class: "day" }, [el("h2", { text: longDay(d) })]);
+      days[d].forEach(function (r) { sec.appendChild(r.g ? gapCard(r.g, gapAlert[r.g.firstNight]) : card(r.it, byAnchor[r.it.id] || [], touch[r.it.id])); });
+      list.appendChild(sec);
+    });
     main.textContent = "";
-    main.appendChild(att.node);
-    var viewBox = el("section", { class: "attn", "aria-label": "Trip details" }, [renderTabs()]);
-    var v = S.view === "nights" ? viewNights(t) : S.view === "bookings" ? viewBookings(t) : viewDays(t, flags, gapAlerts);
-    viewBox.appendChild(el("div", { id: "view", role: "tabpanel", "aria-labelledby": "tab-" + S.view }, [v]));
-    main.appendChild(viewBox);
+    main.appendChild(list);
     var todos = renderTodos(); if (todos) main.appendChild(todos);
     window.scrollTo(0, y);
   }
