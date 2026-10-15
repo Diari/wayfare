@@ -117,6 +117,30 @@ class Trips(unittest.TestCase):
         self.assertEqual([t["slug"] for t in trips(r)], ["berlin-2026-12"])
 
 
+class RouteAndNights(unittest.TestCase):
+    def test_lisbon_route_and_nights(self):
+        lis = trips(build(SAMPLE))[0]
+        r = [(s["city"], s["kind"], s.get("mode"), s.get("nights"), s.get("unbooked")) for s in lis["route"]]
+        self.assertEqual(r, [("Amsterdam", "start", None, None, None), ("Lisbon", "stay", "flight", 2, 0),
+                             ("Porto", "stay", "train", 4, 2), ("Amsterdam", "end", "flight", None, None)])
+        kinds_ = [n["kind"] for n in lis["nights"]]
+        self.assertEqual(kinds_, ["stay", "stay", "stay", "stay", "gap", "gap"])
+        self.assertEqual(lis["nights"][4]["city"], "Porto")
+        self.assertEqual(len(lis["nights"]), sum(s.get("nights", 0) for s in lis["route"]))
+
+    def test_connection_city_not_on_route(self):
+        ber = trips(build(SAMPLE))[1]
+        self.assertEqual([s["city"] for s in ber["route"]], ["Amsterdam", "Berlin", "Amsterdam"])
+
+    def test_typed_fields(self):
+        items = {i["id"]: i for i in trips(build(SAMPLE))[0]["items"]}
+        f = items["flight-TP669-2026-11-06"]
+        self.assertEqual((f["fromCode"], f["toCode"], f["number"]), ("AMS", "LIS", "TP 669"))
+        self.assertEqual(items["hotel-casa-do-largo-2026-11-06"]["nights"], 2)
+        self.assertEqual(items["dining-taberna-azul-2026-11-06"]["party"], 2)
+        self.assertEqual(items["train-lis-opo-2026-11-08"]["fromName"], "Lisboa Santa Apolónia")
+
+
 class AlertsAndActions(unittest.TestCase):
     def test_ids_are_stable_and_valid(self):
         a1 = {a["id"] for a in trips(build(SAMPLE))[0]["alerts"]}

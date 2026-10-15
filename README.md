@@ -18,6 +18,12 @@ Wayfare server.
     check-in day you now miss),
   - two stays booked for the same night,
   - lower fares on the same flight (optional, needs your own Duffel token).
+- Each booking type looks different, with its own icon and color: a flight
+  is a boarding pass, a train has a track line, a stay shows its nights, a
+  table is a reservation card. A journey line shows the whole trip.
+- Three views of each trip: **Day by day**, **Nights** (where you sleep each
+  night, and which nights have nothing booked) and **Bookings** (grouped by
+  type, with codes for the owner).
 - On a trip page you can:
   - mark a problem **Done**, **Not a problem** or **Later** (it comes back
     if the facts change),

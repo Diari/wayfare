@@ -2,170 +2,252 @@
 <meta name="claude:viewport-fit-sides" content="cover">
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
-<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Barlow+Condensed:wght@500;600;700&family=IBM+Plex+Mono:wght@400;500&family=IBM+Plex+Sans:wght@400;500;600&display=swap">
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Figtree:wght@400;500;600;700;800&display=swap">
 <style>
-/* Layout: a departure-board header for the trip, then "needs attention" with actions, a shared to-do list, then the trip day by day. One column, phone first. */
+/* Layout: a travel wallet. Trip name and the journey line on top, then what needs attention,
+   then one of three views (day by day, nights, bookings). Every booking type has its own shape,
+   icon and color: flight = boarding pass, train = track line, stay = nights, table = reservation card. */
 :root {
-  --bg: #f3f5f7;
+  --bg: #f4f5f7;
   --surface: #ffffff;
-  --ink: #132033;
-  --muted: #5b6878;
-  --line: #d9dfe6;
-  --accent: #0f6e66;
-  --accent-ink: #ffffff;
-  --board: #132033;
-  --board-ink: #f4f6f8;
-  --sign: #f2c230;
-  --high: #c2362f;
-  --high-bg: #fbe9e7;
-  --medium: #a0670f;
-  --medium-bg: #fbf1de;
-  --info: #22609e;
-  --info-bg: #e6eff8;
-  --ok: #2f7d4f;
-  --f-display: "Barlow Condensed", "Arial Narrow", "Roboto Condensed", sans-serif;
-  --f-body: "IBM Plex Sans", system-ui, -apple-system, "Segoe UI", sans-serif;
-  --f-mono: "IBM Plex Mono", ui-monospace, "SFMono-Regular", Menlo, monospace;
+  --ink: #1c2330;
+  --muted: #687385;
+  --line: #e2e5ea;
+  --flight: #1f6fd1;
+  --train: #1e8a5a;
+  --stay: #6b4bc4;
+  --table: #c2357a;
+  --gap: #b7791f;
+  --urgent: #c8322b;
+  --info: #2b6cb0;
+  --font: "Figtree", system-ui, -apple-system, "Segoe UI", Roboto, sans-serif;
 }
 @media (prefers-color-scheme: dark) {
   :root:not([data-theme="light"]) {
-    --bg: #0d141e; --surface: #152031; --ink: #e7ecf2; --muted: #9aa7b6; --line: #26344a;
-    --accent: #4fc3b5; --accent-ink: #06231f; --board: #060b12; --board-ink: #f4f6f8; --sign: #f2c230;
-    --high: #f07a6f; --high-bg: #3a1c1b; --medium: #e6b45a; --medium-bg: #35290f; --info: #7fb2e8; --info-bg: #15283f; --ok: #6fcf97;
+    --bg: #12161c; --surface: #1b212a; --ink: #e8ecf1; --muted: #9aa5b4; --line: #2a323d;
+    --flight: #6aa8f5; --train: #4cc18a; --stay: #a88bf0; --table: #f07ab2; --gap: #e3b04b; --urgent: #f2766c; --info: #7fb2e8;
     color-scheme: dark;
   }
 }
 :root[data-theme="dark"] {
-  --bg: #0d141e; --surface: #152031; --ink: #e7ecf2; --muted: #9aa7b6; --line: #26344a;
-  --accent: #4fc3b5; --accent-ink: #06231f; --board: #060b12; --board-ink: #f4f6f8; --sign: #f2c230;
-  --high: #f07a6f; --high-bg: #3a1c1b; --medium: #e6b45a; --medium-bg: #35290f; --info: #7fb2e8; --info-bg: #15283f; --ok: #6fcf97;
+  --bg: #12161c; --surface: #1b212a; --ink: #e8ecf1; --muted: #9aa5b4; --line: #2a323d;
+  --flight: #6aa8f5; --train: #4cc18a; --stay: #a88bf0; --table: #f07ab2; --gap: #e3b04b; --urgent: #f2766c; --info: #7fb2e8;
   color-scheme: dark;
 }
 * { box-sizing: border-box; }
 body {
-  background: var(--bg); color: var(--ink); font-family: var(--f-body); font-size: 15px; line-height: 1.5;
+  background: var(--bg); color: var(--ink); font: 400 15px/1.5 var(--font); font-variant-numeric: tabular-nums;
   padding-left: max(16px, env(safe-area-inset-left, 0px)); padding-right: max(16px, env(safe-area-inset-right, 0px));
-  padding-block: 20px 48px;
+  padding-block: 20px 56px;
 }
-.wrap { max-width: 760px; margin: 0 auto; display: grid; gap: 20px; }
-h1, h2, h3, h4 { margin: 0; text-wrap: balance; }
-a { color: var(--accent); }
-.top { display: flex; align-items: baseline; justify-content: space-between; gap: 12px; flex-wrap: wrap; }
-.brand { font-family: var(--f-display); font-weight: 700; font-size: 26px; letter-spacing: .02em; }
-.brand span { color: var(--accent); }
-.meta { color: var(--muted); font-size: 13px; display: flex; gap: 10px; align-items: center; flex-wrap: wrap; }
+h1, h2, h3, h4, p { margin: 0; }
+h1, h2, h3 { text-wrap: balance; }
+a { color: inherit; }
+.page { max-width: 720px; margin: 0 auto; display: grid; gap: 28px; }
+.stack { display: grid; gap: 28px; min-width: 0; }
+.muted { color: var(--muted); }
+.small { font-size: 13px; }
+svg.i { width: 18px; height: 18px; fill: currentColor; flex: none; }
+
+/* buttons and links */
 .btn {
-  font: 500 13px/1.1 var(--f-body); color: var(--ink); background: var(--surface); border: 1px solid var(--line);
-  border-radius: 6px; padding: 8px 11px; cursor: pointer; text-decoration: none; display: inline-flex; align-items: center; gap: 6px;
+  font: 600 14px/1 var(--font); color: var(--ink); background: var(--surface); border: 1px solid var(--line);
+  border-radius: 999px; padding: 9px 14px; cursor: pointer; text-decoration: none; display: inline-flex; align-items: center; gap: 6px;
 }
-.btn.primary { background: var(--accent); color: var(--accent-ink); border-color: var(--accent); }
-.btn.quiet { background: transparent; }
-.btn[disabled] { opacity: .55; cursor: default; }
-.btn[aria-pressed="true"] { border-color: var(--accent); color: var(--accent); }
-.btn:focus-visible, a:focus-visible, input:focus-visible { outline: 2px solid var(--accent); outline-offset: 2px; }
-.row { display: flex; gap: 8px; flex-wrap: wrap; align-items: center; }
-.banner { border-radius: 10px; padding: 10px 14px; font-size: 14px; border: 1px solid var(--medium); background: var(--medium-bg); }
-.banner.bad { border-color: var(--high); background: var(--high-bg); }
-.note { color: var(--muted); font-size: 13px; }
-.status-line { font-size: 13px; color: var(--muted); }
-.status-line.err { color: var(--high); }
+.btn.dark { background: var(--ink); color: var(--bg); border-color: var(--ink); }
+.btn.plain { background: transparent; border-color: transparent; padding-inline: 8px; color: var(--muted); }
+.btn[disabled] { opacity: .5; cursor: default; }
+.btn:focus-visible, a:focus-visible, summary:focus-visible, input:focus-visible, [role="tab"]:focus-visible { outline: 2px solid var(--ink); outline-offset: 2px; }
+.links { display: flex; flex-wrap: wrap; gap: 6px; }
+.links a { font-size: 13px; font-weight: 600; padding: 6px 11px; border-radius: 999px; border: 1px solid var(--line); background: var(--surface); text-decoration: none; }
+.row { display: flex; flex-wrap: wrap; gap: 8px; align-items: center; }
+.status { font-size: 13px; color: var(--muted); }
+.status.err { color: var(--urgent); }
+.banner { border: 1px solid var(--gap); color: var(--ink); background: color-mix(in srgb, var(--gap) 10%, var(--surface)); border-radius: 12px; padding: 10px 14px; font-size: 14px; }
+.banner.bad { border-color: var(--urgent); background: color-mix(in srgb, var(--urgent) 10%, var(--surface)); }
 
-.board { background: var(--board); color: var(--board-ink); border-radius: 14px; padding: 18px 20px; display: grid; gap: 14px; }
-.board-head { display: flex; justify-content: space-between; align-items: flex-start; gap: 12px; flex-wrap: wrap; }
-.board h1 { font-family: var(--f-display); font-weight: 700; font-size: clamp(30px, 7vw, 42px); line-height: 1; letter-spacing: .01em; }
-.board .dates { font-family: var(--f-mono); font-size: 13px; opacity: .8; margin-top: 6px; }
-.countdown { font-family: var(--f-display); font-weight: 600; font-size: 18px; text-align: right; }
-.countdown b { display: block; font-size: 34px; line-height: 1; color: var(--sign); font-weight: 700; }
-.next { display: grid; grid-template-columns: auto 1fr; gap: 4px 12px; align-items: baseline; border-top: 1px dashed rgba(244, 246, 248, .25); padding-top: 12px; }
-.next .label { font: 600 11px/1 var(--f-mono); letter-spacing: .12em; text-transform: uppercase; background: var(--sign); color: #132033; padding: 4px 6px; border-radius: 3px; }
-.next .what { font-family: var(--f-display); font-size: 20px; font-weight: 600; min-width: 0; }
-.next .when { grid-column: 2; font-family: var(--f-mono); font-size: 13px; opacity: .8; }
-.stats { display: flex; gap: 8px; flex-wrap: wrap; }
-.chip { font: 500 12px/1 var(--f-mono); padding: 6px 8px; border-radius: 4px; border: 1px solid rgba(244, 246, 248, .25); }
-.chip.high { background: var(--high); border-color: var(--high); color: #fff; }
+/* header */
+.head { display: grid; gap: 10px; }
+.topline { display: flex; justify-content: space-between; align-items: center; gap: 12px; flex-wrap: wrap; font-size: 13px; color: var(--muted); }
+.brand { font-weight: 800; color: var(--ink); letter-spacing: -.01em; }
+.trip-title { font-size: clamp(34px, 9vw, 52px); font-weight: 800; line-height: 1; letter-spacing: -.03em; }
+.facts { display: flex; flex-wrap: wrap; gap: 6px 14px; align-items: baseline; font-size: 16px; color: var(--muted); }
+.facts b { color: var(--ink); font-weight: 700; }
+.pill { font-weight: 700; color: var(--ink); background: var(--surface); border: 1px solid var(--line); border-radius: 999px; padding: 3px 10px; font-size: 14px; }
 
-section { display: grid; gap: 10px; }
-.sec-title { font: 600 12px/1 var(--f-mono); letter-spacing: .12em; text-transform: uppercase; color: var(--muted); }
-.alerts { display: grid; gap: 8px; }
-.alert { border-radius: 10px; padding: 12px 14px; display: grid; gap: 8px; border-left: 4px solid; }
-.alert.high { background: var(--high-bg); border-color: var(--high); }
-.alert.medium { background: var(--medium-bg); border-color: var(--medium); }
-.alert.info { background: var(--info-bg); border-color: var(--info); }
-.alert h3 { font-size: 15px; font-weight: 600; display: flex; gap: 8px; flex-wrap: wrap; align-items: baseline; }
-.alert p { margin: 0; font-size: 14px; }
-.tag { font: 500 11px/1 var(--f-mono); text-transform: uppercase; letter-spacing: .08em; padding: 3px 6px; border-radius: 3px; border: 1px solid currentColor; }
-.alert.high .tag { color: var(--high); }
-.alert.medium .tag { color: var(--medium); }
-.alert.info .tag { color: var(--info); }
-.tag.change { color: var(--muted); }
-.links { display: flex; gap: 6px; flex-wrap: wrap; }
-.links a { font-size: 13px; padding: 6px 9px; border-radius: 6px; background: var(--surface); border: 1px solid var(--line); text-decoration: none; color: var(--ink); }
-.links a::after { content: " ↗"; color: var(--muted); }
-.acts { display: flex; gap: 6px; flex-wrap: wrap; border-top: 1px solid var(--line); padding-top: 8px; }
-.suggest { background: var(--surface); border: 1px solid var(--line); border-radius: 8px; padding: 10px 12px; display: grid; gap: 8px; }
-.suggest h4 { font-size: 13px; font-family: var(--f-mono); text-transform: uppercase; letter-spacing: .08em; color: var(--accent); }
-.suggest ol { margin: 0; padding-left: 20px; display: grid; gap: 6px; }
-.suggest li b { font-weight: 600; }
-.calm { background: var(--surface); border: 1px solid var(--line); border-radius: 10px; padding: 12px 14px; color: var(--muted); }
-details.handled { background: var(--surface); border: 1px solid var(--line); border-radius: 10px; padding: 10px 14px; }
-details.handled summary { cursor: pointer; color: var(--muted); font-size: 14px; }
-.handled-row { display: flex; justify-content: space-between; gap: 10px; align-items: baseline; padding-top: 8px; font-size: 14px; flex-wrap: wrap; }
-.handled-row span { min-width: 0; overflow-wrap: anywhere; }
-.handled-row s { color: var(--muted); }
+/* journey line: the one bold element */
+.journey { overflow-x: auto; padding: 6px 0 2px; }
+.journey ol { list-style: none; margin: 0; padding: 0; display: flex; align-items: flex-start; min-width: max-content; }
+.stop { display: grid; justify-items: start; gap: 2px; min-width: 92px; }
+.stop .dot { width: 14px; height: 14px; border-radius: 50%; border: 3px solid var(--ink); background: var(--surface); }
+.stop.home .dot { background: var(--ink); }
+.stop .city { font-weight: 700; font-size: 16px; margin-top: 6px; }
+.stop .n { font-size: 13px; color: var(--muted); display: flex; gap: 4px; align-items: center; }
+.stop .n.unbooked { color: var(--gap); font-weight: 600; }
+.leg { display: flex; align-items: center; gap: 6px; padding-top: 0; min-width: 72px; flex: 1 0 72px; margin: 0 8px; height: 14px; }
+.leg::before, .leg::after { content: ""; flex: 1; height: 3px; border-radius: 2px; background: currentColor; opacity: .5; }
+.leg.flight { color: var(--flight); }
+.leg.train, .leg.transfer { color: var(--train); }
+.leg.unknown { color: var(--muted); }
 
-.todos { background: var(--surface); border: 1px solid var(--line); border-radius: 10px; padding: 6px 14px 12px; display: grid; gap: 2px; }
-.todo { display: grid; grid-template-columns: auto 1fr auto; gap: 10px; align-items: center; padding: 6px 0; border-bottom: 1px solid var(--line); }
-.todo:last-of-type { border-bottom: 0; }
+/* attention */
+.attn { display: grid; gap: 8px; }
+.sec-head { display: flex; justify-content: space-between; align-items: baseline; gap: 12px; flex-wrap: wrap; }
+.sec-head h2 { font-size: 20px; font-weight: 800; letter-spacing: -.01em; }
+.alert { background: var(--surface); border: 1px solid var(--line); border-radius: 14px; }
+.alert summary { list-style: none; cursor: pointer; display: grid; grid-template-columns: 12px 1fr auto; gap: 12px; align-items: center; padding: 12px 14px; }
+.alert summary::-webkit-details-marker { display: none; }
+.alert .sev { width: 12px; height: 12px; border-radius: 50%; }
+.alert.high .sev { background: var(--urgent); }
+.alert.medium .sev { background: var(--gap); }
+.alert.info .sev { background: var(--info); }
+.alert .t { font-weight: 600; min-width: 0; overflow-wrap: anywhere; }
+.alert.high .t { font-weight: 700; }
+.alert .chev { color: var(--muted); transition: transform .15s; }
+.alert[open] .chev { transform: rotate(90deg); }
+.alert .body { padding: 0 14px 14px 38px; display: grid; gap: 10px; }
+.alert .cause { font-size: 13px; color: var(--muted); }
+.acts { display: flex; flex-wrap: wrap; gap: 6px; }
+.suggest { border-top: 1px solid var(--line); padding-top: 10px; display: grid; gap: 8px; }
+.suggest ol { margin: 0; padding-left: 18px; display: grid; gap: 8px; }
+.calm { color: var(--muted); }
+.handled { font-size: 14px; }
+.handled summary { cursor: pointer; color: var(--muted); }
+.handled-row { display: flex; justify-content: space-between; gap: 10px; align-items: center; padding-top: 8px; flex-wrap: wrap; }
+.handled-row span { min-width: 0; overflow-wrap: anywhere; color: var(--muted); }
+
+/* view switch */
+.tabs { justify-self: start; display: inline-flex; background: var(--surface); border: 1px solid var(--line); border-radius: 999px; padding: 3px; gap: 2px; max-width: 100%; overflow-x: auto; }
+.tabs [role="tab"] { font: 600 14px/1 var(--font); border: 0; background: transparent; color: var(--muted); padding: 9px 14px; border-radius: 999px; cursor: pointer; white-space: nowrap; }
+.tabs [role="tab"][aria-selected="true"] { background: var(--ink); color: var(--bg); }
+
+/* day by day */
+.days { display: grid; gap: 22px; }
+.day { display: grid; gap: 10px; }
+.day h3 { font-size: 16px; font-weight: 700; color: var(--muted); }
+.card { background: var(--surface); border: 1px solid var(--line); border-radius: 16px; overflow: hidden; --c: var(--muted); }
+.card.flight { --c: var(--flight); }
+.card.train, .card.transfer { --c: var(--train); }
+.card.hotel { --c: var(--stay); }
+.card.dining { --c: var(--table); }
+.card.flag-high { border-color: var(--urgent); box-shadow: 0 0 0 1px var(--urgent); }
+.card.flag-medium { border-color: var(--gap); }
+.card-top { display: flex; align-items: center; gap: 8px; padding: 10px 14px; background: color-mix(in srgb, var(--c) 10%, var(--surface)); color: var(--c); font-size: 13px; font-weight: 700; }
+.card-top .what { color: var(--ink); font-weight: 600; min-width: 0; overflow-wrap: anywhere; }
+.card-top .flag { margin-left: auto; font-size: 12px; font-weight: 700; padding: 2px 8px; border-radius: 999px; background: var(--surface); color: var(--urgent); border: 1px solid currentColor; white-space: nowrap; }
+.card-main { padding: 14px; display: grid; gap: 10px; }
+.card-foot { display: flex; flex-wrap: wrap; gap: 8px 12px; align-items: center; padding: 10px 14px; border-top: 1px dashed var(--line); font-size: 13px; color: var(--muted); }
+.code { font-weight: 600; letter-spacing: .04em; }
+.code.full { color: var(--ink); }
+.card-foot a { font-weight: 600; color: var(--ink); }
+
+/* flight: boarding pass */
+.pass { display: grid; grid-template-columns: auto 1fr auto; gap: 4px 12px; align-items: center; }
+.pass .code3 { font-size: 34px; font-weight: 800; letter-spacing: -.02em; line-height: 1; }
+.pass .path { display: flex; align-items: center; gap: 6px; color: var(--c); }
+.pass .path::before, .pass .path::after { content: ""; flex: 1; border-top: 2px dashed currentColor; opacity: .6; }
+.pass .tm { font-size: 20px; font-weight: 700; }
+.pass .tm s { display: block; font-size: 13px; font-weight: 500; color: var(--muted); }
+.pass .nm { color: var(--muted); font-size: 13px; }
+.pass .r { text-align: right; justify-self: end; }
+.pass .mid { text-align: center; color: var(--muted); font-size: 12px; }
+
+/* train: track */
+.track { display: grid; grid-template-columns: 14px 1fr auto; gap: 0 12px; }
+.track .rail { grid-row: 1 / span 3; display: grid; grid-template-rows: 14px 1fr 14px; justify-items: center; }
+.track .rail i { width: 12px; height: 12px; border-radius: 50%; border: 3px solid var(--c); background: var(--surface); }
+.track .rail b { width: 3px; background: repeating-linear-gradient(var(--c) 0 6px, transparent 6px 10px); }
+.track .st { font-weight: 700; min-width: 0; overflow-wrap: anywhere; }
+.track .tm { font-weight: 700; font-size: 18px; text-align: right; }
+.track .gapline { grid-column: 2 / span 2; height: 18px; color: var(--muted); font-size: 12px; }
+
+/* stay: nights */
+.stay h4 { font-size: 20px; font-weight: 800; letter-spacing: -.01em; }
+.moons { display: flex; flex-wrap: wrap; gap: 4px; color: var(--c); }
+.moons svg { width: 18px; height: 18px; fill: currentColor; }
+.stay .when { display: flex; flex-wrap: wrap; gap: 4px 10px; color: var(--muted); font-size: 14px; }
+.stay .when b { color: var(--ink); }
+
+/* table: reservation */
+.resv { display: grid; grid-template-columns: auto 1fr; gap: 2px 14px; align-items: center; }
+.resv .tm { grid-row: span 2; font-size: 26px; font-weight: 800; color: var(--c); }
+.resv h4 { font-size: 18px; font-weight: 700; }
+
+/* gap */
+.card.gap { background: transparent; border: 2px dashed var(--gap); }
+.card.gap .card-main { color: var(--gap); }
+.card.gap h4 { font-size: 17px; font-weight: 700; color: var(--ink); }
+
+/* nights grid */
+.nights { display: grid; grid-template-columns: repeat(auto-fill, minmax(150px, 1fr)); gap: 8px; }
+.night { background: var(--surface); border: 1px solid var(--line); border-radius: 14px; padding: 12px; display: grid; gap: 4px; min-height: 112px; align-content: start; }
+.night .d { font-size: 13px; color: var(--muted); font-weight: 600; }
+.night .num { font-size: 28px; font-weight: 800; line-height: 1; }
+.night .where { font-weight: 700; min-width: 0; overflow-wrap: anywhere; }
+.night.stay { border-top: 4px solid var(--stay); }
+.night.stay .where { color: var(--stay); }
+.night.transit { border-top: 4px solid var(--flight); }
+.night.gap { border: 2px dashed var(--gap); background: transparent; }
+.night.gap .where { color: var(--gap); }
+
+/* bookings by type */
+.groups { display: grid; gap: 18px; }
+.group h3 { display: flex; align-items: center; gap: 8px; font-size: 16px; font-weight: 800; padding-bottom: 6px; }
+.group.flight h3 { color: var(--flight); } .group.train h3 { color: var(--train); } .group.hotel h3 { color: var(--stay); } .group.dining h3 { color: var(--table); }
+.group h3 span { color: var(--muted); font-weight: 600; }
+.list { background: var(--surface); border: 1px solid var(--line); border-radius: 14px; }
+.li { display: grid; grid-template-columns: 1fr auto; gap: 2px 12px; padding: 12px 14px; border-bottom: 1px solid var(--line); }
+.li:last-child { border-bottom: 0; }
+.li b { min-width: 0; overflow-wrap: anywhere; }
+.li .meta { grid-column: 1 / -1; display: flex; flex-wrap: wrap; gap: 4px 12px; font-size: 13px; color: var(--muted); align-items: center; }
+.li .when { font-size: 14px; color: var(--muted); text-align: right; }
+
+/* to-do */
+.todos { background: var(--surface); border: 1px solid var(--line); border-radius: 14px; padding: 4px 14px 12px; }
+.todo { display: grid; grid-template-columns: auto 1fr auto; gap: 12px; align-items: center; padding: 10px 0; border-bottom: 1px solid var(--line); }
 .todo .text { min-width: 0; overflow-wrap: anywhere; }
 .todo.done .text { text-decoration: line-through; color: var(--muted); }
-.check { width: 24px; height: 24px; border-radius: 6px; border: 2px solid var(--accent); background: transparent; cursor: pointer; color: var(--accent-ink); font-weight: 700; line-height: 1; }
-.todo.done .check { background: var(--accent); }
-.add-todo { display: flex; gap: 8px; padding-top: 8px; }
-.add-todo input { flex: 1; min-width: 0; font: 15px var(--f-body); padding: 8px 10px; border: 1px solid var(--line); border-radius: 6px; background: var(--bg); color: var(--ink); }
+.check { width: 26px; height: 26px; border-radius: 8px; border: 2px solid var(--ink); background: transparent; color: var(--bg); cursor: pointer; font-weight: 800; }
+.todo.done .check { background: var(--ink); }
+.add-todo { display: flex; gap: 8px; padding-top: 12px; }
+.add-todo input { flex: 1; min-width: 0; font: 15px var(--font); padding: 9px 12px; border: 1px solid var(--line); border-radius: 999px; background: var(--bg); color: var(--ink); }
 
-.day { display: grid; gap: 6px; }
-.day-label { font-family: var(--f-display); font-weight: 600; font-size: 18px; padding-top: 6px; }
-.item { background: var(--surface); border: 1px solid var(--line); border-radius: 10px; padding: 12px 14px; display: grid; grid-template-columns: 64px 1fr; gap: 2px 14px; }
-.item > :not(.time) { grid-column: 2; }
-.item.flag-high { border-color: var(--high); box-shadow: inset 4px 0 0 var(--high); }
-.item.flag-medium { box-shadow: inset 4px 0 0 var(--medium); }
-.item.flag-info { box-shadow: inset 4px 0 0 var(--info); }
-.time { font-family: var(--f-mono); font-size: 15px; font-weight: 500; grid-row: 1 / span 4; }
-.time small { display: block; color: var(--muted); font-size: 12px; font-weight: 400; }
-.time s { display: block; color: var(--muted); font-size: 12px; }
-.kind { font: 500 11px/1.2 var(--f-mono); letter-spacing: .1em; text-transform: uppercase; color: var(--accent); }
-.item h4 { font-size: 16px; font-weight: 600; min-width: 0; overflow-wrap: anywhere; }
-.sub { color: var(--muted); font-size: 13px; min-width: 0; overflow-wrap: anywhere; }
-.item-foot { display: flex; gap: 10px; flex-wrap: wrap; align-items: center; font-size: 13px; padding-top: 4px; }
-.code { font-family: var(--f-mono); font-size: 12px; color: var(--muted); }
-.code.full { color: var(--ink); }
-.item.gap { background: transparent; border-style: dashed; }
-.item.gap h4 { color: var(--medium); }
-.foot { color: var(--muted); font-size: 13px; display: grid; gap: 8px; border-top: 1px solid var(--line); padding-top: 14px; }
-.foot code, .empty code { font-family: var(--f-mono); background: var(--surface); padding: 1px 5px; border-radius: 4px; }
-.empty { background: var(--surface); border: 1px dashed var(--line); border-radius: 14px; padding: 28px 20px; display: grid; gap: 8px; }
-.empty h2 { font-family: var(--f-display); font-size: 28px; }
-@media (max-width: 420px) { .item { grid-template-columns: 54px 1fr; gap: 2px 10px; } }
-@media (prefers-reduced-motion: no-preference) { .board { animation: rise .35s ease-out both; } @keyframes rise { from { transform: translateY(6px); } to { transform: none; } } }
+.foot { color: var(--muted); font-size: 13px; display: grid; gap: 6px; border-top: 1px solid var(--line); padding-top: 16px; }
+.empty { background: var(--surface); border: 1px dashed var(--line); border-radius: 16px; padding: 28px 20px; display: grid; gap: 8px; }
+.empty h2 { font-size: 24px; font-weight: 800; }
+@media (max-width: 560px) {
+  /* the journey runs top to bottom on a phone */
+  .journey { overflow: visible; }
+  .journey ol { flex-direction: column; min-width: 0; }
+  .stop { grid-template-columns: 14px auto 1fr; align-items: center; column-gap: 12px; min-width: 0; }
+  .stop .city { margin-top: 0; }
+  .stop .n { justify-self: end; }
+  .leg { flex-direction: column; flex: none; width: 14px; min-width: 0; height: 40px; margin: 3px 0; gap: 3px; }
+  .leg::before, .leg::after { width: 3px; height: auto; }
+  .leg svg.i { width: 16px; height: 16px; }
+}
+@media (max-width: 420px) {
+  .pass .code3 { font-size: 28px; }
+  .nights { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+  .alert .body { padding-left: 14px; }
+}
+@media (prefers-reduced-motion: reduce) { .alert .chev { transition: none; } }
 </style>
 
 <!--WAYFARE_STATIC_DATA-->
-<div class="wrap">
-  <header class="top">
-    <div class="brand">Way<span>fare</span></div>
-    <div class="meta"><span id="updated">Loading the trip…</span><button class="btn quiet" id="codes" type="button" hidden aria-pressed="false">Show booking codes</button></div>
-  </header>
-  <div id="banners"></div>
-  <main id="main" class="wrap">
+<div class="page">
+  <div id="head" class="head">
+    <div class="topline"><span class="brand">Wayfare</span><span id="updated">Loading the trip…</span></div>
     <div class="empty">
       <h2>Your trip appears here</h2>
-      <p>Wayfare builds this page from your travel confirmations: flights, stays, trains and tables, plus nights with no stay booked, tight connections and schedule changes.</p>
-      <p>In Claude, run <code>/wayfare:sync</code>.</p>
+      <p>Wayfare builds this page from your travel confirmations: flights, stays, trains and tables, with nights that have no stay, tight connections and schedule changes.</p>
+      <p class="muted">In Claude, run /wayfare:sync.</p>
     </div>
-  </main>
+  </div>
+  <div id="main" class="stack"></div>
   <footer class="foot">
-    <div>Only you and the people you invite can open this page. Shared viewers never see full booking codes or prices.</div>
-    <div>Wayfare never books or pays. Links open the provider's own site.</div>
+    <div>Only you and the people you invite can open this page. People you share it with never see full booking codes or prices.</div>
+    <div>Wayfare never books or pays. Links open the provider's own website.</div>
   </footer>
 </div>
 
@@ -174,12 +256,25 @@ details.handled summary { cursor: pointer; color: var(--muted); font-size: 14px;
   "use strict";
   var S = {
     trip: null, priv: null, actions: {}, todos: [], suggestions: {}, requests: {},
-    db: null, mcp: null, user: null, uid: null, isOwner: false, canAct: false, canTodo: true,
-    source: "none", showCodes: false, calAdded: {}, calMsg: "", calBusy: false, calConfirm: false, topMsg: ""
+    db: null, mcp: null, uid: null, isOwner: false, canAct: false, canTodo: true,
+    source: "none", showCodes: false, calAdded: {}, calMsg: "", calBusy: false, calConfirm: false, topMsg: "",
+    view: "days"
   };
-  var TYPE_LABEL = { flight: "Flight", train: "Train", transfer: "Transfer", hotel: "Stay", dining: "Table", other: "Plan" };
-  var MONTHS = ["Jan", "Feb", "Mar", "Apr", "May", "Jun", "Jul", "Aug", "Sep", "Oct", "Nov", "Dec"];
-  var DAYS = ["Sun", "Mon", "Tue", "Wed", "Thu", "Fri", "Sat"];
+  try { S.view = localStorage.getItem("wayfare-view") || "days"; } catch (e) {}
+
+  var ICON = {
+    flight: "M21 16v-2l-8-5V3.5a1.5 1.5 0 0 0-3 0V9l-8 5v2l8-2.5V19l-2 1.5V22l3.5-1 3.5 1v-1.5L13 19v-5.5z",
+    train: "M12 2c-4 0-8 .5-8 4v9.5A3.5 3.5 0 0 0 7.5 19L6 20.5v.5h2.2l2-2h3.6l2 2H18v-.5L16.5 19a3.5 3.5 0 0 0 3.5-3.5V6c0-3.5-4-4-8-4zM7.5 17a1.5 1.5 0 1 1 0-3 1.5 1.5 0 0 1 0 3zm3.5-7H6V6h5v4zm2 0V6h5v4h-5zm3.5 7a1.5 1.5 0 1 1 0-3 1.5 1.5 0 0 1 0 3z",
+    hotel: "M7 13c1.66 0 3-1.34 3-3S8.66 7 7 7s-3 1.34-3 3 1.34 3 3 3zm12-6h-8v7H3V5H1v15h2v-3h18v3h2v-9c0-2.21-1.79-4-4-4z",
+    dining: "M11 9H9V2H7v7H5V2H3v7c0 2.12 1.66 3.84 3.75 3.97V22h2.5v-9.03C11.34 12.84 13 11.12 13 9V2h-2v7zm5-3v8h2.5v8H21V2c-2.76 0-5 2.24-5 4z",
+    moon: "M12 3a9 9 0 1 0 9 9c0-.46-.04-.92-.1-1.36a5.4 5.4 0 0 1-4.4 2.26 5.4 5.4 0 0 1-3.14-9.8c-.44-.06-.9-.1-1.36-.1z",
+    pin: "M12 2a7 7 0 0 0-7 7c0 5.25 7 13 7 13s7-7.75 7-13a7 7 0 0 0-7-7zm0 9.5a2.5 2.5 0 1 1 0-5 2.5 2.5 0 0 1 0 5z",
+    chev: "M9 6l6 6-6 6-1.4-1.4L12.2 12 7.6 7.4z"
+  };
+  ICON.train2 = ICON.train; ICON.transfer = ICON.train; ICON.other = ICON.pin;
+  var TYPE_NAME = { flight: "Flight", train: "Train", transfer: "Transfer", hotel: "Stay", dining: "Table", other: "Plan" };
+  var MONTHS = ["January", "February", "March", "April", "May", "June", "July", "August", "September", "October", "November", "December"];
+  var WEEK = ["Sunday", "Monday", "Tuesday", "Wednesday", "Thursday", "Friday", "Saturday"];
 
   function el(tag, attrs, kids) {
     var n = document.createElement(tag);
@@ -191,14 +286,19 @@ details.handled summary { cursor: pointer; color: var(--muted); font-size: 14px;
       else if (k === "on") Object.keys(v).forEach(function (ev) { n.addEventListener(ev, v[ev]); });
       else n.setAttribute(k, v === true ? "" : v);
     });
-    (kids || []).forEach(function (c) { if (c) n.appendChild(typeof c === "string" ? document.createTextNode(c) : c); });
+    (kids || []).forEach(function (c) { if (c !== null && c !== undefined && c !== false) n.appendChild(typeof c === "string" ? document.createTextNode(c) : c); });
     return n;
   }
-  function safeUrl(u) { return typeof u === "string" && /^https:\/\//.test(u) ? u : null; }
-  function link(label, url) {
-    var u = safeUrl(url);
-    return u ? el("a", { href: u, target: "_blank", rel: "noopener noreferrer", text: label }) : null;
+  function icon(name, cls) {
+    var svg = document.createElementNS("http://www.w3.org/2000/svg", "svg");
+    svg.setAttribute("viewBox", "0 0 24 24"); svg.setAttribute("aria-hidden", "true"); svg.setAttribute("class", cls || "i");
+    var p = document.createElementNS("http://www.w3.org/2000/svg", "path"); p.setAttribute("d", ICON[name] || ICON.pin);
+    svg.appendChild(p); return svg;
   }
+  function safeUrl(u) { return typeof u === "string" && /^https:\/\//.test(u) ? u : null; }
+  function link(label, url) { var u = safeUrl(url); return u ? el("a", { href: u, target: "_blank", rel: "noopener noreferrer", text: label }) : null; }
+  function nowIso() { return new Date().toISOString(); }
+  function longDay(iso) { var d = new Date(iso + "T12:00:00Z"); return WEEK[d.getUTCDay()] + " " + d.getUTCDate() + " " + MONTHS[d.getUTCMonth()]; }
   function ago(iso) {
     var mins = Math.round((Date.now() - new Date(iso).getTime()) / 60000);
     if (!iso || isNaN(mins)) return "";
@@ -207,9 +307,8 @@ details.handled summary { cursor: pointer; color: var(--muted); font-size: 14px;
     var h = Math.round(mins / 60);
     return h < 48 ? "Updated " + h + " h ago" : "Updated " + Math.round(h / 24) + " days ago";
   }
-  function nowIso() { return new Date().toISOString(); }
 
-  // ---------- alert resolution (same rule as the engine) ----------
+  // ---------- alert state ----------
   function resolution(a) {
     if (S.source === "static") return a.resolution || null;
     var act = S.actions[a.id];
@@ -218,7 +317,6 @@ details.handled summary { cursor: pointer; color: var(--muted); font-size: 14px;
     return act.status === "done" || act.status === "ignored" ? act.status : null;
   }
   var RES_LABEL = { done: "Done", ignored: "Not a problem", snoozed: "Later" };
-
   function setAction(a, status) {
     if (!S.db) return;
     var body = { alertId: a.id, fingerprint: a.fingerprint, status: status, at: nowIso(), title: a.title };
@@ -233,7 +331,7 @@ details.handled summary { cursor: pointer; color: var(--muted); font-size: 14px;
     S.db.doc("actions/" + a.id).delete().catch(function () { S.actions[a.id] = prev; render(); });
   }
 
-  // ---------- Ask Claude (owner only, through a Wayfare scheduled task) ----------
+  // ---------- Ask Claude ----------
   function triggerId() { return S.priv && S.priv.agent && S.priv.agent.triggerId; }
   function canAsk() { return S.isOwner && S.mcp && S.db && triggerId(); }
   function ask(kind, alertId, params) {
@@ -259,29 +357,23 @@ details.handled summary { cursor: pointer; color: var(--muted); font-size: 14px;
   }
   function latestRequest(filter) {
     var best = null;
-    Object.keys(S.requests).forEach(function (k) {
-      var r = S.requests[k];
-      if (filter(r) && (!best || r.createdAt > best.createdAt)) best = r;
-    });
+    Object.keys(S.requests).forEach(function (k) { var r = S.requests[k]; if (filter(r) && (!best || r.createdAt > best.createdAt)) best = r; });
     return best;
   }
   var REQ_TEXT = { queued: "Sending to Claude…", sent: "Claude is on it. Results show here in a few minutes.", running: "Claude is working on it…", done: "Done.", failed: "Failed." };
   function requestLine(r) {
     if (!r) return null;
-    var fresh = r.status === "done" ? (Date.now() - new Date(r.finishedAt || r.createdAt).getTime() < 6 * 3600e3) : true;
-    if (!fresh) return null;
-    return el("div", { class: "status-line" + (r.status === "failed" ? " err" : ""), role: "status", text: (REQ_TEXT[r.status] || r.status) + (r.message ? " " + r.message : "") });
+    if (r.status === "done" && Date.now() - new Date(r.finishedAt || r.createdAt).getTime() > 6 * 3600e3) return null;
+    return el("div", { class: "status" + (r.status === "failed" ? " err" : ""), role: "status", text: (REQ_TEXT[r.status] || r.status) + (r.message ? " " + r.message : "") });
   }
+  function busy(r) { return r && (r.status === "queued" || r.status === "sent" || r.status === "running"); }
 
-  // ---------- Calendar (anyone with a Google Calendar connector) ----------
-  function calendarItems() {
-    return (S.trip.items || []).filter(function (it) { return it.calendar && !S.calAdded[it.id]; });
-  }
+  // ---------- Calendar ----------
+  function calendarItems() { return (S.trip.items || []).filter(function (it) { return it.calendar && !S.calAdded[it.id]; }); }
   function addToCalendar() {
     var todo = calendarItems();
     S.calBusy = true; S.calConfirm = false; S.calMsg = "Adding " + todo.length + " events…"; render();
-    var added = 0;
-    var chain = Promise.resolve();
+    var added = 0, chain = Promise.resolve();
     todo.forEach(function (it) {
       chain = chain.then(function () {
         var c = it.calendar;
@@ -308,70 +400,136 @@ details.handled summary { cursor: pointer; color: var(--muted); font-size: 14px;
     });
   }
 
-  // ---------- render ----------
-  function countdown(days, status) {
-    if (status === "past") return ["Done", "trip ended"];
-    if (days > 1) return [String(days), "days to go"];
-    if (days === 1) return ["1", "day to go"];
-    if (days === 0) return ["Today", ""];
-    return ["Now", "on the road"];
+  // ---------- pieces ----------
+  function codeBits(it) {
+    var out = [];
+    var p = S.priv && S.priv.items && S.priv.items[it.id];
+    if (S.showCodes && p && p.confirmation) {
+      out.push(el("span", { class: "code full", text: "Code " + p.confirmation }));
+      out.push(el("button", { class: "btn plain", type: "button", text: "Copy", on: { click: function (e) {
+        var b = e.currentTarget;
+        navigator.clipboard.writeText(p.confirmation).then(function () { b.textContent = "Copied"; }, function () { b.textContent = p.confirmation; });
+      } } }));
+    } else if (it.code) out.push(el("span", { class: "code", text: "Code " + it.code }));
+    if (S.isOwner && p && p.manageUrl) out.push(link("Open booking", p.manageUrl));
+    (it.links || []).forEach(function (l) { out.push(link(l.label, l.url)); });
+    return out;
+  }
+  function moons(n) {
+    var box = el("span", { class: "moons", "aria-label": n + " night" + (n === 1 ? "" : "s") });
+    for (var i = 0; i < Math.min(n, 14); i++) box.appendChild(icon("moon"));
+    return box;
+  }
+  function people(n, word) { return n > 1 ? n + " " + word + "s" : null; }
+
+  function card(it, flag) {
+    var type = it.type === "transfer" ? "train" : it.type;
+    var top = el("div", { class: "card-top" }, [icon(it.type), el("span", null, [TYPE_NAME[it.type] || "Plan"]),
+      el("span", { class: "what", text: [it.number, it.operator].filter(Boolean).join(", ") })]);
+    if (it.status === "changed") top.appendChild(el("span", { class: "flag", text: "Time changed" }));
+    var main = el("div", { class: "card-main" });
+    if (it.type === "flight") {
+      var depOld = it.previous && it.previous.depart ? it.previous.depart.split("· ")[1] : null;
+      var arrOld = it.previous && it.previous.arrive ? it.previous.arrive.split("· ")[1] : null;
+      main.appendChild(el("div", { class: "pass" }, [
+        el("span", { class: "code3", text: it.fromCode }),
+        el("span", { class: "path" }, [icon("flight")]),
+        el("span", { class: "code3 r", text: it.toCode }),
+        el("span", { class: "tm" }, [it.time, depOld ? el("s", { text: depOld }) : null]),
+        el("span", { class: "mid", text: it.endDayOffset ? "arrives next day" : "" }),
+        el("span", { class: "tm r" }, [it.endTime, arrOld ? el("s", { text: arrOld }) : null]),
+        el("span", { class: "nm", text: it.fromName }), el("span"), el("span", { class: "nm r", text: it.toName })
+      ]));
+    } else if (type === "train") {
+      main.appendChild(el("div", { class: "track" }, [
+        el("span", { class: "rail" }, [el("i"), el("b"), el("i")]),
+        el("span", { class: "st", text: it.fromName }), el("span", { class: "tm", text: it.time }),
+        el("span", { class: "gapline", text: "" }),
+        el("span", { class: "st", text: it.toName }), el("span", { class: "tm", text: it.endTime })
+      ]));
+    } else if (it.type === "hotel") {
+      main.className += " stay";
+      main.appendChild(el("h4", { text: it.title }));
+      main.appendChild(el("div", { class: "row" }, [moons(it.nights || 1), el("b", { text: (it.nights || 1) + " night" + ((it.nights || 1) === 1 ? "" : "s") })]));
+      main.appendChild(el("div", { class: "when" }, [el("span", null, ["In ", el("b", { text: it.checkInLabel })]), el("span", null, ["Out ", el("b", { text: it.checkOutLabel })]), it.city ? el("span", { text: it.city }) : null]));
+    } else {
+      main.appendChild(el("div", { class: "resv" }, [el("span", { class: "tm", text: it.time }), el("h4", { text: it.title }),
+        el("span", { class: "muted", text: [it.party ? "Table for " + it.party : null, it.city].filter(Boolean).join(", ") })]));
+    }
+    var extra = [];
+    if (it.type === "flight" && it.cabin) extra.push(it.cabin);
+    var who = people(it.travellers, it.type === "hotel" ? "guest" : "traveller");
+    if (who && it.type !== "dining") extra.push(who);
+    var foot = el("div", { class: "card-foot" }, (extra.length ? [el("span", { text: extra.join(", ") })] : []).concat(codeBits(it)));
+    return el("article", { class: "card " + it.type + (flag ? " flag-" + flag : "") }, [top, main, foot]);
   }
 
-  function renderBoard(t, open) {
-    var cd = countdown(t.daysUntil, t.status);
-    var board = el("div", { class: "board" }, [
-      el("div", { class: "board-head" }, [
-        el("div", null, [el("h1", { text: t.title }), el("div", { class: "dates", text: t.dates + " · " + t.travellers + (t.travellers > 1 ? " travellers" : " traveller") })]),
-        el("div", { class: "countdown" }, [el("b", { text: cd[0] }), cd[1]])
-      ])
-    ]);
-    if (t.next) board.appendChild(el("div", { class: "next" }, [el("span", { class: "label", text: "Next" }), el("span", { class: "what", text: t.next.title }), el("span", { class: "when", text: t.next.when })]));
-    var high = open.filter(function (a) { return a.level === "high"; }).length;
-    var med = open.filter(function (a) { return a.level === "medium"; }).length;
-    var stats = el("div", { class: "stats" }, [
-      high ? el("span", { class: "chip high", text: high + " urgent" }) : null,
-      med ? el("span", { class: "chip", text: med + " to check" }) : null,
-      t.counts.gapNights ? el("span", { class: "chip", text: t.counts.gapNights + " night" + (t.counts.gapNights > 1 ? "s" : "") + " unbooked" }) : null,
-      el("span", { class: "chip", text: t.items.length + " bookings" })
-    ]);
-    board.appendChild(stats);
-    return board;
+  function gapCard(g, alert) {
+    var links = el("div", { class: "links" });
+    if (alert) (alert.links || []).forEach(function (l) { var a = link(l.label, l.url); if (a) links.appendChild(a); });
+    return el("article", { class: "card gap" }, [el("div", { class: "card-main" }, [
+      el("div", { class: "row" }, [icon("hotel"), el("b", { text: "No stay booked" })]),
+      el("h4", { text: g.nights + " night" + (g.nights > 1 ? "s" : "") + (g.city ? " in " + g.city : "") }),
+      links.childNodes.length ? links : null
+    ])]);
   }
 
-  function renderToolbar() {
+  // ---------- sections ----------
+  function renderHead(t) {
+    var head = document.getElementById("head");
+    head.textContent = "";
+    var days = t.daysUntil;
+    var when = t.status === "past" ? "Trip ended" : t.status === "ongoing" ? "On the road" : days === 0 ? "Today" : days === 1 ? "Tomorrow" : "In " + days + " days";
+    head.appendChild(el("div", { class: "topline" }, [el("span", { class: "brand", text: "Wayfare" }), el("span", null, [
+      el("span", { text: ago(t.updatedAt) }),
+      S.isOwner && S.priv && S.priv.items ? el("button", { class: "btn plain", type: "button", "aria-pressed": String(S.showCodes),
+        text: S.showCodes ? "Hide codes" : "Show codes", on: { click: function () { S.showCodes = !S.showCodes; render(); } } }) : null
+    ])]));
+    head.appendChild(el("h1", { class: "trip-title", text: t.title }));
+    head.appendChild(el("div", { class: "facts" }, [el("b", { text: t.dates }), el("span", { text: t.travellers + (t.travellers > 1 ? " travellers" : " traveller") }), el("span", { class: "pill", text: when })]));
+    if (t.next && t.status !== "past") head.appendChild(el("div", { class: "facts" }, ["Next: ", el("b", { text: t.next.title }), el("span", { text: t.next.when })]));
+    if ((t.route || []).length) head.appendChild(renderJourney(t.route));
     var bar = el("div", { class: "row" });
     if (canAsk()) {
       var r = latestRequest(function (x) { return x.kind === "sync" || x.kind === "fares"; });
-      var busy = r && (r.status === "queued" || r.status === "sent" || r.status === "running");
-      bar.appendChild(el("button", { class: "btn", type: "button", disabled: busy, text: "Check inbox now", on: { click: function () { ask("sync"); } } }));
-      bar.appendChild(el("button", { class: "btn", type: "button", disabled: busy, text: "Check fares", on: { click: function () { ask("fares"); } } }));
+      bar.appendChild(el("button", { class: "btn", type: "button", disabled: busy(r), text: "Check inbox now", on: { click: function () { ask("sync"); } } }));
+      bar.appendChild(el("button", { class: "btn", type: "button", disabled: busy(r), text: "Check fares", on: { click: function () { ask("fares"); } } }));
     }
-    if (S.mcp && S.trip.status !== "past") {
+    if (S.mcp && t.status !== "past") {
       var n = calendarItems().length;
       if (S.calConfirm) {
-        bar.appendChild(el("span", { class: "note", text: "Add " + n + " events to your Google Calendar?" }));
-        bar.appendChild(el("button", { class: "btn primary", type: "button", text: "Add events", on: { click: addToCalendar } }));
-        bar.appendChild(el("button", { class: "btn quiet", type: "button", text: "Cancel", on: { click: function () { S.calConfirm = false; render(); } } }));
-      } else if (n) {
-        bar.appendChild(el("button", { class: "btn", type: "button", disabled: S.calBusy, text: "Add to my calendar", on: { click: function () { S.calConfirm = true; render(); } } }));
-      }
+        bar.appendChild(el("span", { class: "small", text: "Add " + n + " events to your Google Calendar?" }));
+        bar.appendChild(el("button", { class: "btn dark", type: "button", text: "Add events", on: { click: addToCalendar } }));
+        bar.appendChild(el("button", { class: "btn plain", type: "button", text: "Cancel", on: { click: function () { S.calConfirm = false; render(); } } }));
+      } else if (n) bar.appendChild(el("button", { class: "btn", type: "button", disabled: S.calBusy, text: "Add to my calendar", on: { click: function () { S.calConfirm = true; render(); } } }));
     }
-    var box = el("div", { class: "wrap", style: "gap:6px" }, [bar]);
-    if (!bar.childNodes.length) return null;
+    if (bar.childNodes.length) head.appendChild(bar);
     var r2 = latestRequest(function (x) { return x.kind === "sync" || x.kind === "fares"; });
-    if (r2) box.appendChild(requestLine(r2));
-    if (S.calMsg) box.appendChild(el("div", { class: "status-line", role: "status", text: S.calMsg }));
-    return box;
+    if (r2) head.appendChild(requestLine(r2));
+    if (S.calMsg) head.appendChild(el("div", { class: "status", role: "status", text: S.calMsg }));
+    if (t.sample) head.appendChild(el("div", { class: "banner", text: "Sample trip with made-up bookings. Your own trips get their own pages at the first sync." }));
+    if (t.status === "cancelled") head.appendChild(el("div", { class: "banner bad", text: "All bookings on this trip were cancelled. Wayfare no longer updates this page." }));
+    if (S.topMsg) head.appendChild(el("div", { class: "banner bad", role: "alert", text: S.topMsg }));
   }
 
-  function ownerLinks(a) {
-    if (!S.isOwner || !S.priv || !S.priv.items) return [];
-    var out = [];
-    (a.itemIds || []).forEach(function (id) {
-      var p = S.priv.items[id];
-      if (p && p.manageUrl) out.push(link("Open my booking" + (p.provider ? " · " + p.provider : ""), p.manageUrl));
+  function renderJourney(route) {
+    var ol = el("ol", { "aria-label": "Journey" });
+    route.forEach(function (s, i) {
+      if (i > 0) {
+        var mode = s.mode === "transfer" ? "train" : s.mode;
+        ol.appendChild(el("li", { class: "leg " + (mode || "unknown"), "aria-hidden": "true" }, [icon(mode || "other")]));
+      }
+      var n = null;
+      if (s.kind === "stay") {
+        var booked = s.nights - s.unbooked;
+        n = el("span", null, [
+          booked ? el("span", { class: "n" }, [icon("moon", "i"), booked + " night" + (booked === 1 ? "" : "s")]) : null,
+          s.unbooked ? el("span", { class: "n unbooked", text: s.unbooked + " not booked" }) : null
+        ]);
+      } else n = el("span", { class: "n", text: s.kind === "start" ? "Start" : "Home" });
+      ol.appendChild(el("li", { class: "stop" + (s.kind !== "stay" ? " home" : "") }, [el("span", { class: "dot" }), el("span", { class: "city", text: s.city }), n]));
     });
-    return out;
+    return el("nav", { class: "journey" }, [ol]);
   }
 
   function renderSuggestions(a) {
@@ -379,226 +537,212 @@ details.handled summary { cursor: pointer; color: var(--muted); font-size: 14px;
     if (!s || !s.items || !s.items.length) return null;
     var list = el("ol");
     s.items.slice(0, 6).forEach(function (x) {
-      var li = el("li", null, [el("b", { text: x.name || "" }), x.area ? " · " + x.area : "", x.price ? " · " + x.price : ""]);
-      if (x.why) li.appendChild(el("div", { class: "note", text: x.why }));
+      var li = el("li", null, [el("b", { text: x.name || "" }), x.area ? ", " + x.area : "", x.price ? ". " + x.price : ""]);
+      if (x.why) li.appendChild(el("div", { class: "muted small", text: x.why }));
       var ls = el("div", { class: "links" });
       (x.links || []).slice(0, 3).forEach(function (l) { var a2 = link(l.label, l.url); if (a2) ls.appendChild(a2); });
       if (ls.childNodes.length) li.appendChild(ls);
       list.appendChild(li);
     });
-    return el("div", { class: "suggest" }, [el("h4", { text: "Claude's suggestions" }), list, s.note ? el("div", { class: "note", text: s.note }) : null]);
+    return el("div", { class: "suggest" }, [el("b", { text: "Claude's suggestions" }), list, s.note ? el("div", { class: "muted small", text: s.note }) : null]);
   }
 
-  function renderAlert(a) {
-    var label = a.level === "high" ? "Urgent" : a.level === "medium" ? "Check" : "Good to know";
-    var h = el("h3", null, [el("span", { class: "tag", text: label }), a.title]);
-    if (a.fromChange) h.appendChild(el("span", { class: "tag change", text: "Caused by schedule change" }));
-    var box = el("div", { class: "alert " + a.level }, [h, el("p", { text: a.detail })]);
+  function ownerLinks(a) {
+    if (!S.isOwner || !S.priv || !S.priv.items) return [];
+    return (a.itemIds || []).map(function (id) { var p = S.priv.items[id]; return p && p.manageUrl ? link("Open my booking" + (p.provider ? ", " + p.provider : ""), p.manageUrl) : null; });
+  }
+
+  function renderAlert(a, startOpen) {
+    var req = latestRequest(function (x) { return x.alertId === a.id; });
+    var body = el("div", { class: "body" }, [el("p", { text: a.detail })]);
+    if (a.fromChange) body.appendChild(el("div", { class: "cause", text: "This follows from a schedule change." }));
     var links = el("div", { class: "links" });
     ownerLinks(a).concat((a.links || []).map(function (l) { return link(l.label, l.url); })).forEach(function (x) { if (x) links.appendChild(x); });
-    if (links.childNodes.length) box.appendChild(links);
-    var sug = renderSuggestions(a);
-    if (sug) box.appendChild(sug);
-    var req = latestRequest(function (x) { return x.alertId === a.id; });
-    var line = requestLine(req);
-    if (line) box.appendChild(line);
-    if (S.canAct || (a.ask && canAsk())) {
-      var acts = el("div", { class: "acts" });
-      if (a.ask && canAsk()) {
-        var busy = req && (req.status === "queued" || req.status === "sent" || req.status === "running");
-        acts.appendChild(el("button", { class: "btn primary", type: "button", disabled: busy, text: S.suggestions[a.id] ? "Ask Claude again" : a.ask.label,
-          on: { click: function () { var p = Object.assign({}, a.ask); delete p.label; delete p.kind; ask(a.ask.kind, a.id, p); } } }));
-      }
-      if (S.canAct) {
-        acts.appendChild(el("button", { class: "btn", type: "button", text: "Done", on: { click: function () { setAction(a, "done"); } } }));
-        acts.appendChild(el("button", { class: "btn", type: "button", text: "Not a problem", on: { click: function () { setAction(a, "ignored"); } } }));
-        acts.appendChild(el("button", { class: "btn quiet", type: "button", text: "Later", on: { click: function () { setAction(a, "snoozed"); } } }));
-      }
-      box.appendChild(acts);
+    if (links.childNodes.length) body.appendChild(links);
+    var sug = renderSuggestions(a); if (sug) body.appendChild(sug);
+    var line = requestLine(req); if (line) body.appendChild(line);
+    var acts = el("div", { class: "acts" });
+    if (a.ask && canAsk()) {
+      acts.appendChild(el("button", { class: "btn dark", type: "button", disabled: busy(req), text: S.suggestions[a.id] ? "Ask Claude again" : a.ask.label,
+        on: { click: function () { var p = Object.assign({}, a.ask); delete p.label; delete p.kind; ask(a.ask.kind, a.id, p); } } }));
     }
-    return box;
+    if (S.canAct) {
+      acts.appendChild(el("button", { class: "btn", type: "button", text: "Done", on: { click: function () { setAction(a, "done"); } } }));
+      acts.appendChild(el("button", { class: "btn", type: "button", text: "Not a problem", on: { click: function () { setAction(a, "ignored"); } } }));
+      acts.appendChild(el("button", { class: "btn plain", type: "button", text: "Later", on: { click: function () { setAction(a, "snoozed"); } } }));
+    }
+    if (acts.childNodes.length) body.appendChild(acts);
+    var d = el("details", { class: "alert " + a.level, open: startOpen, id: "a-" + a.id }, [
+      el("summary", null, [el("span", { class: "sev", "aria-label": a.level === "high" ? "Urgent" : a.level === "medium" ? "Check" : "Good to know" }), el("span", { class: "t", text: a.title }), icon("chev", "i chev")]),
+      body
+    ]);
+    d.addEventListener("toggle", function () { S.openAlerts[a.id] = d.open; });
+    return d;
   }
 
   function renderAttention(t) {
     var open = [], handled = [];
     t.alerts.forEach(function (a) { (resolution(a) ? handled : open).push(a); });
-    var sec = el("section", { "aria-labelledby": "att" }, [el("h2", { class: "sec-title", id: "att", text: "Needs attention" })]);
-    if (!open.length) sec.appendChild(el("div", { class: "calm", text: handled.length ? "All handled. Wayfare checks again at the next sync." : "Nothing to fix. Wayfare checks again at the next sync." }));
-    var list = el("div", { class: "alerts" });
-    open.forEach(function (a) { list.appendChild(renderAlert(a)); });
-    sec.appendChild(list);
+    var sec = el("section", { class: "attn", "aria-labelledby": "att" }, [el("div", { class: "sec-head" }, [
+      el("h2", { id: "att", text: open.length ? "Needs your attention" : "All clear" }),
+      open.length ? el("span", { class: "muted small", text: open.length + " to check" }) : null
+    ])]);
+    if (!open.length) sec.appendChild(el("p", { class: "calm", text: handled.length ? "Everything is handled. Wayfare checks again at the next sync." : "Nothing to fix. Wayfare checks again at the next sync." }));
+    open.forEach(function (a, i) {
+      var isOpen = S.openAlerts[a.id] !== undefined ? S.openAlerts[a.id] : (i === 0 && a.level === "high");
+      sec.appendChild(renderAlert(a, isOpen));
+    });
     if (handled.length) {
       var d = el("details", { class: "handled" }, [el("summary", { text: "Handled (" + handled.length + ")" })]);
       handled.forEach(function (a) {
         var r = resolution(a);
-        d.appendChild(el("div", { class: "handled-row" }, [
-          el("span", null, [el("s", { text: a.title }), " · " + RES_LABEL[r] + (r === "snoozed" && S.actions[a.id] ? " until " + new Date(S.actions[a.id].until).toLocaleDateString() : "")]),
-          S.canAct ? el("button", { class: "btn quiet", type: "button", text: "Undo", on: { click: function () { undoAction(a); } } }) : null
-        ]));
+        d.appendChild(el("div", { class: "handled-row" }, [el("span", { text: a.title + ": " + RES_LABEL[r] }),
+          S.canAct ? el("button", { class: "btn plain", type: "button", text: "Undo", on: { click: function () { undoAction(a); } } }) : null]));
       });
       sec.appendChild(d);
     }
     return { node: sec, open: open };
   }
 
+  function renderTabs() {
+    var views = [["days", "Day by day"], ["nights", "Nights"], ["bookings", "Bookings"]];
+    var tabs = el("div", { class: "tabs", role: "tablist", "aria-label": "View" });
+    views.forEach(function (v) {
+      tabs.appendChild(el("button", { role: "tab", type: "button", id: "tab-" + v[0], "aria-selected": String(S.view === v[0]), "aria-controls": "view", text: v[1],
+        on: { click: function () { S.view = v[0]; try { localStorage.setItem("wayfare-view", v[0]); } catch (e) {} render(); } } }));
+    });
+    return tabs;
+  }
+
+  function viewDays(t, flags, gapAlerts) {
+    var days = {}, order = [];
+    function bucket(day) { if (!days[day]) { days[day] = []; order.push(day); } return days[day]; }
+    t.items.forEach(function (it) { bucket(it.day).push({ it: it }); });
+    (t.gaps || []).forEach(function (g) { bucket(g.firstNight).push({ g: g }); });
+    order.sort();
+    var box = el("div", { class: "days" });
+    order.forEach(function (day) {
+      var d = el("section", { class: "day" }, [el("h3", { text: longDay(day) })]);
+      days[day].forEach(function (r) { d.appendChild(r.g ? gapCard(r.g, gapAlerts[r.g.firstNight]) : card(r.it, flags[r.it.id])); });
+      box.appendChild(d);
+    });
+    return box;
+  }
+
+  function viewNights(t) {
+    var grid = el("div", { class: "nights" });
+    var byId = {};
+    t.items.forEach(function (it) { byId[it.id] = it; });
+    (t.nights || []).forEach(function (n) {
+      var d = new Date(n.date + "T12:00:00Z");
+      var where = n.kind === "stay" ? n.stay : n.kind === "transit" ? "On the move: " + n.stay : "No stay booked";
+      grid.appendChild(el("div", { class: "night " + n.kind }, [
+        el("span", { class: "d", text: WEEK[d.getUTCDay()].slice(0, 3) + ", " + MONTHS[d.getUTCMonth()].slice(0, 3) }),
+        el("span", { class: "num", text: String(d.getUTCDate()) }),
+        el("span", { class: "where", text: where }),
+        n.city ? el("span", { class: "small muted", text: n.city }) : null
+      ]));
+    });
+    if (!grid.childNodes.length) return el("p", { class: "calm", text: "No nights away on this trip." });
+    return grid;
+  }
+
+  function viewBookings(t) {
+    var groups = [["flight", "Flights"], ["train", "Trains"], ["hotel", "Stays"], ["dining", "Tables"], ["other", "Other plans"]];
+    var box = el("div", { class: "groups" });
+    groups.forEach(function (g) {
+      var items = t.items.filter(function (it) { return (it.type === "transfer" ? "train" : it.type) === g[0]; });
+      if (!items.length) return;
+      var list = el("div", { class: "list" });
+      items.forEach(function (it) {
+        var title = it.type === "flight" ? it.fromCode + " to " + it.toCode + ", " + it.number : it.title;
+        var when = it.type === "hotel" ? it.checkInLabel + " to " + it.checkOutLabel : it.dayLabel + ", " + it.time;
+        list.appendChild(el("div", { class: "li" }, [el("b", { text: title }), el("span", { class: "when", text: when }),
+          el("div", { class: "meta" }, [it.operator ? el("span", { text: it.operator }) : null].concat(codeBits(it)))]));
+      });
+      box.appendChild(el("section", { class: "group " + g[0] }, [el("h3", null, [icon(g[0]), g[1], el("span", { text: String(items.length) })]), list]));
+    });
+    return box;
+  }
+
   function renderTodos() {
     if (S.source !== "db") return null;
-    var sec = el("section", { "aria-labelledby": "todo-h" }, [el("h2", { class: "sec-title", id: "todo-h", text: "To do" })]);
+    var sec = el("section", { class: "attn", "aria-labelledby": "todo-h" }, [el("div", { class: "sec-head" }, [el("h2", { id: "todo-h", text: "To do" })])]);
     var box = el("div", { class: "todos" });
     var items = S.todos.slice().sort(function (a, b) { return (a.done - b.done) || (a.at < b.at ? -1 : 1); });
-    if (!items.length) box.appendChild(el("div", { class: "note", style: "padding:8px 0", text: "Nothing yet. Add things to do before you go, like visas, travel insurance or a restaurant to book." }));
+    if (!items.length) box.appendChild(el("p", { class: "muted", style: "padding:10px 0", text: "Nothing yet. Add things to sort out before you go, like travel insurance or a restaurant to book." }));
     items.forEach(function (td) {
       box.appendChild(el("div", { class: "todo" + (td.done ? " done" : "") }, [
         el("button", { class: "check", type: "button", "aria-label": td.done ? "Mark as not done" : "Mark as done", "aria-pressed": String(!!td.done), text: td.done ? "✓" : "",
           disabled: !S.canTodo, on: { click: function () { S.db.doc("todos/" + td.id).update({ done: !td.done, doneAt: nowIso() }).catch(function () { S.canTodo = false; render(); }); } } }),
         el("span", { class: "text", text: td.text }),
-        S.isOwner ? el("button", { class: "btn quiet", type: "button", "aria-label": "Remove", text: "Remove", on: { click: function () { S.db.doc("todos/" + td.id).delete().catch(function () {}); } } }) : el("span")
+        S.isOwner ? el("button", { class: "btn plain", type: "button", text: "Remove", on: { click: function () { S.db.doc("todos/" + td.id).delete().catch(function () {}); } } }) : el("span")
       ]));
     });
     if (S.canTodo) {
       var input = el("input", { id: "todo-input", type: "text", maxlength: "200", placeholder: "Add a to-do", "aria-label": "New to-do" });
-      var form = el("form", { class: "add-todo", on: { submit: function (e) {
+      box.appendChild(el("form", { class: "add-todo", on: { submit: function (e) {
         e.preventDefault();
-        var text = input.value.trim();
-        if (!text) return;
+        var text = input.value.trim(); if (!text) return;
         input.value = "";
-        var body = { text: text, done: false, at: nowIso() };
-        if (S.uid) body.by = S.uid;
+        var body = { text: text, done: false, at: nowIso() }; if (S.uid) body.by = S.uid;
         S.db.collection("todos").add(body).catch(function () { S.canTodo = false; render(); });
-      } } }, [input, el("button", { class: "btn", type: "submit", text: "Add" })]);
-      box.appendChild(form);
-    } else {
-      box.appendChild(el("div", { class: "note", text: "You can view this list. Ask the trip owner for Contributor access to tick items." }));
-    }
+      } } }, [input, el("button", { class: "btn", type: "submit", text: "Add" })]));
+    } else box.appendChild(el("p", { class: "muted small", style: "padding-top:8px", text: "You can view this list. Ask the trip owner for Contributor access to tick items." }));
     sec.appendChild(box);
     return sec;
   }
 
-  function renderTimeline(t, flags) {
-    var days = {}, order = [];
-    function bucket(day, label) { if (!days[day]) { days[day] = { label: label, rows: [] }; order.push(day); } return days[day]; }
-    t.items.forEach(function (it) { bucket(it.day, it.dayLabel).rows.push({ it: it }); });
-    (t.gaps || []).forEach(function (g) {
-      var d = new Date(g.firstNight + "T12:00:00Z");
-      bucket(g.firstNight, DAYS[d.getUTCDay()] + " " + d.getUTCDate() + " " + MONTHS[d.getUTCMonth()]).rows.push({ g: g });
-    });
-    order.sort();
-    var sec = el("section", { "aria-labelledby": "tl" }, [el("h2", { class: "sec-title", id: "tl", text: "Day by day" })]);
-    order.forEach(function (day) {
-      var box = el("div", { class: "day" }, [el("h3", { class: "day-label", text: days[day].label })]);
-      days[day].rows.forEach(function (r) {
-        if (r.g) {
-          box.appendChild(el("div", { class: "item gap" }, [
-            el("div", { class: "time", text: "Night" }), el("span", { class: "kind", text: "No stay booked" }),
-            el("h4", { text: r.g.nights + " night" + (r.g.nights > 1 ? "s" : "") + (r.g.city ? " in " + r.g.city : "") }),
-            el("span", { class: "sub", text: "Nothing in your bookings covers these nights." })
-          ]));
-          return;
-        }
-        var it = r.it;
-        var time = el("div", { class: "time" }, [it.type === "hotel" ? "In" : it.time]);
-        if (it.previous && it.previous.depart) time.appendChild(el("s", { text: it.previous.depart.split("· ")[1] || "" }));
-        if (it.endTime) time.appendChild(el("small", { text: "→ " + it.endTime + (it.endDayOffset ? " +" + it.endDayOffset : "") }));
-        var sub = it.subtitle || "";
-        if (it.type === "hotel") sub = (sub ? sub + " · " : "") + it.until + ", to " + it.when.split("→ ")[1];
-        var foot = el("div", { class: "item-foot" });
-        var p = S.priv && S.priv.items && S.priv.items[it.id];
-        if (S.showCodes && p && p.confirmation) {
-          foot.appendChild(el("span", { class: "code full", text: "Code " + p.confirmation }));
-          foot.appendChild(el("button", { class: "btn quiet", type: "button", text: "Copy", on: { click: function (e) {
-            var b = e.currentTarget;
-            navigator.clipboard.writeText(p.confirmation).then(function () { b.textContent = "Copied"; }, function () { b.textContent = p.confirmation; });
-          } } }));
-        } else if (it.code) foot.appendChild(el("span", { class: "code", text: "Code " + it.code }));
-        if (S.isOwner && p && p.manageUrl) foot.appendChild(link("Open booking", p.manageUrl));
-        (it.links || []).forEach(function (l) { var x = link(l.label, l.url); if (x) foot.appendChild(x); });
-        var kind = (TYPE_LABEL[it.type] || "Plan") + (it.status === "changed" ? " · Changed" : "");
-        box.appendChild(el("div", { class: "item" + (flags[it.id] ? " flag-" + flags[it.id] : "") }, [
-          time, el("span", { class: "kind", text: kind }), el("h4", { text: it.title }), el("span", { class: "sub", text: sub }), foot
-        ]));
-      });
-      sec.appendChild(box);
-    });
-    return sec;
-  }
-
+  S.openAlerts = {};
   function render() {
-    var t = S.trip;
-    var codes = document.getElementById("codes");
-    codes.hidden = !(S.isOwner && S.priv && S.priv.items);
-    codes.setAttribute("aria-pressed", String(S.showCodes));
-    codes.textContent = S.showCodes ? "Hide booking codes" : "Show booking codes";
-    var banners = document.getElementById("banners");
-    banners.textContent = "";
-    var main = document.getElementById("main");
+    var t = S.trip, main = document.getElementById("main");
     if (!t) {
-      document.getElementById("updated").textContent = "";
-      if (S.source === "nodb") {
+      var u = document.getElementById("updated"); if (u) u.textContent = "";
+      if (S.source === "nodb" || S.source === "db") {
+        document.getElementById("head").textContent = "";
         main.textContent = "";
-        main.appendChild(el("div", { class: "empty" }, [el("h2", { text: "Sign in to see this trip" }), el("p", { text: "This trip is shared with named people. Sign in to Claude with the account it was shared with." })]));
-      } else if (S.source === "db") {
-        main.textContent = "";
-        main.appendChild(el("div", { class: "empty" }, [el("h2", { text: "No trip data yet" }), el("p", { text: "In Claude, run /wayfare:sync to fill this page." })]));
+        main.appendChild(el("div", { class: "empty" }, S.source === "nodb"
+          ? [el("h2", { text: "Sign in to see this trip" }), el("p", { text: "This trip is shared with named people. Sign in to Claude with the account it was shared with." })]
+          : [el("h2", { text: "No trip data yet" }), el("p", { text: "In Claude, run /wayfare:sync to fill this page." })]));
       }
       return;
     }
     document.title = t.pageTitle || document.title;
-    document.getElementById("updated").textContent = ago(t.updatedAt);
-    if (t.sample) banners.appendChild(el("div", { class: "banner", text: "Sample trip with made-up bookings. Your own trips get their own pages at the first sync." }));
-    if (t.status === "cancelled") banners.appendChild(el("div", { class: "banner bad", text: "All bookings on this trip were cancelled. Wayfare no longer updates this page." }));
-    if (S.topMsg) banners.appendChild(el("div", { class: "banner bad", role: "alert", text: S.topMsg }));
-
-    banners.hidden = !banners.childNodes.length;
-    var flags = {};
+    var y = window.scrollY;
+    renderHead(t);
+    var flags = {}, gapAlerts = {};
     t.alerts.forEach(function (a) {
+      if (a.kind === "lodging_gap" && a.gap) gapAlerts[a.gap.firstNight] = a;
       if (resolution(a)) return;
       (a.itemIds || []).forEach(function (id) { if (!flags[id] || a.level === "high") flags[id] = a.level; });
     });
     var att = renderAttention(t);
-    var y = window.scrollY;
     main.textContent = "";
-    main.appendChild(renderBoard(t, att.open));
-    var tb = renderToolbar();
-    if (tb) main.appendChild(tb);
     main.appendChild(att.node);
-    var todos = renderTodos();
-    if (todos) main.appendChild(todos);
-    main.appendChild(renderTimeline(t, flags));
+    var viewBox = el("section", { class: "attn", "aria-label": "Trip details" }, [renderTabs()]);
+    var v = S.view === "nights" ? viewNights(t) : S.view === "bookings" ? viewBookings(t) : viewDays(t, flags, gapAlerts);
+    viewBox.appendChild(el("div", { id: "view", role: "tabpanel", "aria-labelledby": "tab-" + S.view }, [v]));
+    main.appendChild(viewBox);
+    var todos = renderTodos(); if (todos) main.appendChild(todos);
     window.scrollTo(0, y);
   }
 
-  document.getElementById("codes").addEventListener("click", function () { S.showCodes = !S.showCodes; render(); });
-
-  // ---------- data sources ----------
+  // ---------- data ----------
   var staticNode = document.getElementById("wayfare-static");
   if (staticNode) {
-    try {
-      var data = JSON.parse(staticNode.textContent);
-      S.trip = data.trip || null; S.priv = data.private || null; S.isOwner = !!data.private;
-    } catch (e) {}
-    S.source = "static";
-    render();
-    return;
+    try { var data = JSON.parse(staticNode.textContent); S.trip = data.trip || null; S.priv = data.private || null; S.isOwner = !!data.private; } catch (e) {}
+    S.source = "static"; render(); return;
   }
   if (!window.claude || typeof window.claude.use !== "function") { S.source = "nodb"; render(); return; }
-
-  function docsToMap(snap) {
-    var m = {};
-    snap.docs.forEach(function (d) { if (d.exists) m[d.id] = d.data(); });
-    return m;
-  }
+  function docsToMap(snap) { var m = {}; snap.docs.forEach(function (d) { if (d.exists) m[d.id] = d.data(); }); return m; }
   window.claude.use("db").then(function (db) {
     if (!db) { S.source = "nodb"; render(); return; }
     S.db = db; S.source = "db";
     db.doc("trip/data").onSnapshot(function (d) { S.trip = d.exists ? d.data() : null; render(); }, function () { render(); });
     db.collection("actions").onSnapshot(function (s) { S.actions = docsToMap(s); render(); }, function () {});
-    db.collection("todos").onSnapshot(function (s) {
-      S.todos = s.docs.filter(function (d) { return d.exists; }).map(function (d) { return Object.assign({ id: d.id }, d.data()); });
-      render();
-    }, function () {});
+    db.collection("todos").onSnapshot(function (s) { S.todos = s.docs.filter(function (d) { return d.exists; }).map(function (d) { return Object.assign({ id: d.id }, d.data()); }); render(); }, function () {});
     db.collection("suggestions").onSnapshot(function (s) { S.suggestions = docsToMap(s); render(); }, function () {});
     return window.claude.use("user").then(function (user) {
-      S.user = user;
       if (!user) return;
       return Promise.all([user.isOwner(), user.canEdit(), user.id ? user.id() : null]).then(function (r) {
         S.isOwner = !!r[0]; S.canAct = !!(r[0] || r[1]); S.uid = r[2];

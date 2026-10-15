@@ -36,7 +36,7 @@ from datetime import date, datetime, timedelta, timezone
 from pathlib import Path
 from typing import Any
 
-ENGINE_VERSION = "0.2.0"
+ENGINE_VERSION = "0.3.0"
 TRANSPORT = {"flight", "train", "transfer"}
 TYPES = TRANSPORT | {"hotel", "dining", "other"}
 STATUSES = {"confirmed", "changed", "cancelled"}
@@ -363,6 +363,68 @@ def lodging_gaps(trip: Trip, prof: dict) -> list[dict]:
     return out
 
 
+def trip_nights(trip: Trip, prof: dict) -> list[dict]:
+    """Every night of the trip: where you sleep, in transit, or nothing booked.
+    Same bounds as lodging_gaps."""
+    transport = sorted([i for i in trip.items if i.type in TRANSPORT], key=lambda i: i.start)
+    if not transport:
+        hotels = [i for i in trip.items if i.type == "hotel"]
+        if not hotels:
+            return []
+        first, last = min(h.start_date for h in hotels), max(h.end_date for h in hotels)
+    else:
+        first = next((i for i in transport if not is_home_arrival(i, prof)), transport[0]).end_date
+        back = [i for i in transport if is_home_arrival(i, prof)]
+        last = back[-1].start_date if back else max(i.end_date for i in trip.items)
+    out = []
+    d = first
+    city = ""
+    while d < last:
+        night = {"date": d.isoformat(), "label": day_label(d), "kind": "gap", "city": "", "stay": None, "itemId": None}
+        for it in sorted(trip.items, key=lambda i: i.start):
+            if it.type in TRANSPORT and it.end_date <= d:
+                city = it.city_to or city
+        hotel = next((h for h in trip.items if h.type == "hotel" and h.start_date <= d < h.end_date), None)
+        moving = next((t for t in transport if t.start_date <= d < t.end_date), None)
+        if hotel:
+            city = hotel.city_to
+            night.update(kind="stay", city=hotel.city_to, stay=hotel.raw["name"], itemId=hotel.id)
+        elif moving:
+            night.update(kind="transit", city="", stay=title_of(moving), itemId=moving.id)
+        else:
+            night["city"] = city
+        out.append(night)
+        d += timedelta(days=1)
+    return out
+
+
+def trip_route(trip: Trip, prof: dict, nights: list[dict]) -> list[dict]:
+    """The journey as places: start, each city you sleep in (with nights and
+    unbooked nights), and the way back. `mode` is how you arrive there."""
+    transport = sorted([i for i in trip.items if i.type in TRANSPORT], key=lambda i: i.start)
+    stops: list[dict] = []
+    for n in nights:
+        if n["kind"] == "transit":
+            continue
+        c = n["city"] or "?"
+        if stops and stops[-1]["city"] == c:
+            stops[-1]["nights"] += 1
+            stops[-1]["unbooked"] += n["kind"] == "gap"
+            stops[-1]["to"] = n["date"]
+        else:
+            stops.append({"city": c, "nights": 1, "unbooked": int(n["kind"] == "gap"), "from": n["date"], "to": n["date"]})
+    for s in stops:
+        arriving = [t for t in transport if norm(t.city_to) == norm(s["city"]) and t.end_date.isoformat() <= s["from"]]
+        s["mode"] = arriving[-1].type if arriving else None
+    route: list[dict] = []
+    if transport:
+        route.append({"city": transport[0].city_from, "kind": "start"})
+    route += [dict(s, kind="stay") for s in stops]
+    if transport and is_home_arrival(transport[-1], prof):
+        route.append({"city": transport[-1].city_to, "kind": "end", "mode": transport[-1].type})
+    return route
+
+
 def alert(level: str, kind: str, title: str, detail: str, item_ids: list[str]) -> dict:
     return {"level": level, "kind": kind, "title": title, "detail": detail, "itemIds": item_ids}
 
@@ -560,7 +622,20 @@ def public_item(it: Item) -> dict:
             "time": it.start.strftime("%H:%M") if it.type != "hotel" else (r.get("checkInFrom") or "Check-in"),
             "endTime": it.end.strftime("%H:%M") if it.type in TRANSPORT else None,
             "endDayOffset": (it.end_date - it.start_date).days if it.type in TRANSPORT else 0,
+            "travellers": int(r.get("travelers") or r.get("partySize") or 1),
+            "operator": r.get("provider") or "",
             "links": []}
+    if it.type == "flight":
+        base.update({"fromCode": r.get("from"), "toCode": r.get("to"), "fromName": it.city_from, "toName": it.city_to,
+                     "number": f"{r.get('carrier', '')} {r.get('flightNumber', '')}".strip(), "cabin": r.get("cabin") or ""})
+    elif it.type in ("train", "transfer"):
+        base.update({"fromName": r.get("from") or it.city_from, "toName": r.get("to") or it.city_to,
+                     "fromCity": it.city_from, "toCity": it.city_to, "number": r.get("name") or ""})
+    elif it.type == "hotel":
+        base.update({"nights": (it.end_date - it.start_date).days, "checkInLabel": day_label(it.start_date),
+                     "checkOutLabel": day_label(it.end_date), "city": r.get("city", "")})
+    else:
+        base.update({"party": r.get("partySize"), "city": r.get("city", "")})
     if it.type in TRANSPORT:
         route = f"{r.get('from', '')} → {r.get('to', '')}" if it.type == "flight" else f"{it.city_from} → {it.city_to}"
         sub = [s for s in [r.get("provider"), f"{r.get('carrier', '')} {r.get('flightNumber', '')}".strip() if it.type == "flight" else r.get("name"),
@@ -681,6 +756,7 @@ def build(bookings: list[dict], profile: dict, fares_list: list[dict], now: date
         by_id = {i.id: i for i in trip.items}
         travellers = max([int(i.raw.get("travelers") or 1) for i in trip.items] + [1])
         gaps = lodging_gaps(trip, prof)
+        nights = trip_nights(trip, prof)
         alerts = find_alerts(trip, prof, fares)
         for g in gaps:
             a = alert("medium", "lodging_gap", g["label"], "Nothing in your bookings covers these nights.", [])
@@ -709,7 +785,7 @@ def build(bookings: list[dict], profile: dict, fares_list: list[dict], now: date
             "slug": slug, "title": title, "pageTitle": page_title, "city": city,
             "startDate": start_d.isoformat(), "endDate": end_d.isoformat(), "dates": range_label(start_d, end_d),
             "travellers": travellers, "daysUntil": (start_d - now.date()).days, "status": status,
-            "items": pub_items, "gaps": gaps, "alerts": alerts,
+            "items": pub_items, "gaps": gaps, "alerts": alerts, "nights": nights, "route": trip_route(trip, prof, nights),
             "next": {"title": nxt["title"], "when": nxt["when"]} if nxt else None,
             "counts": counts, "updatedAt": stamp, "engineVersion": ENGINE_VERSION,
         }
@@ -723,6 +799,9 @@ def build(bookings: list[dict], profile: dict, fares_list: list[dict], now: date
             "slug": slug, "url": url, "pageTitle": page_title, "title": title, "dates": public["dates"],
             "startDate": public["startDate"], "endDate": public["endDate"], "status": status,
             "counts": counts, "next": public["next"], "bookingIds": sorted(ids), "sample": sample or None,
+            "route": [{"city": s["city"], "mode": s.get("mode"), "kind": s["kind"]} for s in public["route"]],
+            "types": {k: sum(1 for i in trip.items if i.type == k) for k in ("flight", "train", "transfer", "hotel", "dining", "other")
+                      if any(i.type == k for i in trip.items)},
         }
         trips_out.append({"slug": slug, "isNew": entry is None, "url": url, "public": public,
                           "private": private, "index": index_entry})
