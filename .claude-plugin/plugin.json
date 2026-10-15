@@ -1,0 +1,11 @@
+{
+  "name": "wayfare",
+  "displayName": "Wayfare",
+  "version": "0.1.0",
+  "description": "Open-source personal travel agent. Reads travel confirmations from your Gmail, builds each trip on a private dashboard page you can open anywhere and share, and flags unbooked nights, tight connections, schedule changes, double bookings and fare drops. Never books or pays.",
+  "author": {
+    "name": "Wayfare contributors"
+  },
+  "license": "MIT",
+  "keywords": ["travel", "trips", "itinerary", "gmail", "flights", "hotels", "dashboard"]
+}

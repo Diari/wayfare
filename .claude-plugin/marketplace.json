@@ -1,0 +1,17 @@
+{
+  "name": "wayfare",
+  "owner": {
+    "name": "Wayfare contributors"
+  },
+  "metadata": {
+    "description": "Wayfare, an open-source personal travel agent for Claude."
+  },
+  "plugins": [
+    {
+      "name": "wayfare",
+      "source": "./",
+      "description": "Inbox-to-trip dashboard with gap, connection, schedule-change and fare-drop alerts.",
+      "category": "productivity"
+    }
+  ]
+}

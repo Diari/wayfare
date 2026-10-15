@@ -1,0 +1,11 @@
+{
+  "homeAirports": ["AMS"],
+  "homeCity": "Amsterdam",
+  "minConnectionMinutes": 75,
+  "arrivalToDinnerMinutes": 150,
+  "fareDropMinimum": 25,
+  "currency": "EUR",
+  "flights": "Window seat. Avoid red-eyes.",
+  "stays": "Small design hotels or guesthouses, walkable area, about EUR 180 a night.",
+  "dining": "Book popular places 30 days ahead. Vegetarian options needed."
+}

@@ -1,0 +1,10 @@
+[
+  {
+    "bookingId": "flight-KL1734-2026-11-12",
+    "paidPerTraveler": 143.0,
+    "livePerTraveler": 109.0,
+    "currency": "EUR",
+    "checkedAt": "2026-10-15T20:00:00Z",
+    "source": "sample data"
+  }
+]

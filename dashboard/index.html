@@ -1,0 +1,353 @@
+<title>Wayfare Trips</title>
+<meta name="claude:viewport-fit-sides" content="cover">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Barlow+Condensed:wght@500;600;700&family=IBM+Plex+Mono:wght@400;500&family=IBM+Plex+Sans:wght@400;500;600&display=swap">
+<style>
+/* Layout: a departure-board header per trip, then "needs attention", then the trip day by day. One column, phone first. */
+:root {
+  --bg: #f3f5f7;
+  --surface: #ffffff;
+  --ink: #132033;
+  --muted: #5b6878;
+  --line: #d9dfe6;
+  --accent: #0f6e66;
+  --board: #132033;
+  --board-ink: #f4f6f8;
+  --sign: #f2c230;
+  --high: #c2362f;
+  --high-bg: #fbe9e7;
+  --medium: #a0670f;
+  --medium-bg: #fbf1de;
+  --info: #22609e;
+  --info-bg: #e6eff8;
+  --f-display: "Barlow Condensed", "Arial Narrow", "Roboto Condensed", sans-serif;
+  --f-body: "IBM Plex Sans", system-ui, -apple-system, "Segoe UI", sans-serif;
+  --f-mono: "IBM Plex Mono", ui-monospace, "SFMono-Regular", Menlo, monospace;
+}
+@media (prefers-color-scheme: dark) {
+  :root:not([data-theme="light"]) {
+    --bg: #0d141e; --surface: #152031; --ink: #e7ecf2; --muted: #9aa7b6; --line: #26344a;
+    --accent: #4fc3b5; --board: #060b12; --board-ink: #f4f6f8; --sign: #f2c230;
+    --high: #f07a6f; --high-bg: #3a1c1b; --medium: #e6b45a; --medium-bg: #35290f; --info: #7fb2e8; --info-bg: #15283f;
+    color-scheme: dark;
+  }
+}
+:root[data-theme="dark"] {
+  --bg: #0d141e; --surface: #152031; --ink: #e7ecf2; --muted: #9aa7b6; --line: #26344a;
+  --accent: #4fc3b5; --board: #060b12; --board-ink: #f4f6f8; --sign: #f2c230;
+  --high: #f07a6f; --high-bg: #3a1c1b; --medium: #e6b45a; --medium-bg: #35290f; --info: #7fb2e8; --info-bg: #15283f;
+  color-scheme: dark;
+}
+* { box-sizing: border-box; }
+body {
+  background: var(--bg); color: var(--ink); font-family: var(--f-body); font-size: 15px; line-height: 1.5;
+  padding-left: max(16px, env(safe-area-inset-left, 0px)); padding-right: max(16px, env(safe-area-inset-right, 0px));
+  padding-block: 20px 48px;
+}
+.wrap { max-width: 760px; margin: 0 auto; display: grid; gap: 20px; }
+h1, h2, h3 { margin: 0; text-wrap: balance; }
+.top { display: flex; align-items: baseline; justify-content: space-between; gap: 12px; flex-wrap: wrap; }
+.brand { font-family: var(--f-display); font-weight: 700; font-size: 26px; letter-spacing: .02em; }
+.brand span { color: var(--accent); }
+.meta { color: var(--muted); font-size: 13px; display: flex; gap: 12px; align-items: center; flex-wrap: wrap; }
+.tabs { display: flex; gap: 8px; overflow-x: auto; padding-bottom: 2px; }
+.tab {
+  font: 600 14px/1.2 var(--f-body); color: var(--ink); background: var(--surface); border: 1px solid var(--line);
+  border-radius: 999px; padding: 8px 14px; cursor: pointer; white-space: nowrap;
+}
+.tab[aria-selected="true"] { background: var(--ink); color: var(--bg); border-color: var(--ink); }
+.tab .dot { display: inline-block; width: 8px; height: 8px; border-radius: 50%; background: var(--high); margin-left: 6px; vertical-align: 1px; }
+.tab:focus-visible, .btn:focus-visible { outline: 2px solid var(--accent); outline-offset: 2px; }
+
+.board { background: var(--board); color: var(--board-ink); border-radius: 14px; padding: 18px 20px; display: grid; gap: 14px; }
+.board-head { display: flex; justify-content: space-between; align-items: flex-start; gap: 12px; flex-wrap: wrap; }
+.board h2 { font-family: var(--f-display); font-weight: 700; font-size: clamp(30px, 7vw, 42px); line-height: 1; letter-spacing: .01em; }
+.board .dates { font-family: var(--f-mono); font-size: 13px; opacity: .8; margin-top: 6px; }
+.countdown { font-family: var(--f-display); font-weight: 600; font-size: 18px; text-align: right; }
+.countdown b { display: block; font-size: 34px; line-height: 1; color: var(--sign); font-weight: 700; }
+.next {
+  display: grid; grid-template-columns: auto 1fr; gap: 4px 12px; align-items: baseline;
+  border-top: 1px dashed rgba(244, 246, 248, .25); padding-top: 12px;
+}
+.next .label { font: 600 11px/1 var(--f-mono); letter-spacing: .12em; text-transform: uppercase; background: var(--sign); color: #132033; padding: 4px 6px; border-radius: 3px; }
+.next .what { font-family: var(--f-display); font-size: 20px; font-weight: 600; min-width: 0; }
+.next .when { grid-column: 2; font-family: var(--f-mono); font-size: 13px; opacity: .8; }
+.stats { display: flex; gap: 8px; flex-wrap: wrap; }
+.chip { font: 500 12px/1 var(--f-mono); padding: 6px 8px; border-radius: 4px; border: 1px solid rgba(244, 246, 248, .25); }
+.chip.high { background: var(--high); border-color: var(--high); color: #fff; }
+
+section { display: grid; gap: 10px; }
+.sec-title { font: 600 12px/1 var(--f-mono); letter-spacing: .12em; text-transform: uppercase; color: var(--muted); }
+.alerts { display: grid; gap: 8px; }
+.alert { border-radius: 10px; padding: 12px 14px; display: grid; gap: 4px; border-left: 4px solid; }
+.alert.high { background: var(--high-bg); border-color: var(--high); }
+.alert.medium { background: var(--medium-bg); border-color: var(--medium); }
+.alert.info { background: var(--info-bg); border-color: var(--info); }
+.alert h3 { font-size: 15px; font-weight: 600; display: flex; gap: 8px; flex-wrap: wrap; align-items: baseline; }
+.alert p { margin: 0; font-size: 14px; color: var(--ink); opacity: .88; }
+.tag { font: 500 11px/1 var(--f-mono); text-transform: uppercase; letter-spacing: .08em; padding: 3px 6px; border-radius: 3px; }
+.alert.high .tag { color: var(--high); border: 1px solid var(--high); }
+.alert.medium .tag { color: var(--medium); border: 1px solid var(--medium); }
+.alert.info .tag { color: var(--info); border: 1px solid var(--info); }
+.tag.change { color: var(--muted); border: 1px solid var(--line); }
+.calm { background: var(--surface); border: 1px solid var(--line); border-radius: 10px; padding: 12px 14px; color: var(--muted); }
+
+.day { display: grid; gap: 6px; }
+.day-label { font-family: var(--f-display); font-weight: 600; font-size: 18px; padding-top: 6px; }
+.item {
+  background: var(--surface); border: 1px solid var(--line); border-radius: 10px; padding: 12px 14px;
+  display: grid; grid-template-columns: 64px 1fr; gap: 2px 14px; position: relative;
+}
+.item.flag-high { border-color: var(--high); box-shadow: inset 4px 0 0 var(--high); }
+.item.flag-medium { box-shadow: inset 4px 0 0 var(--medium); }
+.item.flag-info { box-shadow: inset 4px 0 0 var(--info); }
+.time { font-family: var(--f-mono); font-size: 15px; font-weight: 500; grid-row: span 3; }
+.time small { display: block; color: var(--muted); font-size: 12px; font-weight: 400; }
+.time s { display: block; color: var(--muted); font-size: 12px; }
+.kind { font: 500 11px/1.2 var(--f-mono); letter-spacing: .1em; text-transform: uppercase; color: var(--accent); }
+.item h4 { margin: 0; font-size: 16px; font-weight: 600; min-width: 0; overflow-wrap: anywhere; }
+.sub { color: var(--muted); font-size: 13px; min-width: 0; overflow-wrap: anywhere; }
+.code { grid-column: 2; font-family: var(--f-mono); font-size: 12px; color: var(--muted); overflow-wrap: anywhere; }
+.code.full { color: var(--ink); }
+.item.gap { background: transparent; border-style: dashed; }
+.item.gap h4 { color: var(--medium); }
+
+.foot { color: var(--muted); font-size: 13px; display: grid; gap: 8px; border-top: 1px solid var(--line); padding-top: 14px; }
+.btn { font: 500 13px/1 var(--f-body); color: var(--ink); background: var(--surface); border: 1px solid var(--line); border-radius: 6px; padding: 7px 10px; cursor: pointer; }
+.btn[aria-pressed="true"] { border-color: var(--accent); color: var(--accent); }
+.sample { background: var(--medium-bg); color: var(--ink); border: 1px solid var(--medium); border-radius: 10px; padding: 10px 14px; font-size: 14px; }
+.empty { background: var(--surface); border: 1px dashed var(--line); border-radius: 14px; padding: 28px 20px; display: grid; gap: 8px; }
+.empty h2 { font-family: var(--f-display); font-size: 28px; }
+.empty code { font-family: var(--f-mono); background: var(--bg); padding: 2px 6px; border-radius: 4px; }
+@media (max-width: 420px) { .item { grid-template-columns: 54px 1fr; gap: 2px 10px; } }
+@media (prefers-reduced-motion: no-preference) { .board { animation: rise .35s ease-out both; } @keyframes rise { from { transform: translateY(6px); } to { transform: none; } } }
+</style>
+
+<!--WAYFARE_STATIC_DATA-->
+<div class="wrap">
+  <header class="top">
+    <div class="brand">Way<span>fare</span></div>
+    <div class="meta"><span id="updated">Loading trips…</span><button class="btn" id="codes" type="button" hidden aria-pressed="false">Show booking codes</button></div>
+  </header>
+  <div class="sample" id="sample" hidden>Sample trips with made-up bookings. Your own trips replace them at the first <code>/wayfare:sync</code>.</div>
+  <nav class="tabs" id="tabs" role="tablist" aria-label="Trips"></nav>
+  <main id="main" class="wrap" style="gap:20px">
+    <div class="empty" id="placeholder">
+      <h2>Your trips appear here</h2>
+      <p>Wayfare reads travel confirmations from your inbox and builds each trip here: flights, stays, trains and tables, plus nights with no stay booked, tight connections and schedule changes.</p>
+      <p>In Claude, run <code>/wayfare:setup</code>, then <code>/wayfare:sync</code>.</p>
+    </div>
+  </main>
+  <footer class="foot" id="foot">
+    <div>This page only shows trips. To change anything, ask Claude: <code>/wayfare:sync</code> to read new emails, <code>/wayfare:fares</code> to look for lower fares.</div>
+    <div>Shared viewers never see full booking codes or prices.</div>
+  </footer>
+</div>
+
+<script>
+(function () {
+  "use strict";
+  var state = { trips: [], status: null, active: null, privateMap: null, showCodes: false, isOwner: false, source: "none" };
+  var TYPE_LABEL = { flight: "Flight", train: "Train", transfer: "Transfer", hotel: "Stay", dining: "Table", other: "Plan" };
+
+  function el(tag, attrs, children) {
+    var n = document.createElement(tag);
+    if (attrs) for (var k in attrs) {
+      if (k === "text") n.textContent = attrs[k];
+      else if (k === "class") n.className = attrs[k];
+      else n.setAttribute(k, attrs[k]);
+    }
+    (children || []).forEach(function (c) { if (c) n.appendChild(typeof c === "string" ? document.createTextNode(c) : c); });
+    return n;
+  }
+
+  function ago(iso) {
+    if (!iso) return "";
+    var mins = Math.round((Date.now() - new Date(iso).getTime()) / 60000);
+    if (isNaN(mins)) return "";
+    if (mins < 2) return "Updated just now";
+    if (mins < 60) return "Updated " + mins + " min ago";
+    var h = Math.round(mins / 60);
+    if (h < 48) return "Updated " + h + " h ago";
+    return "Updated " + Math.round(h / 24) + " days ago";
+  }
+
+  function countdown(days) {
+    if (days > 1) return [String(days), "days to go"];
+    if (days === 1) return ["1", "day to go"];
+    if (days === 0) return ["Today", ""];
+    return ["Now", "on the road"];
+  }
+
+  function renderTabs() {
+    var tabs = document.getElementById("tabs");
+    tabs.textContent = "";
+    tabs.hidden = state.trips.length < 2;
+    state.trips.forEach(function (t) {
+      var b = el("button", { class: "tab", type: "button", role: "tab", id: "tab-" + t.slug, "aria-selected": String(t.slug === state.active) }, [t.title + " · " + t.dates]);
+      if (t.counts && t.counts.high) b.appendChild(el("span", { class: "dot", "aria-label": t.counts.high + " urgent" }));
+      b.addEventListener("click", function () { state.active = t.slug; try { localStorage.setItem("wayfare-tab", t.slug); } catch (e) {} render(); });
+      tabs.appendChild(b);
+    });
+  }
+
+  function codeFor(item) {
+    if (state.showCodes && state.privateMap && state.privateMap[item.id] && state.privateMap[item.id].confirmation) {
+      return el("span", { class: "code full", text: "Code " + state.privateMap[item.id].confirmation });
+    }
+    return item.code ? el("span", { class: "code", text: "Code " + item.code }) : null;
+  }
+
+  function renderTrip(t) {
+    var main = document.getElementById("main");
+    main.textContent = "";
+    var flags = {};
+    (t.alerts || []).forEach(function (a) {
+      (a.itemIds || []).forEach(function (id) { if (!flags[id] || a.level === "high") flags[id] = a.level; });
+    });
+
+    // Board
+    var cd = countdown(t.daysUntil);
+    var board = el("div", { class: "board" }, [
+      el("div", { class: "board-head" }, [
+        el("div", null, [el("h2", { text: t.title }), el("div", { class: "dates", text: t.dates + " · " + t.travellers + (t.travellers > 1 ? " travellers" : " traveller") })]),
+        el("div", { class: "countdown" }, [el("b", { text: cd[0] }), cd[1]])
+      ])
+    ]);
+    if (t.next) board.appendChild(el("div", { class: "next" }, [el("span", { class: "label", text: "Next" }), el("span", { class: "what", text: t.next.title }), el("span", { class: "when", text: t.next.when })]));
+    var stats = el("div", { class: "stats" });
+    if (t.counts.high) stats.appendChild(el("span", { class: "chip high", text: t.counts.high + " urgent" }));
+    if (t.counts.medium) stats.appendChild(el("span", { class: "chip", text: t.counts.medium + " to check" }));
+    if (t.counts.gapNights) stats.appendChild(el("span", { class: "chip", text: t.counts.gapNights + " night" + (t.counts.gapNights > 1 ? "s" : "") + " unbooked" }));
+    stats.appendChild(el("span", { class: "chip", text: t.items.length + " bookings" }));
+    board.appendChild(stats);
+    main.appendChild(board);
+
+    // Attention
+    var sec = el("section", { "aria-labelledby": "att" }, [el("h2", { class: "sec-title", id: "att", text: "Needs attention" })]);
+    if (!t.alerts.length) sec.appendChild(el("div", { class: "calm", text: "Nothing to fix. Wayfare checks again at the next sync." }));
+    var list = el("div", { class: "alerts" });
+    t.alerts.forEach(function (a) {
+      var h = el("h3", null, [el("span", { class: "tag", text: a.level === "high" ? "Urgent" : a.level === "medium" ? "Check" : "Good to know" }), a.title]);
+      if (a.fromChange) h.appendChild(el("span", { class: "tag change", text: "Caused by schedule change" }));
+      list.appendChild(el("div", { class: "alert " + a.level }, [h, el("p", { text: a.detail })]));
+    });
+    sec.appendChild(list);
+    main.appendChild(sec);
+
+    // Timeline by day, with gaps placed on their first night
+    var days = {}, order = [];
+    function bucket(day, label) { if (!days[day]) { days[day] = { label: label, rows: [] }; order.push(day); } return days[day]; }
+    t.items.forEach(function (it) { bucket(it.day, it.dayLabel).rows.push({ kind: "item", it: it }); });
+    (t.gaps || []).forEach(function (g) {
+      var d = new Date(g.firstNight + "T12:00:00Z");
+      var label = ["Sun", "Mon", "Tue", "Wed", "Thu", "Fri", "Sat"][d.getUTCDay()] + " " + d.getUTCDate() + " " + ["Jan", "Feb", "Mar", "Apr", "May", "Jun", "Jul", "Aug", "Sep", "Oct", "Nov", "Dec"][d.getUTCMonth()];
+      bucket(g.firstNight, label).rows.push({ kind: "gap", g: g });
+    });
+    order.sort();
+    var tl = el("section", { "aria-labelledby": "tl" }, [el("h2", { class: "sec-title", id: "tl", text: "Day by day" })]);
+    order.forEach(function (day) {
+      var box = el("div", { class: "day" }, [el("h3", { class: "day-label", text: days[day].label })]);
+      days[day].rows.forEach(function (r) {
+        if (r.kind === "gap") {
+          box.appendChild(el("div", { class: "item gap" }, [
+            el("div", { class: "time", text: "Night" }),
+            el("span", { class: "kind", text: "No stay booked" }),
+            el("h4", { text: r.g.nights + " night" + (r.g.nights > 1 ? "s" : "") + (r.g.city ? " in " + r.g.city : "") }),
+            el("span", { class: "sub", text: "Nothing in your bookings covers these nights." })
+          ]));
+          return;
+        }
+        var it = r.it;
+        var time = el("div", { class: "time" }, [it.type === "hotel" ? "In" : it.time]);
+        if (it.previous && it.previous.depart) time.appendChild(el("s", { text: it.previous.depart.split("· ")[1] || "" }));
+        if (it.endTime) time.appendChild(el("small", { text: "→ " + it.endTime + (it.endDayOffset ? " +" + it.endDayOffset : "") }));
+        var cls = "item" + (flags[it.id] ? " flag-" + flags[it.id] : "");
+        var kind = (TYPE_LABEL[it.type] || "Plan") + (it.status === "changed" ? " · Changed" : "");
+        var sub = it.subtitle || "";
+        if (it.type === "hotel") sub = (sub ? sub + " · " : "") + it.until + ", to " + it.when.split("→ ")[1];
+        box.appendChild(el("div", { class: cls }, [time, el("span", { class: "kind", text: kind }), el("h4", { text: it.title }), el("span", { class: "sub", text: sub }), codeFor(it)]));
+      });
+      tl.appendChild(box);
+    });
+    main.appendChild(tl);
+  }
+
+  function renderEmpty(title, lines) {
+    var main = document.getElementById("main");
+    main.textContent = "";
+    var box = el("div", { class: "empty" }, [el("h2", { text: title })]);
+    lines.forEach(function (l) { box.appendChild(el("p", { text: l })); });
+    main.appendChild(box);
+  }
+
+  function render() {
+    var s = state.status;
+    document.getElementById("updated").textContent = s ? ago(s.updatedAt) : (state.source === "db" ? "No sync yet" : "");
+    var codes = document.getElementById("codes");
+    codes.hidden = !state.privateMap;
+    codes.setAttribute("aria-pressed", String(state.showCodes));
+    codes.textContent = state.showCodes ? "Hide booking codes" : "Show booking codes";
+    renderTabs();
+    var banner = document.getElementById("sample");
+    banner.hidden = !(s && s.sample);
+    if (!state.trips.length) {
+      if (state.source === "nodb") return renderEmpty("Sign in to see these trips", ["This page reads trip data that only signed-in Claude users can see. Sign in with the account the trips were shared with."]);
+      if (state.source === "db" || state.source === "static") return renderEmpty("No upcoming trips", ["When Claude finds travel confirmations in your inbox, your trips appear here. In Claude, run /wayfare:sync."]);
+      return;
+    }
+    var t = state.trips.filter(function (x) { return x.slug === state.active; })[0] || state.trips[0];
+    state.active = t.slug;
+    renderTrip(t);
+  }
+
+  function setTrips(trips) {
+    state.trips = trips.slice().sort(function (a, b) { return a.startDate < b.startDate ? -1 : 1; });
+    if (!state.active) { try { state.active = localStorage.getItem("wayfare-tab"); } catch (e) {} }
+  }
+
+  document.getElementById("codes").addEventListener("click", function () { state.showCodes = !state.showCodes; render(); });
+
+  // 1. Static copy (render-static): data is embedded in the page.
+  var staticNode = document.getElementById("wayfare-static");
+  if (staticNode) {
+    try {
+      var data = JSON.parse(staticNode.textContent);
+      setTrips(data.trips || []); state.status = data.status || null; state.source = "static";
+      if (data.privateBookings) {
+        state.privateMap = {};
+        data.privateBookings.forEach(function (b) { state.privateMap[b.id] = b; });
+      }
+    } catch (e) { state.source = "static"; }
+    render();
+    return;
+  }
+
+  // 2. Published artifact: read the artifact database. Only the owner can read private/bookings.
+  if (!window.claude || typeof window.claude.use !== "function") { state.source = "nodb"; render(); return; }
+  window.claude.use("db").then(function (db) {
+    if (!db) { state.source = "nodb"; render(); return; }
+    state.source = "db";
+    db.collection("trips").onSnapshot(function (snap) {
+      setTrips(snap.docs.filter(function (d) { return d.exists; }).map(function (d) { return d.data(); }));
+      render();
+    }, function () { render(); });
+    db.doc("meta/status").onSnapshot(function (d) { state.status = d.exists ? d.data() : null; render(); }, function () {});
+    window.claude.use("user").then(function (user) {
+      if (!user) return null;
+      return user.isOwner();
+    }).then(function (owner) {
+      if (!owner) return;
+      state.isOwner = true;
+      db.doc("private/bookings").get().then(function (d) {
+        if (!d.exists) return;
+        state.privateMap = {};
+        (d.data().bookings || []).forEach(function (b) { state.privateMap[b.id] = b; });
+        render();
+      }).catch(function () {});
+    }).catch(function () {});
+  });
+  render();
+})();
+</script>
