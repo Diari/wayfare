@@ -13,22 +13,30 @@ the parts that must be exact and repeatable:
 
 Commands
   validate       Check a bookings file and print problems.
-  build          Build dashboard documents and an ArtifactData batch file.
-  render-static  Write a standalone HTML dashboard (for Claude Code in a
-                 terminal, or for local testing).
+  merge          Merge newly extracted bookings into the stored list.
+  build          Build one batch per trip page, page files for new trips,
+                 and the pending home index.
+  home-batch     After new trip pages are published, write the home batch
+                 with their links.
+  capabilities   Print the runtime capabilities for a trip or home page.
+  render-static  Write standalone HTML pages (for Claude Code in a terminal,
+                 or for local testing).
 """
 from __future__ import annotations
 
 import argparse
+import hashlib
+import html
 import json
 import re
 import sys
+from urllib.parse import urlencode
 from dataclasses import dataclass, field
 from datetime import date, datetime, timedelta, timezone
 from pathlib import Path
 from typing import Any
 
-ENGINE_VERSION = "0.1.0"
+ENGINE_VERSION = "0.2.0"
 TRANSPORT = {"flight", "train", "transfer"}
 TYPES = TRANSPORT | {"hotel", "dining", "other"}
 STATUSES = {"confirmed", "changed", "cancelled"}
@@ -151,6 +159,8 @@ def validate_booking(b: Any, idx: int) -> list[str]:
     if price is not None:
         if not isinstance(price, dict) or not isinstance(price.get("amount"), (int, float)) or not price.get("currency"):
             errs.append(f"{where}: 'price' must be {{amount: number, currency: 'EUR'}}")
+    if b.get("manageUrl") and not str(b["manageUrl"]).startswith("https://"):
+        errs.append(f"{where}: manageUrl must start with https://")
     def need_dt(key: str) -> None:
         if not b.get(key):
             errs.append(f"{where}: missing '{key}'")
@@ -468,6 +478,68 @@ def title_of(it: Item) -> str:
     return r.get("name", it.type.title())
 
 
+# ----------------------------------------------------------------- links and alert identity
+
+def maps_url(query: str) -> str:
+    return "https://www.google.com/maps/search/?api=1&" + urlencode({"query": query})
+
+
+def search_url(query: str) -> str:
+    return "https://www.google.com/search?" + urlencode({"q": query})
+
+
+def stays_search_url(city: str, check_in: str, check_out: str, guests: int) -> str:
+    return "https://www.booking.com/searchresults.html?" + urlencode(
+        {"ss": city, "checkin": check_in, "checkout": check_out, "group_adults": guests, "no_rooms": 1})
+
+
+def provider_of(raw: dict) -> str:
+    return raw.get("bookedVia") or raw.get("provider") or ""
+
+
+def manage_link(raw: dict) -> dict | None:
+    """A shared-safe link: a search for the provider's manage-booking page.
+    The direct link from the email (manageUrl) can carry a login token, so
+    it stays in the owner-only data."""
+    p = provider_of(raw)
+    if not p:
+        return None
+    return {"label": f"Manage booking · {p}", "url": search_url(f"{p} manage booking")}
+
+
+def short_hash(text: str, n: int = 12) -> str:
+    return hashlib.sha1(text.encode("utf-8")).hexdigest()[:n]
+
+
+def enrich_alert(a: dict, by_id: dict[str, Item], travellers: int) -> dict:
+    """Add a stable id, a fingerprint, links and an optional Ask-Claude request."""
+    key = a.get("key", "")
+    a["id"] = f"{a['kind']}-{short_hash(a['kind'] + '|' + '|'.join(sorted(a['itemIds'])) + '|' + key)}"
+    volatile = a["kind"] in ("fare_drop",)
+    fp_text = a["title"] + ("" if volatile else "|" + a["detail"])
+    a["fingerprint"] = short_hash(fp_text, 10)
+    links: list[dict] = []
+    items = [by_id[i] for i in a["itemIds"] if i in by_id]
+    if a["kind"] == "lodging_gap":
+        g = a["gap"]
+        check_out = (parse_date(g["lastNight"]) + timedelta(days=1)).isoformat()
+        links.append({"label": f"Search stays in {g['city']}" if g["city"] else "Search stays",
+                      "url": stays_search_url(g["city"], g["firstNight"], check_out, travellers)})
+        if g["city"]:
+            links.append({"label": "Hotels on the map", "url": maps_url(f"hotels in {g['city']}")})
+        a["ask"] = {"kind": "find-stays", "label": "Ask Claude for stays", "city": g["city"],
+                    "checkIn": g["firstNight"], "checkOut": check_out, "guests": travellers}
+    else:
+        for it in items:
+            if it.type in ("hotel", "dining"):
+                links.append({"label": f"{it.raw.get('name')} on the map", "url": maps_url(f"{it.raw.get('name')} {it.raw.get('city', '')}")})
+            m = manage_link(it.raw)
+            if m and m["url"] not in {l["url"] for l in links}:
+                links.append(m)
+    a["links"] = links[:4]
+    return a
+
+
 # ----------------------------------------------------------------- output
 
 def display_key(it: Item, items: list[Item]) -> datetime:
@@ -481,24 +553,26 @@ def display_key(it: Item, items: list[Item]) -> datetime:
 
 
 def public_item(it: Item) -> dict:
-    """Shared-safe view of a booking: no prices, no full codes, no notes."""
+    """Shared-safe view of a booking: no prices, no full codes, no notes, no manage links."""
     r = it.raw
     base = {"id": it.id, "type": it.type, "status": it.status, "code": mask_code(r.get("confirmation")),
             "day": it.start_date.isoformat(), "dayLabel": day_label(it.start_date),
             "time": it.start.strftime("%H:%M") if it.type != "hotel" else (r.get("checkInFrom") or "Check-in"),
             "endTime": it.end.strftime("%H:%M") if it.type in TRANSPORT else None,
-            "endDayOffset": (it.end_date - it.start_date).days if it.type in TRANSPORT else 0}
+            "endDayOffset": (it.end_date - it.start_date).days if it.type in TRANSPORT else 0,
+            "links": []}
     if it.type in TRANSPORT:
         route = f"{r.get('from', '')} → {r.get('to', '')}" if it.type == "flight" else f"{it.city_from} → {it.city_to}"
         sub = [s for s in [r.get("provider"), f"{r.get('carrier', '')} {r.get('flightNumber', '')}".strip() if it.type == "flight" else r.get("name"),
-                           r.get("cabin"), f"{r['travelers']} travellers" if r.get("travelers", 1) > 1 else None] if s]
+                           r.get("cabin"), f"{r['travelers']} travellers" if (r.get("travelers") or 1) > 1 else None] if s]
         base.update({
-            "title": f"{it.city_from} → {it.city_to}" if it.type == "flight" else route,
+            "title": f"{it.city_from} → {it.city_to}",
             "route": route,
             "subtitle": " · ".join(sub),
             "when": time_label(it.start),
             "until": time_label(it.end) if it.end_date != it.start_date else it.end.strftime("%H:%M"),
-            "sortKey": it.start.astimezone(timezone.utc).isoformat(),
+            "calendar": {"summary": f"{title_of(it)} {route}", "start": r["depart"], "end": r["arrive"],
+                         "location": r.get("from") if it.type == "flight" else r.get("from", "")},
         })
         if it.status == "changed" and r.get("previous"):
             p = r["previous"]
@@ -507,88 +581,173 @@ def public_item(it: Item) -> dict:
         n = (it.end_date - it.start_date).days
         base.update({
             "title": r["name"],
-            "subtitle": " · ".join(s for s in [r["city"], r.get("provider"), f"{r['travelers']} guests" if r.get("travelers", 1) > 1 else None] if s),
+            "subtitle": " · ".join(s for s in [r["city"], r.get("provider"), f"{r['travelers']} guests" if (r.get("travelers") or 1) > 1 else None] if s),
             "when": f"{day_label(it.start_date)} → {day_label(it.end_date)}",
             "until": f"{n} night{'s' if n != 1 else ''}",
-            "sortKey": it.start.isoformat(),
+            "calendar": {"summary": f"Stay: {r['name']}", "allDay": True, "start": r["checkIn"], "end": r["checkOut"],
+                         "location": f"{r['name']}, {r['city']}"},
         })
+        base["links"].append({"label": "Map", "url": maps_url(f"{r['name']} {r['city']}")})
     else:
         base.update({
             "title": r["name"],
             "subtitle": " · ".join(s for s in [r.get("city"), r.get("provider"), f"Table for {r['partySize']}" if r.get("partySize") else None] if s),
             "when": time_label(it.start),
             "until": "",
-            "sortKey": it.start.astimezone(timezone.utc).isoformat(),
+            "calendar": {"summary": r["name"], "start": r["start"],
+                         "end": r.get("end") or (it.end.isoformat()), "location": f"{r['name']}, {r.get('city', '')}"},
         })
+        base["links"].append({"label": "Map", "url": maps_url(f"{r['name']} {r.get('city', '')}")})
     return base
 
 
-def build(bookings: list[dict], profile: dict, fares_list: list[dict], now: datetime) -> dict:
+def private_item(b: dict) -> dict:
+    """Owner-only extras for one booking."""
+    out = {k: b[k] for k in ("id", "confirmation", "price", "bookedVia", "provider", "refundable") if k in b}
+    if b.get("manageUrl", "").startswith("https://"):
+        out["manageUrl"] = b["manageUrl"]
+    return out
+
+
+def apply_actions(alerts: list[dict], actions: dict[str, dict], now: datetime) -> None:
+    """A user's Done / Not a problem / Later applies while the alert's
+    fingerprint is unchanged (and, for Later, until its date)."""
+    for a in alerts:
+        act = actions.get(a["id"])
+        if not act or act.get("fingerprint") != a["fingerprint"]:
+            continue
+        st = act.get("status")
+        if st == "snoozed":
+            try:
+                until = parse_dt(act.get("until", ""))
+            except ValueError:
+                continue
+            if until > now:
+                a["resolution"] = "snoozed"; a["until"] = act["until"]
+        elif st in ("done", "ignored"):
+            a["resolution"] = st
+
+
+def match_trips(computed: list[tuple[Trip, set[str]]], index: list[dict]) -> dict[int, dict]:
+    """Keep each trip on its own page across syncs: match by shared bookings."""
+    pairs = []
+    for ci, (_, ids) in enumerate(computed):
+        for ei, e in enumerate(index):
+            overlap = len(ids & set(e.get("bookingIds", [])))
+            if overlap:
+                pairs.append((overlap, ci, ei))
+    pairs.sort(reverse=True)
+    used_c, used_e, result = set(), set(), {}
+    for _, ci, ei in pairs:
+        if ci in used_c or ei in used_e:
+            continue
+        used_c.add(ci); used_e.add(ei); result[ci] = index[ei]
+    return result
+
+
+def build(bookings: list[dict], profile: dict, fares_list: list[dict], now: datetime,
+          index: list[dict] | None = None, actions: dict[str, dict[str, dict]] | None = None,
+          agent: dict | None = None, sample: bool = False) -> dict:
     prof = {**DEFAULT_PROFILE, **{k: v for k, v in (profile or {}).items() if v not in (None, "")}}
     prof["homeAirports"] = [a.upper() for a in prof.get("homeAirports") or []]
     fares = {f["bookingId"]: f for f in fares_list or []}
+    index = [dict(e) for e in (index or [])]
+    actions = actions or {}
+    by_raw = {b["id"]: b for b in bookings}
     active = [b for b in bookings if b.get("status", "confirmed") != "cancelled"]
     items = [to_item(b) for b in active]
-    trips_out = []
-    used_slugs: set[str] = set()
-    for trip in group_trips(items, prof):
-        if trip.end < now - timedelta(days=3):
-            continue  # finished trips leave the dashboard
+    groups = [t for t in group_trips(items, prof) if t.end >= now - timedelta(days=3)]
+    computed = [(t, {i.id for i in t.items}) for t in groups]
+    matched = match_trips(computed, index)
+    taken = {e["slug"] for e in index}
+    stamp = now.astimezone(timezone.utc).isoformat(timespec="seconds")
+    trips_out: list[dict] = []
+    for ci, (trip, ids) in enumerate(computed):
         city = trip_city(trip, prof)
         start_d = min(i.start_date for i in trip.items)
         end_d = max(i.end_date for i in trip.items)
-        slug = slugify(f"{city}-{start_d.strftime('%Y-%m')}")
-        base = slug; n = 2
-        while slug in used_slugs:
-            slug = f"{base}-{n}"; n += 1
-        used_slugs.add(slug)
+        cities = trip_cities(trip, prof)
+        title = " & ".join(cities[:2]) if cities else city
+        entry = matched.get(ci)
+        if entry:
+            slug, page_title, url = entry["slug"], entry.get("pageTitle") or title, entry.get("url")
+        else:
+            base = slugify(f"{city}-{start_d.strftime('%Y-%m')}")
+            slug, n = base, 2
+            while slug in taken:
+                slug = f"{base}-{n}"; n += 1
+            page_title, url = f"{title}, {MONTHS[start_d.month - 1]} {start_d.year}", None
+        taken.add(slug)
+        by_id = {i.id: i for i in trip.items}
+        travellers = max([int(i.raw.get("travelers") or 1) for i in trip.items] + [1])
         gaps = lodging_gaps(trip, prof)
         alerts = find_alerts(trip, prof, fares)
         for g in gaps:
-            alerts.append(alert("medium", "lodging_gap", g["label"], "Nothing in your bookings covers these nights.", []))
+            a = alert("medium", "lodging_gap", g["label"], "Nothing in your bookings covers these nights.", [])
+            a["key"] = g["firstNight"] + "|" + g["city"]; a["gap"] = g
+            alerts.append(a)
+        for a in alerts:
+            enrich_alert(a, by_id, travellers)
+        apply_actions(alerts, actions.get(slug, {}), now)
         order = {"high": 0, "medium": 1, "info": 2}
-        alerts.sort(key=lambda a: order[a["level"]])
-        travellers = max([int(i.raw.get("travelers") or 1) for i in trip.items] + [1])
-        cities = trip_cities(trip, prof)
+        alerts.sort(key=lambda a: (a.get("resolution") is not None, order[a["level"]]))
         ordered = sorted(trip.items, key=lambda i: display_key(i, trip.items))
-        public_items = [public_item(i) for i in ordered]
-        for p, i in zip(public_items, ordered):
+        pub_items = [public_item(i) for i in ordered]
+        for p, i in zip(pub_items, ordered):
             p["sortKey"] = display_key(i, trip.items).isoformat()
-        nxt = next((p for p, i in zip(public_items, ordered) if i.end >= now), None)
-        trips_out.append({
-            "slug": slug,
-            "title": " & ".join(cities[:2]) if cities else city,
-            "city": city,
-            "startDate": start_d.isoformat(),
-            "endDate": end_d.isoformat(),
-            "dates": range_label(start_d, end_d),
-            "travellers": travellers,
-            "daysUntil": (start_d - now.date()).days,
-            "items": public_items,
-            "gaps": gaps,
-            "alerts": alerts,
+        nxt = next((p for p, i in zip(pub_items, ordered) if i.end >= now), None)
+        open_alerts = [a for a in alerts if not a.get("resolution")]
+        status = "ongoing" if start_d <= now.date() <= end_d else ("past" if end_d < now.date() else "upcoming")
+        counts = {
+            "high": sum(a["level"] == "high" for a in open_alerts),
+            "medium": sum(a["level"] == "medium" for a in open_alerts),
+            "info": sum(a["level"] == "info" for a in open_alerts),
+            "handled": len(alerts) - len(open_alerts),
+            "gapNights": sum(g["nights"] for g in gaps),
+        }
+        public = {
+            "slug": slug, "title": title, "pageTitle": page_title, "city": city,
+            "startDate": start_d.isoformat(), "endDate": end_d.isoformat(), "dates": range_label(start_d, end_d),
+            "travellers": travellers, "daysUntil": (start_d - now.date()).days, "status": status,
+            "items": pub_items, "gaps": gaps, "alerts": alerts,
             "next": {"title": nxt["title"], "when": nxt["when"]} if nxt else None,
-            "counts": {
-                "high": sum(a["level"] == "high" for a in alerts),
-                "medium": sum(a["level"] == "medium" for a in alerts),
-                "info": sum(a["level"] == "info" for a in alerts),
-                "gapNights": sum(g["nights"] for g in gaps),
-            },
-        })
-    trips_out.sort(key=lambda t: t["startDate"])
-    status = {
-        "engineVersion": ENGINE_VERSION,
-        "updatedAt": now.astimezone(timezone.utc).isoformat(timespec="seconds"),
-        "tripSlugs": [t["slug"] for t in trips_out],
-        "bookingCount": len(active),
-        "alertCount": sum(len(t["alerts"]) for t in trips_out),
-        "highCount": sum(t["counts"]["high"] for t in trips_out),
-    }
-    # keep private bookings bounded: drop anything that ended > 30 days ago
+            "counts": counts, "updatedAt": stamp, "engineVersion": ENGINE_VERSION,
+        }
+        if sample:
+            public["sample"] = True
+        private = {
+            "items": {i.id: private_item(by_raw[i.id]) for i in trip.items},
+            "agent": agent or None, "updatedAt": stamp,
+        }
+        index_entry = {
+            "slug": slug, "url": url, "pageTitle": page_title, "title": title, "dates": public["dates"],
+            "startDate": public["startDate"], "endDate": public["endDate"], "status": status,
+            "counts": counts, "next": public["next"], "bookingIds": sorted(ids), "sample": sample or None,
+        }
+        trips_out.append({"slug": slug, "isNew": entry is None, "url": url, "public": public,
+                          "private": private, "index": index_entry})
+    trips_out.sort(key=lambda t: t["public"]["startDate"])
+    # Trips on the home index that no longer match anything
+    live = {t["slug"] for t in trips_out}
+    leftovers = []
+    for e in index:
+        if e["slug"] in live:
+            continue
+        e = dict(e)
+        if e.get("sample") and not sample:
+            e["status"] = "sample"          # sample page, no longer updated
+        elif e.get("endDate", "9999") < (now - timedelta(days=3)).date().isoformat():
+            e["status"] = "past"
+        else:
+            e["status"] = "cancelled"
+        leftovers.append(e)
     cutoff = now - timedelta(days=30)
-    kept = [b for b in bookings if to_item(b).end >= cutoff] if bookings else []
-    return {"trips": trips_out, "status": status, "privateBookings": kept, "profile": prof}
+    kept = [b for b in bookings if to_item(b).end >= cutoff]
+    return {"trips": trips_out, "leftovers": leftovers, "privateBookings": kept, "updatedAt": stamp,
+            "profile": prof, "sample": sample}
 
+
+# ----------------------------------------------------------------- merge
 
 def merge_key(b: dict) -> tuple:
     """Second identity for a booking, so a schedule-change email updates the
@@ -634,72 +793,172 @@ def merge(existing: list[dict], new: list[dict]) -> tuple[list[dict], list[str]]
     return out, notes
 
 
-def batch_writes(result: dict, profile_raw: dict, existing: dict[str, int], include_profile: bool,
-                 docs_dir: Path | None = None, write_bookings: bool = True) -> list[dict]:
-    """ArtifactData batch entries. `existing` maps 'collection/doc_id' to the
-    version last read; entries for existing docs get if_version, and trips
-    that are gone get a delete. With docs_dir, each document is written to a
-    file and the entry uses file_path (keeps the tool call small)."""
-    writes: list[dict] = []
 
-    def add(op: str, collection: str, doc_id: str, data: dict | None = None) -> None:
+# ----------------------------------------------------------------- batches
+
+TRIP_CAPABILITIES = {
+    "db": {"rules": [
+        {"path": "", "read": "view", "write": "owner"},
+        {"path": "private", "read": "owner", "write": "owner"},
+        {"path": "requests", "read": "owner", "write": "owner"},
+        {"path": "actions", "read": "view", "write": "admin"},
+        {"path": "todos", "read": "view", "write": "interact"},
+        {"path": "data/users/{self}", "write": "interact"},
+    ]},
+    "user": {},
+    "mcp": {"servers": [
+        {"server": "Google Calendar", "tools": ["create_event"]},
+        {"server": "Claude Code Remote", "tools": ["fire_trigger"]},
+    ]},
+}
+HOME_CAPABILITIES = {
+    "db": {"rules": [{"path": "", "read": "owner", "write": "owner"}]},
+    "user": {},
+    "mcp": {"servers": [{"server": "Claude Code Remote", "tools": ["fire_trigger"]}]},
+}
+
+
+class Batch:
+    def __init__(self, docs_dir: Path, versions: dict[str, int]):
+        self.docs_dir, self.versions, self.writes = docs_dir, versions, []
+
+    def add(self, op: str, collection: str, doc_id: str, data: dict | None = None) -> None:
+        key = f"{collection}/{doc_id}"
         e: dict[str, Any] = {"op": op, "collection": collection, "doc_id": doc_id}
         if data is not None:
-            if docs_dir is not None:
-                docs_dir.mkdir(parents=True, exist_ok=True)
-                f = docs_dir / f"{collection}__{doc_id}.json"
-                f.write_text(json.dumps(data, ensure_ascii=False), encoding="utf-8")
-                e["file_path"] = str(f.resolve())
-            else:
-                e["data"] = data
-        key = f"{collection}/{doc_id}"
-        if key in existing:
-            e["if_version"] = existing[key]
+            self.docs_dir.mkdir(parents=True, exist_ok=True)
+            f = self.docs_dir / f"{collection}__{doc_id}.json"
+            f.write_text(json.dumps(data, ensure_ascii=False), encoding="utf-8")
+            e["file_path"] = str(f.resolve())
+        if key in self.versions:
+            e["if_version"] = self.versions[key]
         elif op == "delete":
             return
-        writes.append(e)
+        self.writes.append(e)
 
+    def save(self, path: Path) -> None:
+        if len(self.writes) > 50:
+            raise SystemExit(f"{len(self.writes)} writes is over the 50-write batch limit")
+        path.parent.mkdir(parents=True, exist_ok=True)
+        path.write_text(json.dumps(self.writes, indent=1, ensure_ascii=False), encoding="utf-8")
+
+
+def page_html(template: str, page_title: str) -> str:
+    safe = html.escape(page_title, quote=False)
+    return re.sub(r"<title>.*?</title>", f"<title>{safe}</title>", template, count=1, flags=re.S)
+
+
+def write_outputs(result: dict, out: Path, versions: dict, template_path: Path) -> dict:
+    """Write per-trip batches, new page files and the pending home index."""
+    out.mkdir(parents=True, exist_ok=True)
+    (out / "capabilities-trip.json").write_text(json.dumps(TRIP_CAPABILITIES), encoding="utf-8")
+    (out / "capabilities-home.json").write_text(json.dumps(HOME_CAPABILITIES), encoding="utf-8")
+    template = template_path.read_text(encoding="utf-8")
+    plan: dict[str, Any] = {"newTrips": [], "trips": [], "homeBatch": "run: wayfare.py home-batch"}
+    tv = versions.get("trips", {})
     for t in result["trips"]:
-        add("set", "trips", t["slug"], t)
-    for key in existing:
-        coll, _, doc = key.rpartition("/")
-        if coll == "trips" and doc not in {t["slug"] for t in result["trips"]}:
-            add("delete", "trips", doc)
-    add("set", "meta", "status", result["status"])
-    if write_bookings:  # sample data never goes into the real booking list
-        add("set", "private", "bookings", {"bookings": result["privateBookings"],
-                                           "updatedAt": result["status"]["updatedAt"]})
-    if include_profile:
-        add("set", "private", "profile", profile_raw)
-    if len(writes) > 50:
-        raise SystemExit(f"{len(writes)} writes is over the 50-write batch limit; split the batch")
-    return writes
+        slug = t["slug"]
+        b = Batch(out / "trips" / slug / "docs", tv.get(slug, {}))
+        b.add("set", "trip", "data", t["public"])
+        b.add("set", "private", "data", t["private"])
+        batch_path = out / "trips" / slug / "batch.json"
+        b.save(batch_path)
+        entry = {"slug": slug, "pageTitle": t["public"]["pageTitle"], "url": t["url"], "batch": str(batch_path)}
+        if t["isNew"]:
+            page = out / "pages" / f"{slug}.html"
+            page.parent.mkdir(parents=True, exist_ok=True)
+            page.write_text(page_html(template, t["public"]["pageTitle"]), encoding="utf-8")
+            entry["page"] = str(page)
+            plan["newTrips"].append(entry)
+        plan["trips"].append(entry)
+    for e in result["leftovers"]:
+        if e["status"] == "cancelled" and e.get("url"):
+            b = Batch(out / "trips" / e["slug"] / "docs", tv.get(e["slug"], {}))
+            if "trip/data" in tv.get(e["slug"], {}):
+                b.add("update", "trip", "data", {"status": "cancelled", "updatedAt": result["updatedAt"]})
+                batch_path = out / "trips" / e["slug"] / "batch.json"
+                b.save(batch_path)
+                plan["trips"].append({"slug": e["slug"], "url": e["url"], "batch": str(batch_path), "cancelled": True})
+    pending = {
+        "index": [t["index"] for t in result["trips"]] + result["leftovers"],
+        "privateBookings": None if result["sample"] else result["privateBookings"],
+        "updatedAt": result["updatedAt"],
+        "versions": versions.get("home", {}),
+    }
+    (out / "home-pending.json").write_text(json.dumps(pending, ensure_ascii=False), encoding="utf-8")
+    (out / "plan.json").write_text(json.dumps(plan, indent=1, ensure_ascii=False), encoding="utf-8")
+    return plan
+
+
+def home_batch(out: Path, urls: dict[str, str]) -> Path:
+    pending = json.loads((out / "home-pending.json").read_text(encoding="utf-8"))
+    index = pending["index"]
+    missing = []
+    for e in index:
+        if not e.get("url"):
+            e["url"] = urls.get(e["slug"])
+            if not e["url"]:
+                missing.append(e["slug"])
+    if missing:
+        raise SystemExit(f"No page url for: {', '.join(missing)}. Publish those pages first and add them to --urls.")
+    b = Batch(out / "home" / "docs", pending["versions"])
+    b.add("set", "index", "trips", {"trips": index, "updatedAt": pending["updatedAt"], "engineVersion": ENGINE_VERSION})
+    if pending["privateBookings"] is not None:
+        b.add("set", "private", "bookings", {"bookings": pending["privateBookings"], "updatedAt": pending["updatedAt"]})
+    path = out / "home" / "batch.json"
+    b.save(path)
+    return path
 
 
 # ----------------------------------------------------------------- CLI
 
-def load_json(path: str | None, default: Any) -> Any:
+def load_json(path: str | Path | None, default: Any) -> Any:
     if not path:
         return default
     p = Path(path)
     if not p.exists():
         return default
-    data = json.loads(p.read_text(encoding="utf-8"))
+    text = p.read_text(encoding="utf-8").strip()
+    return json.loads(text) if text else default
+
+
+def unwrap(data: Any) -> Any:
+    """Accept a saved db document either bare or as {data: {...}}."""
+    if isinstance(data, dict) and isinstance(data.get("data"), dict) and len(data) <= 3:
+        return data["data"]
     return data
 
 
 def load_bookings(path: str) -> list[dict]:
-    data = load_json(path, [])
-    # accept a bare array, {bookings: [...]}, or a saved db document {data: {bookings: [...]}, ...}
-    if isinstance(data, dict) and isinstance(data.get("data"), dict):
-        data = data["data"]
+    data = unwrap(load_json(path, []))
     if isinstance(data, dict) and "bookings" in data:
         data = data["bookings"]
     return data
 
 
+def load_actions(db_dir: str | None) -> dict[str, dict[str, dict]]:
+    """Read wayfare-work/db/trips/<slug>/actions/<alertId>.json files."""
+    out: dict[str, dict[str, dict]] = {}
+    if not db_dir:
+        return out
+    root = Path(db_dir)
+    for f in root.glob("*/actions/*.json"):
+        slug = f.parent.parent.name
+        try:
+            d = unwrap(json.loads(f.read_text(encoding="utf-8")))
+        except (OSError, ValueError):
+            continue
+        if isinstance(d, dict):
+            out.setdefault(slug, {})[d.get("alertId") or f.stem] = d
+    return out
+
+
 def get_now(arg: str | None) -> datetime:
     return parse_dt(arg) if arg else datetime.now(timezone.utc)
+
+
+def plugin_root() -> Path:
+    return Path(__file__).resolve().parent.parent
 
 
 def cmd_validate(a: argparse.Namespace) -> int:
@@ -711,35 +970,57 @@ def cmd_validate(a: argparse.Namespace) -> int:
     return 0
 
 
-def cmd_build(a: argparse.Namespace) -> int:
+def run_build(a: argparse.Namespace) -> dict:
     bookings = load_bookings(a.bookings)
     errs = validate(bookings)
     if errs:
-        print("Bookings are not valid. Fix these first:\n" + "\n".join(errs), file=sys.stderr)
-        return 1
-    profile_raw = load_json(a.profile, {})
-    if isinstance(profile_raw, dict) and "profile" in profile_raw and isinstance(profile_raw["profile"], dict):
-        profile_raw = profile_raw["profile"]
-    fares = load_json(a.fares, [])
+        raise SystemExit("Bookings are not valid. Fix these first:\n" + "\n".join(errs))
+    profile = unwrap(load_json(a.profile, {}))
+    fares = unwrap(load_json(a.fares, []))
     if isinstance(fares, dict):
         fares = fares.get("results", [])
-    result = build(bookings, profile_raw, fares, get_now(a.now))
-    if a.sample:
-        result["status"]["sample"] = True
-    existing = load_json(a.versions, {})
-    out = Path(a.out_dir); out.mkdir(parents=True, exist_ok=True)
-    writes = batch_writes(result, profile_raw, existing, a.include_profile, docs_dir=out / "docs",
-                          write_bookings=not a.sample)
-    (out / "batch.json").write_text(json.dumps(writes, indent=1, ensure_ascii=False), encoding="utf-8")
-    (out / "dashboard-data.json").write_text(json.dumps({"trips": result["trips"], "status": result["status"]},
-                                                        indent=1, ensure_ascii=False), encoding="utf-8")
-    s = result["status"]
-    print(json.dumps({
-        "trips": [{"slug": t["slug"], "title": t["title"], "dates": t["dates"],
-                   "alerts": [f"[{x['level']}] {x['title']}" for x in t["alerts"]]} for t in result["trips"]],
-        "bookings": s["bookingCount"], "writes": len(writes),
-        "batchFile": str(out / "batch.json"),
-    }, indent=1, ensure_ascii=False))
+    index = unwrap(load_json(getattr(a, "index", None), {}))
+    if isinstance(index, dict):
+        index = index.get("trips", [])
+    agent = unwrap(load_json(getattr(a, "agent", None), None))
+    return build(bookings, profile, fares, get_now(a.now), index=index,
+                 actions=load_actions(getattr(a, "trips_db", None)), agent=agent,
+                 sample=getattr(a, "sample", False))
+
+
+def cmd_build(a: argparse.Namespace) -> int:
+    result = run_build(a)
+    out = Path(a.out_dir)
+    versions = load_json(a.versions, {})
+    plan = write_outputs(result, out, versions, Path(a.template or plugin_root() / "dashboard" / "trip.html"))
+    summary = {
+        "trips": [{"slug": t["slug"], "page": t["public"]["pageTitle"], "new": t["isNew"],
+                   "open": [f"[{x['level']}] {x['title']}" for x in t["public"]["alerts"] if not x.get("resolution")],
+                   "handled": t["public"]["counts"]["handled"]} for t in result["trips"]],
+        "noLongerMatched": [{"slug": e["slug"], "status": e["status"]} for e in result["leftovers"]],
+        "newPages": [n["page"] for n in plan["newTrips"]],
+        "plan": str(out / "plan.json"),
+    }
+    print(json.dumps(summary, indent=1, ensure_ascii=False))
+    return 0
+
+
+def cmd_home_batch(a: argparse.Namespace) -> int:
+    path = home_batch(Path(a.out_dir), load_json(a.urls, {}))
+    print(f"Wrote {path}")
+    return 0
+
+
+def cmd_capabilities(a: argparse.Namespace) -> int:
+    print(json.dumps(TRIP_CAPABILITIES if a.page == "trip" else HOME_CAPABILITIES))
+    return 0
+
+
+def cmd_link(a: argparse.Namespace) -> int:
+    if a.kind == "stays":
+        print(stays_search_url(a.query, a.check_in, a.check_out, a.guests))
+    else:
+        print(maps_url(a.query))
     return 0
 
 
@@ -760,30 +1041,33 @@ def cmd_merge(a: argparse.Namespace) -> int:
     return 0
 
 
+STATIC_SKELETON = ('<!doctype html><html lang="en"><head><meta charset="utf-8">'
+                   '<meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">'
+                   '<style>:root{color-scheme:light}body{margin:0}[hidden]{display:none!important}</style>'
+                   '</head><body>%s</body></html>')
+
+
 def cmd_render_static(a: argparse.Namespace) -> int:
-    bookings = load_bookings(a.bookings)
-    errs = validate(bookings)
-    if errs:
-        print("\n".join(errs), file=sys.stderr)
-        return 1
-    result = build(bookings, load_json(a.profile, {}), load_json(a.fares, []), get_now(a.now))
-    template = Path(a.template or Path(__file__).resolve().parent.parent / "dashboard" / "index.html").read_text(encoding="utf-8")
-    payload = {"trips": result["trips"], "status": result["status"]}
-    if a.owner:
-        payload["privateBookings"] = result["privateBookings"]
-    blob = json.dumps(payload, ensure_ascii=False).replace("</", "<\\/")
+    """One standalone HTML file per trip, for Claude Code in a terminal or for testing."""
+    result = run_build(a)
+    template = Path(a.template or plugin_root() / "dashboard" / "trip.html").read_text(encoding="utf-8")
     marker = "<!--WAYFARE_STATIC_DATA-->"
     if marker not in template:
         print(f"template has no {marker} marker", file=sys.stderr)
         return 1
-    body = template.replace(marker, f'<script id="wayfare-static" type="application/json">{blob}</script>', 1)
-    # The template is an Artifact page (no document skeleton); add one for a standalone file.
-    html = ('<!doctype html><html lang="en"><head><meta charset="utf-8">'
-            '<meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">'
-            '<style>:root{color-scheme:light}body{margin:0}[hidden]{display:none!important}</style>'
-            f'</head><body>{body}</body></html>')
-    Path(a.out).write_text(html, encoding="utf-8")
-    print(f"Wrote {a.out}")
+    out = Path(a.out_dir); out.mkdir(parents=True, exist_ok=True)
+    written = []
+    for t in result["trips"]:
+        payload = {"trip": t["public"]}
+        if a.owner:
+            payload["private"] = {"items": t["private"]["items"]}
+        blob = json.dumps(payload, ensure_ascii=False).replace("</", "<\\/")
+        body = page_html(template, t["public"]["pageTitle"]).replace(
+            marker, f'<script id="wayfare-static" type="application/json">{blob}</script>', 1)
+        f = out / f"{t['slug']}.html"
+        f.write_text(STATIC_SKELETON % body, encoding="utf-8")
+        written.append(str(f))
+    print(json.dumps({"written": written}, indent=1))
     return 0
 
 
@@ -791,24 +1075,38 @@ def main(argv: list[str] | None = None) -> int:
     p = argparse.ArgumentParser(prog="wayfare", description=__doc__, formatter_class=argparse.RawDescriptionHelpFormatter)
     sub = p.add_subparsers(dest="cmd", required=True)
     v = sub.add_parser("validate"); v.add_argument("--bookings", required=True); v.set_defaults(fn=cmd_validate)
-    b = sub.add_parser("build")
-    b.add_argument("--bookings", required=True)
-    b.add_argument("--profile")
-    b.add_argument("--fares", help="fare_check.py output")
-    b.add_argument("--versions", help="JSON map {'trips/<slug>': version, 'meta/status': version, ...} of docs that exist")
-    b.add_argument("--include-profile", action="store_true", help="also write private/profile")
-    b.add_argument("--sample", action="store_true", help="mark the dashboard as showing sample data")
-    b.add_argument("--now", help="override current time (ISO with offset), for tests")
+
+    def build_args(sp: argparse.ArgumentParser) -> None:
+        sp.add_argument("--bookings", required=True)
+        sp.add_argument("--profile"); sp.add_argument("--fares", help="fare_check.py output or private/fares doc")
+        sp.add_argument("--index", help="home index/trips doc (trip slugs, page urls, booking ids)")
+        sp.add_argument("--trips-db", help="folder with <slug>/actions/*.json saved from each trip page")
+        sp.add_argument("--agent", help="home private/agent doc ({triggerId})")
+        sp.add_argument("--sample", action="store_true", help="mark pages as sample data; never write private/bookings")
+        sp.add_argument("--template", help="trip page template (default dashboard/trip.html)")
+        sp.add_argument("--now", help="override current time (ISO with offset), for tests")
+
+    b = sub.add_parser("build", help="build per-trip batches, new page files and the pending home index")
+    build_args(b)
+    b.add_argument("--versions", help='{"home": {"index/trips": n, ...}, "trips": {"<slug>": {"trip/data": n, ...}}}')
     b.add_argument("--out-dir", required=True)
     b.set_defaults(fn=cmd_build)
+    h = sub.add_parser("home-batch", help="after new pages are published: write the home batch with their urls")
+    h.add_argument("--out-dir", required=True); h.add_argument("--urls", help='{"<slug>": "<artifact url>"}')
+    h.set_defaults(fn=cmd_home_batch)
+    c = sub.add_parser("capabilities"); c.add_argument("--page", choices=["trip", "home"], required=True)
+    c.set_defaults(fn=cmd_capabilities)
+    lk = sub.add_parser("link", help="print a stays-search or map link")
+    lk.add_argument("kind", choices=["stays", "map"]); lk.add_argument("--query", required=True, help="city or hotel name")
+    lk.add_argument("--check-in"); lk.add_argument("--check-out"); lk.add_argument("--guests", type=int, default=2)
+    lk.set_defaults(fn=cmd_link)
     m = sub.add_parser("merge", help="merge newly extracted bookings into the stored list")
-    m.add_argument("--existing", help="stored bookings (array or {bookings: [...]}); may be missing")
-    m.add_argument("--new", required=True); m.add_argument("--out", required=True)
+    m.add_argument("--existing"); m.add_argument("--new", required=True); m.add_argument("--out", required=True)
     m.set_defaults(fn=cmd_merge)
-    r = sub.add_parser("render-static")
-    r.add_argument("--bookings", required=True); r.add_argument("--profile"); r.add_argument("--fares")
-    r.add_argument("--now"); r.add_argument("--template"); r.add_argument("--out", required=True)
-    r.add_argument("--owner", action="store_true", help="include full codes and prices (do not share the file)")
+    r = sub.add_parser("render-static", help="standalone HTML per trip")
+    build_args(r)
+    r.add_argument("--out-dir", required=True)
+    r.add_argument("--owner", action="store_true", help="include full codes and prices (do not share the files)")
     r.set_defaults(fn=cmd_render_static)
     a = p.parse_args(argv)
     return a.fn(a)

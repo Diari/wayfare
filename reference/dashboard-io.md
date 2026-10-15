@@ -1,86 +1,111 @@
-# Reading and writing the Wayfare dashboard
+# Reading and writing the Wayfare pages
 
-Shared steps for `/wayfare:setup`, `/wayfare:sync` and `/wayfare:fares`.
-`$P` below means `${CLAUDE_PLUGIN_ROOT}`. Work in a folder named
+Shared steps for `/wayfare:setup`, `/wayfare:sync`, `/wayfare:fares` and the
+agent. `$P` means `${CLAUDE_PLUGIN_ROOT}`. Work in a folder named
 `wayfare-work` in the current working directory.
 
 ## Tool names
 
-The artifact database tool is `ArtifactData` (actions `get`, `list`, `set`,
-`batch`). Some Claude surfaces call it through the `Artifact` tool as
-`read_db` / `write_db`. If it is deferred, load it first. If no artifact tool
-exists at all (for example an old Claude Code in a terminal), use the static
-fallback at the end of this file.
+- `Artifact`: `list`, `publish`. Pages are artifacts.
+- `ArtifactData`: `get`, `list`, `set`, `update`, `batch` on a page's database.
+  Some surfaces call these `read_db` / `write_db` on the `Artifact` tool.
+  Load deferred tools with tool search first.
+- No artifact tools at all (old Claude Code in a terminal): use the static
+  fallback at the end.
 
-## A. Find the dashboard
+## A. Find Wayfare Home
 
-1. Call `Artifact` with `action: "list"`, `scope: "mine"`, `limit: 50`.
-2. The dashboard is the artifact titled exactly **Wayfare Trips**. Remember
-   its `url`.
-3. None found: tell the user to run `/wayfare:setup` first and stop.
-4. More than one: use the most recently updated one and say so.
+`Artifact` `list`, `scope: "mine"`, `limit: 50`. Wayfare Home is the artifact
+titled exactly **Wayfare Home**. If there is none, tell the user to run
+`/wayfare:setup` and stop. If there are several, use the newest and say so.
 
 ## B. Read the current state
 
-Run these reads (they are safe and need no approval):
+All reads are safe. Use `out_dir` so the documents land in files.
 
-- `ArtifactData` `get` `private` / `profile`, `out_dir: wayfare-work/db`
-- `ArtifactData` `get` `private` / `bookings`, `out_dir: wayfare-work/db`
-- `ArtifactData` `get` `private` / `fares`, `out_dir: wayfare-work/db`
-- `ArtifactData` `get` `meta` / `status`, `out_dir: wayfare-work/db`
-- `ArtifactData` `list` `trips`, `out_dir: wayfare-work/db`
+Home (`out_dir: wayfare-work/db/home`):
+`get` `private`/`profile`, `private`/`bookings`, `private`/`fares`,
+`private`/`agent`, and `index`/`trips`.
 
-A missing document is normal on a new dashboard. Each result line shows the
-document's `version`. Write every version you saw into
-`wayfare-work/versions.json`, keyed `"<collection>/<doc_id>"`, for example:
+For each trip in `index/trips` whose `status` is `upcoming` or `ongoing` and
+that has a `url`, on that trip page (`out_dir: wayfare-work/db/trips/<slug>`):
+`get` `trip`/`data`, `get` `private`/`data`, `list` `actions`.
+
+A missing document is normal. Each result shows the document `version`.
+Write every version you saw to `wayfare-work/versions.json`:
 
 ```json
-{"trips/lisbon-2026-11": 3, "meta/status": 7, "private/bookings": 7, "private/profile": 1}
+{
+  "home":  {"index/trips": 5, "private/bookings": 5},
+  "trips": {"lisbon-2026-11": {"trip/data": 3, "private/data": 3}}
+}
 ```
 
-Only list documents that exist. The build step uses this file to pin every
-write and to delete trips that are gone.
+List only documents that exist. The build pins every write with these.
 
 ## C. Build
 
 ```bash
 python3 "$P/scripts/wayfare.py" build \
   --bookings wayfare-work/bookings.json \
-  --profile wayfare-work/db/private/profile.json \
-  --fares wayfare-work/db/private/fares.json \
+  --profile  wayfare-work/db/home/private/profile.json \
+  --fares    wayfare-work/db/home/private/fares.json \
+  --index    wayfare-work/db/home/index/trips.json \
+  --agent    wayfare-work/db/home/private/agent.json \
+  --trips-db wayfare-work/db/trips \
   --versions wayfare-work/versions.json \
-  --out-dir wayfare-work/out
+  --out-dir  wayfare-work/out
 ```
 
-Leave out `--fares` or `--profile` if that file does not exist. The command
-prints the trips and alerts and writes `wayfare-work/out/batch.json`.
-If it prints validation errors, fix the booking JSON (re-read the source
-email if needed) and run it again. Never delete a booking to silence an error.
+Missing input files are fine. It prints the trips and open alerts and writes
+`wayfare-work/out/plan.json`. If it prints validation errors, fix the booking
+JSON (re-read the source email if needed) and build again. Never delete a
+booking to silence an error.
 
-## D. Write
+## D. Publish pages for new trips
 
-Read `wayfare-work/out/batch.json`. Call `ArtifactData` with
-`action: "batch"`, the dashboard `url`, and `writes` set to that array exactly
-as written (entries use `file_path`, so the call stays small).
+For each entry in `plan.json` → `newTrips`, call `Artifact` publish with:
+- `file_path`: the entry's `page`
+- `icon`: `map`
+- `description`: `<pageTitle>: bookings, gaps and alerts from Wayfare.`
+- `capabilities`: the JSON in `wayfare-work/out/capabilities-trip.json`, exactly
 
-If the batch fails because a version changed, do section B again, rebuild,
-and write once more. Do not retry more than once; tell the user instead.
+Save each new page's url in `wayfare-work/urls.json` as
+`{"<slug>": "<url>"}`. Never publish a page for a trip that already has one.
 
-## E. Report
+## E. Write each trip page
 
-Tell the user in a few short lines: what changed, then urgent alerts first.
-Do not paste the whole timeline; the page shows it. Do not repeat booking
-codes in chat unless the user asks.
+For each entry in `plan.json` → `trips`: `ArtifactData` `batch` with `url` =
+the entry's `url` (or the new url from `urls.json`) and `writes` = the JSON
+array in the entry's `batch` file, exactly as written.
 
-## Static fallback (no artifact tool)
+## F. Write Wayfare Home
+
+```bash
+python3 "$P/scripts/wayfare.py" home-batch --out-dir wayfare-work/out --urls wayfare-work/urls.json
+```
+
+Then `ArtifactData` `batch` on the Wayfare Home url with
+`wayfare-work/out/home/batch.json`.
+
+If any batch fails because a version changed, read that page again
+(section B), rebuild, and write once more. Do not retry more than once; tell
+the user instead.
+
+## G. Report
+
+In a few short lines: new trip pages, changed and cancelled bookings, then
+open urgent alerts. Do not paste timelines; the pages show them. Do not
+repeat booking codes in chat unless the user asks.
+
+## Static fallback (no artifact tools)
 
 ```bash
 python3 "$P/scripts/wayfare.py" render-static --owner \
-  --bookings wayfare-work/bookings.json \
-  --profile wayfare-work/profile.json \
-  --out wayfare-work/wayfare-trips.html
+  --bookings wayfare-work/bookings.json --profile wayfare-work/profile.json \
+  --out-dir wayfare-work/pages
 ```
 
 Keep `wayfare-work/bookings.json` and `wayfare-work/profile.json` as the
-stored state in this mode. The file contains full codes and prices: do not
-share it.
+stored state. The files hold full codes and prices: do not share them.
+Buttons that need Claude's runtime are hidden in these files.

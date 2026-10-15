@@ -1,0 +1,228 @@
+<title>Wayfare Home</title>
+<meta name="claude:viewport-fit-sides" content="cover">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Barlow+Condensed:wght@500;600;700&family=IBM+Plex+Mono:wght@400;500&family=IBM+Plex+Sans:wght@400;500;600&display=swap">
+<style>
+/* Layout: a departures board of upcoming trips, each a row that opens its own trip page; past trips below. Owner-only. */
+:root {
+  --bg: #f3f5f7; --surface: #ffffff; --ink: #132033; --muted: #5b6878; --line: #d9dfe6;
+  --accent: #0f6e66; --accent-ink: #ffffff; --board: #132033; --board-ink: #f4f6f8; --sign: #f2c230;
+  --high: #c2362f; --medium: #a0670f; --medium-bg: #fbf1de;
+  --f-display: "Barlow Condensed", "Arial Narrow", "Roboto Condensed", sans-serif;
+  --f-body: "IBM Plex Sans", system-ui, -apple-system, "Segoe UI", sans-serif;
+  --f-mono: "IBM Plex Mono", ui-monospace, "SFMono-Regular", Menlo, monospace;
+}
+@media (prefers-color-scheme: dark) {
+  :root:not([data-theme="light"]) {
+    --bg: #0d141e; --surface: #152031; --ink: #e7ecf2; --muted: #9aa7b6; --line: #26344a;
+    --accent: #4fc3b5; --accent-ink: #06231f; --board: #060b12; --board-ink: #f4f6f8; --sign: #f2c230;
+    --high: #f07a6f; --medium: #e6b45a; --medium-bg: #35290f; color-scheme: dark;
+  }
+}
+:root[data-theme="dark"] {
+  --bg: #0d141e; --surface: #152031; --ink: #e7ecf2; --muted: #9aa7b6; --line: #26344a;
+  --accent: #4fc3b5; --accent-ink: #06231f; --board: #060b12; --board-ink: #f4f6f8; --sign: #f2c230;
+  --high: #f07a6f; --medium: #e6b45a; --medium-bg: #35290f; color-scheme: dark;
+}
+* { box-sizing: border-box; }
+body {
+  background: var(--bg); color: var(--ink); font-family: var(--f-body); font-size: 15px; line-height: 1.5;
+  padding-left: max(16px, env(safe-area-inset-left, 0px)); padding-right: max(16px, env(safe-area-inset-right, 0px));
+  padding-block: 20px 48px;
+}
+.wrap { max-width: 760px; margin: 0 auto; display: grid; gap: 20px; }
+h1, h2, h3 { margin: 0; text-wrap: balance; }
+.top { display: flex; align-items: baseline; justify-content: space-between; gap: 12px; flex-wrap: wrap; }
+.brand { font-family: var(--f-display); font-weight: 700; font-size: 26px; letter-spacing: .02em; }
+.brand span { color: var(--accent); }
+.meta, .note { color: var(--muted); font-size: 13px; }
+.row { display: flex; gap: 8px; flex-wrap: wrap; align-items: center; }
+.btn { font: 500 13px/1.1 var(--f-body); color: var(--ink); background: var(--surface); border: 1px solid var(--line); border-radius: 6px; padding: 8px 11px; cursor: pointer; }
+.btn[disabled] { opacity: .55; cursor: default; }
+.btn:focus-visible, a:focus-visible { outline: 2px solid var(--accent); outline-offset: 2px; }
+.status-line { font-size: 13px; color: var(--muted); }
+.status-line.err { color: var(--high); }
+.banner { border-radius: 10px; padding: 10px 14px; font-size: 14px; border: 1px solid var(--medium); background: var(--medium-bg); }
+.sec-title { font: 600 12px/1 var(--f-mono); letter-spacing: .12em; text-transform: uppercase; color: var(--muted); }
+section { display: grid; gap: 10px; }
+.board { background: var(--board); color: var(--board-ink); border-radius: 14px; overflow: hidden; }
+.board-head { display: grid; grid-template-columns: 1fr auto; gap: 12px; padding: 10px 18px; font: 600 11px/1 var(--f-mono); letter-spacing: .12em; text-transform: uppercase; color: var(--sign); border-bottom: 1px solid rgba(244, 246, 248, .15); }
+.trip { display: grid; grid-template-columns: 1fr auto; gap: 4px 12px; padding: 14px 18px; border-bottom: 1px solid rgba(244, 246, 248, .12); color: inherit; text-decoration: none; }
+.trip:last-child { border-bottom: 0; }
+.trip:hover { background: rgba(244, 246, 248, .05); }
+.trip h3 { font-family: var(--f-display); font-weight: 700; font-size: 26px; line-height: 1.05; min-width: 0; overflow-wrap: anywhere; }
+.trip .dates { font-family: var(--f-mono); font-size: 13px; opacity: .8; }
+.trip .days { grid-row: 1 / span 2; grid-column: 2; text-align: right; font-family: var(--f-display); font-weight: 600; }
+.trip .days b { display: block; font-size: 30px; line-height: 1; color: var(--sign); }
+.trip .line { grid-column: 1 / -1; display: flex; gap: 8px; flex-wrap: wrap; align-items: center; font-size: 13px; }
+.chip { font: 500 12px/1 var(--f-mono); padding: 5px 7px; border-radius: 4px; border: 1px solid rgba(244, 246, 248, .25); }
+.chip.high { background: var(--high); border-color: var(--high); color: #fff; }
+.chip.ok { color: var(--sign); }
+.open { margin-left: auto; color: var(--sign); font-weight: 600; }
+.list { background: var(--surface); border: 1px solid var(--line); border-radius: 10px; }
+.list a { display: flex; justify-content: space-between; gap: 12px; padding: 10px 14px; border-bottom: 1px solid var(--line); color: var(--ink); text-decoration: none; flex-wrap: wrap; }
+.list a:last-child { border-bottom: 0; }
+.list span { color: var(--muted); font-size: 13px; }
+.empty { background: var(--surface); border: 1px dashed var(--line); border-radius: 14px; padding: 28px 20px; display: grid; gap: 8px; }
+.empty h2 { font-family: var(--f-display); font-size: 28px; }
+code { font-family: var(--f-mono); background: var(--surface); padding: 1px 5px; border-radius: 4px; }
+.foot { color: var(--muted); font-size: 13px; border-top: 1px solid var(--line); padding-top: 14px; display: grid; gap: 6px; }
+</style>
+
+<div class="wrap">
+  <header class="top">
+    <div class="brand">Way<span>fare</span></div>
+    <div class="meta" id="updated">Loading…</div>
+  </header>
+  <div id="banners"></div>
+  <div id="toolbar"></div>
+  <main id="main" class="wrap">
+    <div class="empty">
+      <h2>Your trips appear here</h2>
+      <p>Each trip gets its own page that you can share with the people who travel with you. This home page stays private.</p>
+      <p>In Claude, run <code>/wayfare:sync</code>.</p>
+    </div>
+  </main>
+  <footer class="foot">
+    <div>Only you can see this page. It lists every trip and opens each trip page.</div>
+    <div>To change your travel profile, ask Claude: "update my Wayfare profile".</div>
+  </footer>
+</div>
+
+<script>
+(function () {
+  "use strict";
+  var S = { index: null, agent: null, requests: {}, db: null, mcp: null, source: "none" };
+  function el(tag, attrs, kids) {
+    var n = document.createElement(tag);
+    if (attrs) Object.keys(attrs).forEach(function (k) {
+      var v = attrs[k];
+      if (v === null || v === undefined || v === false) return;
+      if (k === "text") n.textContent = v;
+      else if (k === "class") n.className = v;
+      else if (k === "on") Object.keys(v).forEach(function (ev) { n.addEventListener(ev, v[ev]); });
+      else n.setAttribute(k, v === true ? "" : v);
+    });
+    (kids || []).forEach(function (c) { if (c) n.appendChild(typeof c === "string" ? document.createTextNode(c) : c); });
+    return n;
+  }
+  function safeUrl(u) { return typeof u === "string" && /^https:\/\//.test(u) ? u : null; }
+  function ago(iso) {
+    var mins = Math.round((Date.now() - new Date(iso).getTime()) / 60000);
+    if (!iso || isNaN(mins)) return "";
+    if (mins < 2) return "Last sync just now";
+    if (mins < 60) return "Last sync " + mins + " min ago";
+    var h = Math.round(mins / 60);
+    return h < 48 ? "Last sync " + h + " h ago" : "Last sync " + Math.round(h / 24) + " days ago";
+  }
+  function daysUntil(dateStr) {
+    var t = new Date(dateStr + "T00:00:00"); var n = new Date(); n.setHours(0, 0, 0, 0);
+    return Math.round((t - n) / 864e5);
+  }
+  function latest() {
+    var best = null;
+    Object.keys(S.requests).forEach(function (k) { var r = S.requests[k]; if (!best || r.createdAt > best.createdAt) best = r; });
+    return best;
+  }
+  var REQ = { queued: "Sending to Claude…", sent: "Claude is on it. The pages update in a few minutes.", running: "Claude is working on it…", done: "Done.", failed: "Failed." };
+
+  function ask(kind) {
+    var rid = "r" + Date.now().toString(36);
+    var req = { kind: kind, slug: null, alertId: null, params: {}, status: "queued", createdAt: new Date().toISOString() };
+    S.requests[rid] = req; render();
+    S.db.doc("requests/" + rid).set(req).then(function () {
+      return S.mcp.callTool("Claude Code Remote", "fire_trigger", { trigger_id: S.agent.triggerId,
+        text: "WAYFARE_REQUEST " + JSON.stringify({ requestId: rid, kind: kind, slug: null, alertId: null, params: {} }) });
+    }).then(function () {
+      S.requests[rid] = Object.assign({}, req, { status: "sent" }); render();
+      return S.db.doc("requests/" + rid).update({ status: "sent" }).catch(function () {});
+    }).catch(function (e) {
+      var code = e && e.code;
+      var msg = code === "server_not_connected" ? "Claude Code Remote is not connected for this account."
+        : code === "approval_required" || code === "not_in_manifest" ? "This page needs your approval to start Claude tasks. Try again and choose Allow."
+        : code === "tool_error" ? "The Wayfare task could not start. Run /wayfare:setup again to repair it."
+        : "Could not reach Claude. Try again in a moment.";
+      S.requests[rid] = Object.assign({}, req, { status: "failed", message: msg });
+      S.db.doc("requests/" + rid).set(S.requests[rid]).catch(function () {});
+      render();
+    });
+  }
+
+  function render() {
+    var idx = S.index, trips = (idx && idx.trips) || [];
+    document.getElementById("updated").textContent = idx ? ago(idx.updatedAt) : "";
+    var banners = document.getElementById("banners"); banners.textContent = "";
+    if (trips.some(function (t) { return t.sample; })) banners.appendChild(el("div", { class: "banner", text: "Some trips are samples with made-up bookings. Your real trips get their own pages at the first sync." }));
+
+    banners.hidden = !banners.childNodes.length;
+    var tb = document.getElementById("toolbar"); tb.textContent = "";
+    if (S.mcp && S.agent && S.agent.triggerId && S.db) {
+      var r = latest();
+      var busy = r && (r.status === "queued" || r.status === "sent" || r.status === "running");
+      tb.appendChild(el("div", { class: "row" }, [
+        el("button", { class: "btn", type: "button", disabled: busy, text: "Check inbox now", on: { click: function () { ask("sync"); } } }),
+        el("button", { class: "btn", type: "button", disabled: busy, text: "Check fares", on: { click: function () { ask("fares"); } } })
+      ]));
+      if (r) tb.appendChild(el("div", { class: "status-line" + (r.status === "failed" ? " err" : ""), role: "status", text: (REQ[r.status] || r.status) + (r.message ? " " + r.message : "") }));
+    }
+    tb.hidden = !tb.childNodes.length;
+
+    var main = document.getElementById("main");
+    if (!idx) {
+      if (S.source === "nodb") { main.textContent = ""; main.appendChild(el("div", { class: "empty" }, [el("h2", { text: "Sign in to see your trips" }), el("p", { text: "This page is private to its owner." })])); }
+      return;
+    }
+    main.textContent = "";
+    var upcoming = trips.filter(function (t) { return t.status === "upcoming" || t.status === "ongoing"; })
+      .sort(function (a, b) { return a.startDate < b.startDate ? -1 : 1; });
+    var other = trips.filter(function (t) { return t.status === "past" || t.status === "cancelled" || t.status === "sample"; })
+      .sort(function (a, b) { return a.startDate > b.startDate ? -1 : 1; });
+    if (!upcoming.length) main.appendChild(el("div", { class: "empty" }, [el("h2", { text: "No upcoming trips" }), el("p", { text: "When Wayfare finds a new booking in your inbox, the trip appears here with its own page." })]));
+    else {
+      var board = el("div", { class: "board", role: "list" }, [el("div", { class: "board-head" }, [el("span", { text: "Upcoming trips" }), el("span", { text: "Departs in" })])]);
+      upcoming.forEach(function (t) {
+        var d = daysUntil(t.startDate);
+        var c = t.counts || {};
+        var line = el("div", { class: "line" }, [
+          c.high ? el("span", { class: "chip high", text: c.high + " urgent" }) : null,
+          c.medium ? el("span", { class: "chip", text: c.medium + " to check" }) : null,
+          !c.high && !c.medium ? el("span", { class: "chip ok", text: "All clear" }) : null,
+          t.next ? el("span", { text: "Next: " + t.next.title + " · " + t.next.when }) : null,
+          safeUrl(t.url) ? el("span", { class: "open", text: "Open ↗" }) : null
+        ]);
+        var kids = [el("h3", { text: t.title }), el("div", { class: "dates", text: t.dates }),
+          el("div", { class: "days" }, [el("b", { text: t.status === "ongoing" ? "Now" : d <= 0 ? "Today" : String(d) }), t.status === "ongoing" ? "on the road" : d === 1 ? "day" : d > 0 ? "days" : ""]), line];
+        var u = safeUrl(t.url);
+        board.appendChild(u ? el("a", { class: "trip", role: "listitem", href: u, target: "_blank", rel: "noopener", "aria-label": "Open " + t.pageTitle }, kids)
+                            : el("div", { class: "trip", role: "listitem" }, kids));
+      });
+      main.appendChild(board);
+    }
+    if (other.length) {
+      var list = el("div", { class: "list" });
+      other.forEach(function (t) {
+        var u = safeUrl(t.url);
+        var row = [el("b", { text: t.pageTitle || t.title }), el("span", { text: t.status === "cancelled" ? "Cancelled" : t.status === "sample" ? "Sample, no longer updated" : t.dates })];
+        list.appendChild(u ? el("a", { href: u, target: "_blank", rel: "noopener" }, row) : el("div", { style: "padding:10px 14px" }, row));
+      });
+      main.appendChild(el("section", null, [el("h2", { class: "sec-title", text: "Past, cancelled and samples" }), list]));
+    }
+  }
+
+  var staticNode = document.getElementById("wayfare-static");
+  if (staticNode) { try { S.index = JSON.parse(staticNode.textContent).index; } catch (e) {} S.source = "static"; render(); return; }
+  if (!window.claude || typeof window.claude.use !== "function") { S.source = "nodb"; render(); return; }
+  window.claude.use("db").then(function (db) {
+    if (!db) { S.source = "nodb"; render(); return; }
+    S.db = db; S.source = "db";
+    db.doc("index/trips").onSnapshot(function (d) { S.index = d.exists ? d.data() : null; render(); }, function () { render(); });
+    db.doc("private/agent").onSnapshot(function (d) { S.agent = d.exists ? d.data() : null; render(); }, function () {});
+    db.collection("requests").onSnapshot(function (s) {
+      var m = {}; s.docs.forEach(function (d) { if (d.exists) m[d.id] = d.data(); }); S.requests = m; render();
+    }, function () {});
+  }).catch(function () { render(); });
+  window.claude.use("mcp").then(function (mcp) { S.mcp = mcp; render(); }).catch(function () {});
+  render();
+})();
+</script>

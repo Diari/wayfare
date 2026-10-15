@@ -2,29 +2,43 @@
 
 ## Where data lives
 
-All Wayfare data lives in the database of ONE Claude artifact per user, titled
-**Wayfare Trips**. Nothing is stored on a Wayfare server. Each user owns their
-own copy in their own Claude account.
+Nothing is stored on a Wayfare server. Each user owns their own pages in
+their own Claude account:
 
-| Collection / doc   | Who can read                      | What it holds                                            |
-|--------------------|-----------------------------------|----------------------------------------------------------|
-| `trips/<slug>`     | everyone the page is shared with  | One trip, shared-safe: no prices, codes masked (`••••KM`) |
-| `meta/status`      | everyone the page is shared with  | Last update time, counts, `sample: true` for sample data  |
-| `private/bookings` | owner only                        | `{bookings: [...]}` full bookings, with codes and prices  |
-| `private/profile`  | owner only                        | Travel profile                                            |
-| `private/fares`    | owner only                        | `{results: [...], checkedAt}` from the last fare check    |
+- **Wayfare Home**: one private page (only the owner can open it, even if
+  shared by mistake). It holds the profile, every booking and the list of
+  trips with links to their pages.
+- **One trip page per trip**, titled like `Lisbon & Porto, Nov 2026`. The
+  owner can share it with the people on the trip.
 
-The page declares these access rules when it is published:
+Home page database (rules: everything owner-only):
 
-```json
-{"db": {"rules": [
-  {"path": "", "read": "view", "write": "owner"},
-  {"path": "private", "read": "owner", "write": "owner"}
-]}, "user": {}}
-```
+| Doc                | What it holds |
+|--------------------|---------------|
+| `index/trips`      | `{trips: [{slug, url, pageTitle, title, dates, startDate, endDate, status, counts, next, bookingIds, sample}]}` |
+| `private/profile`  | Travel profile |
+| `private/bookings` | `{bookings: [...]}` every booking, with codes and prices |
+| `private/fares`    | `{results: [...], checkedAt}` from the last fare check |
+| `private/agent`    | `{triggerId}` of the "Wayfare agent" scheduled task |
+| `requests/<id>`    | Sync / fare requests started from this page |
 
-Only the owner (and Claude acting as the owner) writes. Shared viewers must be
-signed in to Claude to see data. Viewers never see `private/*`.
+Trip page database:
+
+| Path                       | Who reads / writes        | What it holds |
+|----------------------------|---------------------------|---------------|
+| `trip/data`                | everyone shared / owner   | The trip: items (codes masked, no prices), gaps, alerts with ids, links |
+| `private/data`             | owner / owner             | `{items: {<id>: {confirmation, price, manageUrl, ...}}, agent: {triggerId}}` |
+| `actions/<alertId>`        | everyone / Editors, owner | `{alertId, fingerprint, status: done|ignored|snoozed, until}` |
+| `todos/<id>`               | everyone / Contributors   | `{text, done, at, by}` |
+| `suggestions/<alertId>`    | everyone / owner          | Claude's suggestions for an alert (for example stays) |
+| `requests/<id>`            | owner / owner             | "Ask Claude" requests and their status |
+| `data/users/<id>/calendar` | that person only          | Which items that person added to their calendar |
+
+`scripts/wayfare.py capabilities --page trip|home` prints the exact access
+rules for each page. Shared viewers must be signed in to Claude to see data.
+
+An action applies only while the alert's `fingerprint` is unchanged: if the
+facts behind an alert change, it comes back.
 
 ## Booking object
 
@@ -43,6 +57,7 @@ Common fields:
 | `travelers`    | no       | Number of people on the booking (default 1) |
 | `price`        | no       | `{"amount": 412.0, "currency": "EUR"}` total for the booking |
 | `refundable`   | no       | `true`, `false`, or leave out if unknown |
+| `manageUrl`    | no       | The "manage booking" link from the email, only if it is `https://` on the sender's own domain. Owner-only |
 
 `flight`: `carrier` (IATA, "KL"), `flightNumber` ("1734"), `from` and `to`
 (3-letter IATA airport codes), `fromCity`, `toCity`, `depart`, `arrive`, `cabin`.

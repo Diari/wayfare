@@ -1,0 +1,620 @@
+<title>Wayfare Trip</title>
+<meta name="claude:viewport-fit-sides" content="cover">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Barlow+Condensed:wght@500;600;700&family=IBM+Plex+Mono:wght@400;500&family=IBM+Plex+Sans:wght@400;500;600&display=swap">
+<style>
+/* Layout: a departure-board header for the trip, then "needs attention" with actions, a shared to-do list, then the trip day by day. One column, phone first. */
+:root {
+  --bg: #f3f5f7;
+  --surface: #ffffff;
+  --ink: #132033;
+  --muted: #5b6878;
+  --line: #d9dfe6;
+  --accent: #0f6e66;
+  --accent-ink: #ffffff;
+  --board: #132033;
+  --board-ink: #f4f6f8;
+  --sign: #f2c230;
+  --high: #c2362f;
+  --high-bg: #fbe9e7;
+  --medium: #a0670f;
+  --medium-bg: #fbf1de;
+  --info: #22609e;
+  --info-bg: #e6eff8;
+  --ok: #2f7d4f;
+  --f-display: "Barlow Condensed", "Arial Narrow", "Roboto Condensed", sans-serif;
+  --f-body: "IBM Plex Sans", system-ui, -apple-system, "Segoe UI", sans-serif;
+  --f-mono: "IBM Plex Mono", ui-monospace, "SFMono-Regular", Menlo, monospace;
+}
+@media (prefers-color-scheme: dark) {
+  :root:not([data-theme="light"]) {
+    --bg: #0d141e; --surface: #152031; --ink: #e7ecf2; --muted: #9aa7b6; --line: #26344a;
+    --accent: #4fc3b5; --accent-ink: #06231f; --board: #060b12; --board-ink: #f4f6f8; --sign: #f2c230;
+    --high: #f07a6f; --high-bg: #3a1c1b; --medium: #e6b45a; --medium-bg: #35290f; --info: #7fb2e8; --info-bg: #15283f; --ok: #6fcf97;
+    color-scheme: dark;
+  }
+}
+:root[data-theme="dark"] {
+  --bg: #0d141e; --surface: #152031; --ink: #e7ecf2; --muted: #9aa7b6; --line: #26344a;
+  --accent: #4fc3b5; --accent-ink: #06231f; --board: #060b12; --board-ink: #f4f6f8; --sign: #f2c230;
+  --high: #f07a6f; --high-bg: #3a1c1b; --medium: #e6b45a; --medium-bg: #35290f; --info: #7fb2e8; --info-bg: #15283f; --ok: #6fcf97;
+  color-scheme: dark;
+}
+* { box-sizing: border-box; }
+body {
+  background: var(--bg); color: var(--ink); font-family: var(--f-body); font-size: 15px; line-height: 1.5;
+  padding-left: max(16px, env(safe-area-inset-left, 0px)); padding-right: max(16px, env(safe-area-inset-right, 0px));
+  padding-block: 20px 48px;
+}
+.wrap { max-width: 760px; margin: 0 auto; display: grid; gap: 20px; }
+h1, h2, h3, h4 { margin: 0; text-wrap: balance; }
+a { color: var(--accent); }
+.top { display: flex; align-items: baseline; justify-content: space-between; gap: 12px; flex-wrap: wrap; }
+.brand { font-family: var(--f-display); font-weight: 700; font-size: 26px; letter-spacing: .02em; }
+.brand span { color: var(--accent); }
+.meta { color: var(--muted); font-size: 13px; display: flex; gap: 10px; align-items: center; flex-wrap: wrap; }
+.btn {
+  font: 500 13px/1.1 var(--f-body); color: var(--ink); background: var(--surface); border: 1px solid var(--line);
+  border-radius: 6px; padding: 8px 11px; cursor: pointer; text-decoration: none; display: inline-flex; align-items: center; gap: 6px;
+}
+.btn.primary { background: var(--accent); color: var(--accent-ink); border-color: var(--accent); }
+.btn.quiet { background: transparent; }
+.btn[disabled] { opacity: .55; cursor: default; }
+.btn[aria-pressed="true"] { border-color: var(--accent); color: var(--accent); }
+.btn:focus-visible, a:focus-visible, input:focus-visible { outline: 2px solid var(--accent); outline-offset: 2px; }
+.row { display: flex; gap: 8px; flex-wrap: wrap; align-items: center; }
+.banner { border-radius: 10px; padding: 10px 14px; font-size: 14px; border: 1px solid var(--medium); background: var(--medium-bg); }
+.banner.bad { border-color: var(--high); background: var(--high-bg); }
+.note { color: var(--muted); font-size: 13px; }
+.status-line { font-size: 13px; color: var(--muted); }
+.status-line.err { color: var(--high); }
+
+.board { background: var(--board); color: var(--board-ink); border-radius: 14px; padding: 18px 20px; display: grid; gap: 14px; }
+.board-head { display: flex; justify-content: space-between; align-items: flex-start; gap: 12px; flex-wrap: wrap; }
+.board h1 { font-family: var(--f-display); font-weight: 700; font-size: clamp(30px, 7vw, 42px); line-height: 1; letter-spacing: .01em; }
+.board .dates { font-family: var(--f-mono); font-size: 13px; opacity: .8; margin-top: 6px; }
+.countdown { font-family: var(--f-display); font-weight: 600; font-size: 18px; text-align: right; }
+.countdown b { display: block; font-size: 34px; line-height: 1; color: var(--sign); font-weight: 700; }
+.next { display: grid; grid-template-columns: auto 1fr; gap: 4px 12px; align-items: baseline; border-top: 1px dashed rgba(244, 246, 248, .25); padding-top: 12px; }
+.next .label { font: 600 11px/1 var(--f-mono); letter-spacing: .12em; text-transform: uppercase; background: var(--sign); color: #132033; padding: 4px 6px; border-radius: 3px; }
+.next .what { font-family: var(--f-display); font-size: 20px; font-weight: 600; min-width: 0; }
+.next .when { grid-column: 2; font-family: var(--f-mono); font-size: 13px; opacity: .8; }
+.stats { display: flex; gap: 8px; flex-wrap: wrap; }
+.chip { font: 500 12px/1 var(--f-mono); padding: 6px 8px; border-radius: 4px; border: 1px solid rgba(244, 246, 248, .25); }
+.chip.high { background: var(--high); border-color: var(--high); color: #fff; }
+
+section { display: grid; gap: 10px; }
+.sec-title { font: 600 12px/1 var(--f-mono); letter-spacing: .12em; text-transform: uppercase; color: var(--muted); }
+.alerts { display: grid; gap: 8px; }
+.alert { border-radius: 10px; padding: 12px 14px; display: grid; gap: 8px; border-left: 4px solid; }
+.alert.high { background: var(--high-bg); border-color: var(--high); }
+.alert.medium { background: var(--medium-bg); border-color: var(--medium); }
+.alert.info { background: var(--info-bg); border-color: var(--info); }
+.alert h3 { font-size: 15px; font-weight: 600; display: flex; gap: 8px; flex-wrap: wrap; align-items: baseline; }
+.alert p { margin: 0; font-size: 14px; }
+.tag { font: 500 11px/1 var(--f-mono); text-transform: uppercase; letter-spacing: .08em; padding: 3px 6px; border-radius: 3px; border: 1px solid currentColor; }
+.alert.high .tag { color: var(--high); }
+.alert.medium .tag { color: var(--medium); }
+.alert.info .tag { color: var(--info); }
+.tag.change { color: var(--muted); }
+.links { display: flex; gap: 6px; flex-wrap: wrap; }
+.links a { font-size: 13px; padding: 6px 9px; border-radius: 6px; background: var(--surface); border: 1px solid var(--line); text-decoration: none; color: var(--ink); }
+.links a::after { content: " ↗"; color: var(--muted); }
+.acts { display: flex; gap: 6px; flex-wrap: wrap; border-top: 1px solid var(--line); padding-top: 8px; }
+.suggest { background: var(--surface); border: 1px solid var(--line); border-radius: 8px; padding: 10px 12px; display: grid; gap: 8px; }
+.suggest h4 { font-size: 13px; font-family: var(--f-mono); text-transform: uppercase; letter-spacing: .08em; color: var(--accent); }
+.suggest ol { margin: 0; padding-left: 20px; display: grid; gap: 6px; }
+.suggest li b { font-weight: 600; }
+.calm { background: var(--surface); border: 1px solid var(--line); border-radius: 10px; padding: 12px 14px; color: var(--muted); }
+details.handled { background: var(--surface); border: 1px solid var(--line); border-radius: 10px; padding: 10px 14px; }
+details.handled summary { cursor: pointer; color: var(--muted); font-size: 14px; }
+.handled-row { display: flex; justify-content: space-between; gap: 10px; align-items: baseline; padding-top: 8px; font-size: 14px; flex-wrap: wrap; }
+.handled-row span { min-width: 0; overflow-wrap: anywhere; }
+.handled-row s { color: var(--muted); }
+
+.todos { background: var(--surface); border: 1px solid var(--line); border-radius: 10px; padding: 6px 14px 12px; display: grid; gap: 2px; }
+.todo { display: grid; grid-template-columns: auto 1fr auto; gap: 10px; align-items: center; padding: 6px 0; border-bottom: 1px solid var(--line); }
+.todo:last-of-type { border-bottom: 0; }
+.todo .text { min-width: 0; overflow-wrap: anywhere; }
+.todo.done .text { text-decoration: line-through; color: var(--muted); }
+.check { width: 24px; height: 24px; border-radius: 6px; border: 2px solid var(--accent); background: transparent; cursor: pointer; color: var(--accent-ink); font-weight: 700; line-height: 1; }
+.todo.done .check { background: var(--accent); }
+.add-todo { display: flex; gap: 8px; padding-top: 8px; }
+.add-todo input { flex: 1; min-width: 0; font: 15px var(--f-body); padding: 8px 10px; border: 1px solid var(--line); border-radius: 6px; background: var(--bg); color: var(--ink); }
+
+.day { display: grid; gap: 6px; }
+.day-label { font-family: var(--f-display); font-weight: 600; font-size: 18px; padding-top: 6px; }
+.item { background: var(--surface); border: 1px solid var(--line); border-radius: 10px; padding: 12px 14px; display: grid; grid-template-columns: 64px 1fr; gap: 2px 14px; }
+.item > :not(.time) { grid-column: 2; }
+.item.flag-high { border-color: var(--high); box-shadow: inset 4px 0 0 var(--high); }
+.item.flag-medium { box-shadow: inset 4px 0 0 var(--medium); }
+.item.flag-info { box-shadow: inset 4px 0 0 var(--info); }
+.time { font-family: var(--f-mono); font-size: 15px; font-weight: 500; grid-row: 1 / span 4; }
+.time small { display: block; color: var(--muted); font-size: 12px; font-weight: 400; }
+.time s { display: block; color: var(--muted); font-size: 12px; }
+.kind { font: 500 11px/1.2 var(--f-mono); letter-spacing: .1em; text-transform: uppercase; color: var(--accent); }
+.item h4 { font-size: 16px; font-weight: 600; min-width: 0; overflow-wrap: anywhere; }
+.sub { color: var(--muted); font-size: 13px; min-width: 0; overflow-wrap: anywhere; }
+.item-foot { display: flex; gap: 10px; flex-wrap: wrap; align-items: center; font-size: 13px; padding-top: 4px; }
+.code { font-family: var(--f-mono); font-size: 12px; color: var(--muted); }
+.code.full { color: var(--ink); }
+.item.gap { background: transparent; border-style: dashed; }
+.item.gap h4 { color: var(--medium); }
+.foot { color: var(--muted); font-size: 13px; display: grid; gap: 8px; border-top: 1px solid var(--line); padding-top: 14px; }
+.foot code, .empty code { font-family: var(--f-mono); background: var(--surface); padding: 1px 5px; border-radius: 4px; }
+.empty { background: var(--surface); border: 1px dashed var(--line); border-radius: 14px; padding: 28px 20px; display: grid; gap: 8px; }
+.empty h2 { font-family: var(--f-display); font-size: 28px; }
+@media (max-width: 420px) { .item { grid-template-columns: 54px 1fr; gap: 2px 10px; } }
+@media (prefers-reduced-motion: no-preference) { .board { animation: rise .35s ease-out both; } @keyframes rise { from { transform: translateY(6px); } to { transform: none; } } }
+</style>
+
+<!--WAYFARE_STATIC_DATA-->
+<div class="wrap">
+  <header class="top">
+    <div class="brand">Way<span>fare</span></div>
+    <div class="meta"><span id="updated">Loading the trip…</span><button class="btn quiet" id="codes" type="button" hidden aria-pressed="false">Show booking codes</button></div>
+  </header>
+  <div id="banners"></div>
+  <main id="main" class="wrap">
+    <div class="empty">
+      <h2>Your trip appears here</h2>
+      <p>Wayfare builds this page from your travel confirmations: flights, stays, trains and tables, plus nights with no stay booked, tight connections and schedule changes.</p>
+      <p>In Claude, run <code>/wayfare:sync</code>.</p>
+    </div>
+  </main>
+  <footer class="foot">
+    <div>Only you and the people you invite can open this page. Shared viewers never see full booking codes or prices.</div>
+    <div>Wayfare never books or pays. Links open the provider's own site.</div>
+  </footer>
+</div>
+
+<script>
+(function () {
+  "use strict";
+  var S = {
+    trip: null, priv: null, actions: {}, todos: [], suggestions: {}, requests: {},
+    db: null, mcp: null, user: null, uid: null, isOwner: false, canAct: false, canTodo: true,
+    source: "none", showCodes: false, calAdded: {}, calMsg: "", calBusy: false, calConfirm: false, topMsg: ""
+  };
+  var TYPE_LABEL = { flight: "Flight", train: "Train", transfer: "Transfer", hotel: "Stay", dining: "Table", other: "Plan" };
+  var MONTHS = ["Jan", "Feb", "Mar", "Apr", "May", "Jun", "Jul", "Aug", "Sep", "Oct", "Nov", "Dec"];
+  var DAYS = ["Sun", "Mon", "Tue", "Wed", "Thu", "Fri", "Sat"];
+
+  function el(tag, attrs, kids) {
+    var n = document.createElement(tag);
+    if (attrs) Object.keys(attrs).forEach(function (k) {
+      var v = attrs[k];
+      if (v === null || v === undefined || v === false) return;
+      if (k === "text") n.textContent = v;
+      else if (k === "class") n.className = v;
+      else if (k === "on") Object.keys(v).forEach(function (ev) { n.addEventListener(ev, v[ev]); });
+      else n.setAttribute(k, v === true ? "" : v);
+    });
+    (kids || []).forEach(function (c) { if (c) n.appendChild(typeof c === "string" ? document.createTextNode(c) : c); });
+    return n;
+  }
+  function safeUrl(u) { return typeof u === "string" && /^https:\/\//.test(u) ? u : null; }
+  function link(label, url) {
+    var u = safeUrl(url);
+    return u ? el("a", { href: u, target: "_blank", rel: "noopener noreferrer", text: label }) : null;
+  }
+  function ago(iso) {
+    var mins = Math.round((Date.now() - new Date(iso).getTime()) / 60000);
+    if (!iso || isNaN(mins)) return "";
+    if (mins < 2) return "Updated just now";
+    if (mins < 60) return "Updated " + mins + " min ago";
+    var h = Math.round(mins / 60);
+    return h < 48 ? "Updated " + h + " h ago" : "Updated " + Math.round(h / 24) + " days ago";
+  }
+  function nowIso() { return new Date().toISOString(); }
+
+  // ---------- alert resolution (same rule as the engine) ----------
+  function resolution(a) {
+    if (S.source === "static") return a.resolution || null;
+    var act = S.actions[a.id];
+    if (!act || act.fingerprint !== a.fingerprint) return null;
+    if (act.status === "snoozed") return new Date(act.until) > new Date() ? "snoozed" : null;
+    return act.status === "done" || act.status === "ignored" ? act.status : null;
+  }
+  var RES_LABEL = { done: "Done", ignored: "Not a problem", snoozed: "Later" };
+
+  function setAction(a, status) {
+    if (!S.db) return;
+    var body = { alertId: a.id, fingerprint: a.fingerprint, status: status, at: nowIso(), title: a.title };
+    if (status === "snoozed") body.until = new Date(Date.now() + 3 * 864e5).toISOString();
+    if (S.uid) body.by = S.uid;
+    S.actions[a.id] = body; render();
+    S.db.doc("actions/" + a.id).set(body).catch(function () { delete S.actions[a.id]; S.topMsg = "Could not save. You may only have view access to this trip."; render(); });
+  }
+  function undoAction(a) {
+    if (!S.db) return;
+    var prev = S.actions[a.id]; delete S.actions[a.id]; render();
+    S.db.doc("actions/" + a.id).delete().catch(function () { S.actions[a.id] = prev; render(); });
+  }
+
+  // ---------- Ask Claude (owner only, through a Wayfare scheduled task) ----------
+  function triggerId() { return S.priv && S.priv.agent && S.priv.agent.triggerId; }
+  function canAsk() { return S.isOwner && S.mcp && S.db && triggerId(); }
+  function ask(kind, alertId, params) {
+    var rid = "r" + Date.now().toString(36);
+    var req = { kind: kind, alertId: alertId || null, slug: S.trip.slug, params: params || {}, status: "queued", createdAt: nowIso() };
+    S.requests[rid] = req; render();
+    S.db.doc("requests/" + rid).set(req).then(function () {
+      var text = "WAYFARE_REQUEST " + JSON.stringify({ requestId: rid, kind: kind, slug: S.trip.slug, alertId: alertId || null, params: params || {} });
+      return S.mcp.callTool("Claude Code Remote", "fire_trigger", { trigger_id: triggerId(), text: text });
+    }).then(function () {
+      S.requests[rid] = Object.assign({}, req, { status: "sent", sentAt: nowIso() }); render();
+      return S.db.doc("requests/" + rid).update({ status: "sent", sentAt: S.requests[rid].sentAt }).catch(function () {});
+    }).catch(function (e) {
+      var code = e && e.code;
+      var msg = code === "server_not_connected" ? "Claude Code Remote is not connected for this account."
+        : code === "approval_required" || code === "not_in_manifest" ? "This page needs your approval to start Claude tasks. Try again and choose Allow."
+        : code === "tool_error" ? "The Wayfare task could not start. Run /wayfare:setup again to repair it."
+        : "Could not reach Claude. Try again in a moment.";
+      S.requests[rid] = Object.assign({}, req, { status: "failed", message: msg });
+      if (S.db) S.db.doc("requests/" + rid).set(S.requests[rid]).catch(function () {});
+      render();
+    });
+  }
+  function latestRequest(filter) {
+    var best = null;
+    Object.keys(S.requests).forEach(function (k) {
+      var r = S.requests[k];
+      if (filter(r) && (!best || r.createdAt > best.createdAt)) best = r;
+    });
+    return best;
+  }
+  var REQ_TEXT = { queued: "Sending to Claude…", sent: "Claude is on it. Results show here in a few minutes.", running: "Claude is working on it…", done: "Done.", failed: "Failed." };
+  function requestLine(r) {
+    if (!r) return null;
+    var fresh = r.status === "done" ? (Date.now() - new Date(r.finishedAt || r.createdAt).getTime() < 6 * 3600e3) : true;
+    if (!fresh) return null;
+    return el("div", { class: "status-line" + (r.status === "failed" ? " err" : ""), role: "status", text: (REQ_TEXT[r.status] || r.status) + (r.message ? " " + r.message : "") });
+  }
+
+  // ---------- Calendar (anyone with a Google Calendar connector) ----------
+  function calendarItems() {
+    return (S.trip.items || []).filter(function (it) { return it.calendar && !S.calAdded[it.id]; });
+  }
+  function addToCalendar() {
+    var todo = calendarItems();
+    S.calBusy = true; S.calConfirm = false; S.calMsg = "Adding " + todo.length + " events…"; render();
+    var added = 0;
+    var chain = Promise.resolve();
+    todo.forEach(function (it) {
+      chain = chain.then(function () {
+        var c = it.calendar;
+        var input = c.allDay
+          ? { summary: c.summary, allDay: true, startTime: c.start + "T00:00:00", endTime: c.end + "T00:00:00", location: c.location, description: "Added from your Wayfare trip page." }
+          : { summary: c.summary, startTime: c.start, endTime: c.end, location: c.location, description: "Added from your Wayfare trip page." };
+        return S.mcp.callTool("Google Calendar", "create_event", input).then(function () { S.calAdded[it.id] = true; added++; });
+      });
+    });
+    chain.then(function () {
+      S.calMsg = "Added " + added + " event" + (added === 1 ? "" : "s") + " to your Google Calendar.";
+    }).catch(function (e) {
+      var code = e && e.code;
+      S.calMsg = (added ? "Added " + added + ", then stopped. " : "")
+        + (code === "server_not_connected" ? "Connect Google Calendar in Claude: Settings → Connectors."
+          : code === "needs_reauth" ? "Reconnect Google Calendar in Claude: Settings → Connectors."
+          : code === "approval_required" || code === "not_in_manifest" ? "Calendar needs your approval. Tap the button again and choose Allow."
+          : code === "tool_error" ? "Google Calendar refused an event."
+          : "Google Calendar did not answer. Check your calendar before you try again, so you do not get doubles.");
+    }).then(function () {
+      S.calBusy = false;
+      if (S.db && S.uid) S.db.doc("data/users/" + S.uid + "/calendar").set({ added: Object.keys(S.calAdded) }).catch(function () {});
+      render();
+    });
+  }
+
+  // ---------- render ----------
+  function countdown(days, status) {
+    if (status === "past") return ["Done", "trip ended"];
+    if (days > 1) return [String(days), "days to go"];
+    if (days === 1) return ["1", "day to go"];
+    if (days === 0) return ["Today", ""];
+    return ["Now", "on the road"];
+  }
+
+  function renderBoard(t, open) {
+    var cd = countdown(t.daysUntil, t.status);
+    var board = el("div", { class: "board" }, [
+      el("div", { class: "board-head" }, [
+        el("div", null, [el("h1", { text: t.title }), el("div", { class: "dates", text: t.dates + " · " + t.travellers + (t.travellers > 1 ? " travellers" : " traveller") })]),
+        el("div", { class: "countdown" }, [el("b", { text: cd[0] }), cd[1]])
+      ])
+    ]);
+    if (t.next) board.appendChild(el("div", { class: "next" }, [el("span", { class: "label", text: "Next" }), el("span", { class: "what", text: t.next.title }), el("span", { class: "when", text: t.next.when })]));
+    var high = open.filter(function (a) { return a.level === "high"; }).length;
+    var med = open.filter(function (a) { return a.level === "medium"; }).length;
+    var stats = el("div", { class: "stats" }, [
+      high ? el("span", { class: "chip high", text: high + " urgent" }) : null,
+      med ? el("span", { class: "chip", text: med + " to check" }) : null,
+      t.counts.gapNights ? el("span", { class: "chip", text: t.counts.gapNights + " night" + (t.counts.gapNights > 1 ? "s" : "") + " unbooked" }) : null,
+      el("span", { class: "chip", text: t.items.length + " bookings" })
+    ]);
+    board.appendChild(stats);
+    return board;
+  }
+
+  function renderToolbar() {
+    var bar = el("div", { class: "row" });
+    if (canAsk()) {
+      var r = latestRequest(function (x) { return x.kind === "sync" || x.kind === "fares"; });
+      var busy = r && (r.status === "queued" || r.status === "sent" || r.status === "running");
+      bar.appendChild(el("button", { class: "btn", type: "button", disabled: busy, text: "Check inbox now", on: { click: function () { ask("sync"); } } }));
+      bar.appendChild(el("button", { class: "btn", type: "button", disabled: busy, text: "Check fares", on: { click: function () { ask("fares"); } } }));
+    }
+    if (S.mcp && S.trip.status !== "past") {
+      var n = calendarItems().length;
+      if (S.calConfirm) {
+        bar.appendChild(el("span", { class: "note", text: "Add " + n + " events to your Google Calendar?" }));
+        bar.appendChild(el("button", { class: "btn primary", type: "button", text: "Add events", on: { click: addToCalendar } }));
+        bar.appendChild(el("button", { class: "btn quiet", type: "button", text: "Cancel", on: { click: function () { S.calConfirm = false; render(); } } }));
+      } else if (n) {
+        bar.appendChild(el("button", { class: "btn", type: "button", disabled: S.calBusy, text: "Add to my calendar", on: { click: function () { S.calConfirm = true; render(); } } }));
+      }
+    }
+    var box = el("div", { class: "wrap", style: "gap:6px" }, [bar]);
+    if (!bar.childNodes.length) return null;
+    var r2 = latestRequest(function (x) { return x.kind === "sync" || x.kind === "fares"; });
+    if (r2) box.appendChild(requestLine(r2));
+    if (S.calMsg) box.appendChild(el("div", { class: "status-line", role: "status", text: S.calMsg }));
+    return box;
+  }
+
+  function ownerLinks(a) {
+    if (!S.isOwner || !S.priv || !S.priv.items) return [];
+    var out = [];
+    (a.itemIds || []).forEach(function (id) {
+      var p = S.priv.items[id];
+      if (p && p.manageUrl) out.push(link("Open my booking" + (p.provider ? " · " + p.provider : ""), p.manageUrl));
+    });
+    return out;
+  }
+
+  function renderSuggestions(a) {
+    var s = S.suggestions[a.id];
+    if (!s || !s.items || !s.items.length) return null;
+    var list = el("ol");
+    s.items.slice(0, 6).forEach(function (x) {
+      var li = el("li", null, [el("b", { text: x.name || "" }), x.area ? " · " + x.area : "", x.price ? " · " + x.price : ""]);
+      if (x.why) li.appendChild(el("div", { class: "note", text: x.why }));
+      var ls = el("div", { class: "links" });
+      (x.links || []).slice(0, 3).forEach(function (l) { var a2 = link(l.label, l.url); if (a2) ls.appendChild(a2); });
+      if (ls.childNodes.length) li.appendChild(ls);
+      list.appendChild(li);
+    });
+    return el("div", { class: "suggest" }, [el("h4", { text: "Claude's suggestions" }), list, s.note ? el("div", { class: "note", text: s.note }) : null]);
+  }
+
+  function renderAlert(a) {
+    var label = a.level === "high" ? "Urgent" : a.level === "medium" ? "Check" : "Good to know";
+    var h = el("h3", null, [el("span", { class: "tag", text: label }), a.title]);
+    if (a.fromChange) h.appendChild(el("span", { class: "tag change", text: "Caused by schedule change" }));
+    var box = el("div", { class: "alert " + a.level }, [h, el("p", { text: a.detail })]);
+    var links = el("div", { class: "links" });
+    ownerLinks(a).concat((a.links || []).map(function (l) { return link(l.label, l.url); })).forEach(function (x) { if (x) links.appendChild(x); });
+    if (links.childNodes.length) box.appendChild(links);
+    var sug = renderSuggestions(a);
+    if (sug) box.appendChild(sug);
+    var req = latestRequest(function (x) { return x.alertId === a.id; });
+    var line = requestLine(req);
+    if (line) box.appendChild(line);
+    if (S.canAct || (a.ask && canAsk())) {
+      var acts = el("div", { class: "acts" });
+      if (a.ask && canAsk()) {
+        var busy = req && (req.status === "queued" || req.status === "sent" || req.status === "running");
+        acts.appendChild(el("button", { class: "btn primary", type: "button", disabled: busy, text: S.suggestions[a.id] ? "Ask Claude again" : a.ask.label,
+          on: { click: function () { var p = Object.assign({}, a.ask); delete p.label; delete p.kind; ask(a.ask.kind, a.id, p); } } }));
+      }
+      if (S.canAct) {
+        acts.appendChild(el("button", { class: "btn", type: "button", text: "Done", on: { click: function () { setAction(a, "done"); } } }));
+        acts.appendChild(el("button", { class: "btn", type: "button", text: "Not a problem", on: { click: function () { setAction(a, "ignored"); } } }));
+        acts.appendChild(el("button", { class: "btn quiet", type: "button", text: "Later", on: { click: function () { setAction(a, "snoozed"); } } }));
+      }
+      box.appendChild(acts);
+    }
+    return box;
+  }
+
+  function renderAttention(t) {
+    var open = [], handled = [];
+    t.alerts.forEach(function (a) { (resolution(a) ? handled : open).push(a); });
+    var sec = el("section", { "aria-labelledby": "att" }, [el("h2", { class: "sec-title", id: "att", text: "Needs attention" })]);
+    if (!open.length) sec.appendChild(el("div", { class: "calm", text: handled.length ? "All handled. Wayfare checks again at the next sync." : "Nothing to fix. Wayfare checks again at the next sync." }));
+    var list = el("div", { class: "alerts" });
+    open.forEach(function (a) { list.appendChild(renderAlert(a)); });
+    sec.appendChild(list);
+    if (handled.length) {
+      var d = el("details", { class: "handled" }, [el("summary", { text: "Handled (" + handled.length + ")" })]);
+      handled.forEach(function (a) {
+        var r = resolution(a);
+        d.appendChild(el("div", { class: "handled-row" }, [
+          el("span", null, [el("s", { text: a.title }), " · " + RES_LABEL[r] + (r === "snoozed" && S.actions[a.id] ? " until " + new Date(S.actions[a.id].until).toLocaleDateString() : "")]),
+          S.canAct ? el("button", { class: "btn quiet", type: "button", text: "Undo", on: { click: function () { undoAction(a); } } }) : null
+        ]));
+      });
+      sec.appendChild(d);
+    }
+    return { node: sec, open: open };
+  }
+
+  function renderTodos() {
+    if (S.source !== "db") return null;
+    var sec = el("section", { "aria-labelledby": "todo-h" }, [el("h2", { class: "sec-title", id: "todo-h", text: "To do" })]);
+    var box = el("div", { class: "todos" });
+    var items = S.todos.slice().sort(function (a, b) { return (a.done - b.done) || (a.at < b.at ? -1 : 1); });
+    if (!items.length) box.appendChild(el("div", { class: "note", style: "padding:8px 0", text: "Nothing yet. Add things to do before you go, like visas, travel insurance or a restaurant to book." }));
+    items.forEach(function (td) {
+      box.appendChild(el("div", { class: "todo" + (td.done ? " done" : "") }, [
+        el("button", { class: "check", type: "button", "aria-label": td.done ? "Mark as not done" : "Mark as done", "aria-pressed": String(!!td.done), text: td.done ? "✓" : "",
+          disabled: !S.canTodo, on: { click: function () { S.db.doc("todos/" + td.id).update({ done: !td.done, doneAt: nowIso() }).catch(function () { S.canTodo = false; render(); }); } } }),
+        el("span", { class: "text", text: td.text }),
+        S.isOwner ? el("button", { class: "btn quiet", type: "button", "aria-label": "Remove", text: "Remove", on: { click: function () { S.db.doc("todos/" + td.id).delete().catch(function () {}); } } }) : el("span")
+      ]));
+    });
+    if (S.canTodo) {
+      var input = el("input", { id: "todo-input", type: "text", maxlength: "200", placeholder: "Add a to-do", "aria-label": "New to-do" });
+      var form = el("form", { class: "add-todo", on: { submit: function (e) {
+        e.preventDefault();
+        var text = input.value.trim();
+        if (!text) return;
+        input.value = "";
+        var body = { text: text, done: false, at: nowIso() };
+        if (S.uid) body.by = S.uid;
+        S.db.collection("todos").add(body).catch(function () { S.canTodo = false; render(); });
+      } } }, [input, el("button", { class: "btn", type: "submit", text: "Add" })]);
+      box.appendChild(form);
+    } else {
+      box.appendChild(el("div", { class: "note", text: "You can view this list. Ask the trip owner for Contributor access to tick items." }));
+    }
+    sec.appendChild(box);
+    return sec;
+  }
+
+  function renderTimeline(t, flags) {
+    var days = {}, order = [];
+    function bucket(day, label) { if (!days[day]) { days[day] = { label: label, rows: [] }; order.push(day); } return days[day]; }
+    t.items.forEach(function (it) { bucket(it.day, it.dayLabel).rows.push({ it: it }); });
+    (t.gaps || []).forEach(function (g) {
+      var d = new Date(g.firstNight + "T12:00:00Z");
+      bucket(g.firstNight, DAYS[d.getUTCDay()] + " " + d.getUTCDate() + " " + MONTHS[d.getUTCMonth()]).rows.push({ g: g });
+    });
+    order.sort();
+    var sec = el("section", { "aria-labelledby": "tl" }, [el("h2", { class: "sec-title", id: "tl", text: "Day by day" })]);
+    order.forEach(function (day) {
+      var box = el("div", { class: "day" }, [el("h3", { class: "day-label", text: days[day].label })]);
+      days[day].rows.forEach(function (r) {
+        if (r.g) {
+          box.appendChild(el("div", { class: "item gap" }, [
+            el("div", { class: "time", text: "Night" }), el("span", { class: "kind", text: "No stay booked" }),
+            el("h4", { text: r.g.nights + " night" + (r.g.nights > 1 ? "s" : "") + (r.g.city ? " in " + r.g.city : "") }),
+            el("span", { class: "sub", text: "Nothing in your bookings covers these nights." })
+          ]));
+          return;
+        }
+        var it = r.it;
+        var time = el("div", { class: "time" }, [it.type === "hotel" ? "In" : it.time]);
+        if (it.previous && it.previous.depart) time.appendChild(el("s", { text: it.previous.depart.split("· ")[1] || "" }));
+        if (it.endTime) time.appendChild(el("small", { text: "→ " + it.endTime + (it.endDayOffset ? " +" + it.endDayOffset : "") }));
+        var sub = it.subtitle || "";
+        if (it.type === "hotel") sub = (sub ? sub + " · " : "") + it.until + ", to " + it.when.split("→ ")[1];
+        var foot = el("div", { class: "item-foot" });
+        var p = S.priv && S.priv.items && S.priv.items[it.id];
+        if (S.showCodes && p && p.confirmation) {
+          foot.appendChild(el("span", { class: "code full", text: "Code " + p.confirmation }));
+          foot.appendChild(el("button", { class: "btn quiet", type: "button", text: "Copy", on: { click: function (e) {
+            var b = e.currentTarget;
+            navigator.clipboard.writeText(p.confirmation).then(function () { b.textContent = "Copied"; }, function () { b.textContent = p.confirmation; });
+          } } }));
+        } else if (it.code) foot.appendChild(el("span", { class: "code", text: "Code " + it.code }));
+        if (S.isOwner && p && p.manageUrl) foot.appendChild(link("Open booking", p.manageUrl));
+        (it.links || []).forEach(function (l) { var x = link(l.label, l.url); if (x) foot.appendChild(x); });
+        var kind = (TYPE_LABEL[it.type] || "Plan") + (it.status === "changed" ? " · Changed" : "");
+        box.appendChild(el("div", { class: "item" + (flags[it.id] ? " flag-" + flags[it.id] : "") }, [
+          time, el("span", { class: "kind", text: kind }), el("h4", { text: it.title }), el("span", { class: "sub", text: sub }), foot
+        ]));
+      });
+      sec.appendChild(box);
+    });
+    return sec;
+  }
+
+  function render() {
+    var t = S.trip;
+    var codes = document.getElementById("codes");
+    codes.hidden = !(S.isOwner && S.priv && S.priv.items);
+    codes.setAttribute("aria-pressed", String(S.showCodes));
+    codes.textContent = S.showCodes ? "Hide booking codes" : "Show booking codes";
+    var banners = document.getElementById("banners");
+    banners.textContent = "";
+    var main = document.getElementById("main");
+    if (!t) {
+      document.getElementById("updated").textContent = "";
+      if (S.source === "nodb") {
+        main.textContent = "";
+        main.appendChild(el("div", { class: "empty" }, [el("h2", { text: "Sign in to see this trip" }), el("p", { text: "This trip is shared with named people. Sign in to Claude with the account it was shared with." })]));
+      } else if (S.source === "db") {
+        main.textContent = "";
+        main.appendChild(el("div", { class: "empty" }, [el("h2", { text: "No trip data yet" }), el("p", { text: "In Claude, run /wayfare:sync to fill this page." })]));
+      }
+      return;
+    }
+    document.title = t.pageTitle || document.title;
+    document.getElementById("updated").textContent = ago(t.updatedAt);
+    if (t.sample) banners.appendChild(el("div", { class: "banner", text: "Sample trip with made-up bookings. Your own trips get their own pages at the first sync." }));
+    if (t.status === "cancelled") banners.appendChild(el("div", { class: "banner bad", text: "All bookings on this trip were cancelled. Wayfare no longer updates this page." }));
+    if (S.topMsg) banners.appendChild(el("div", { class: "banner bad", role: "alert", text: S.topMsg }));
+
+    banners.hidden = !banners.childNodes.length;
+    var flags = {};
+    t.alerts.forEach(function (a) {
+      if (resolution(a)) return;
+      (a.itemIds || []).forEach(function (id) { if (!flags[id] || a.level === "high") flags[id] = a.level; });
+    });
+    var att = renderAttention(t);
+    var y = window.scrollY;
+    main.textContent = "";
+    main.appendChild(renderBoard(t, att.open));
+    var tb = renderToolbar();
+    if (tb) main.appendChild(tb);
+    main.appendChild(att.node);
+    var todos = renderTodos();
+    if (todos) main.appendChild(todos);
+    main.appendChild(renderTimeline(t, flags));
+    window.scrollTo(0, y);
+  }
+
+  document.getElementById("codes").addEventListener("click", function () { S.showCodes = !S.showCodes; render(); });
+
+  // ---------- data sources ----------
+  var staticNode = document.getElementById("wayfare-static");
+  if (staticNode) {
+    try {
+      var data = JSON.parse(staticNode.textContent);
+      S.trip = data.trip || null; S.priv = data.private || null; S.isOwner = !!data.private;
+    } catch (e) {}
+    S.source = "static";
+    render();
+    return;
+  }
+  if (!window.claude || typeof window.claude.use !== "function") { S.source = "nodb"; render(); return; }
+
+  function docsToMap(snap) {
+    var m = {};
+    snap.docs.forEach(function (d) { if (d.exists) m[d.id] = d.data(); });
+    return m;
+  }
+  window.claude.use("db").then(function (db) {
+    if (!db) { S.source = "nodb"; render(); return; }
+    S.db = db; S.source = "db";
+    db.doc("trip/data").onSnapshot(function (d) { S.trip = d.exists ? d.data() : null; render(); }, function () { render(); });
+    db.collection("actions").onSnapshot(function (s) { S.actions = docsToMap(s); render(); }, function () {});
+    db.collection("todos").onSnapshot(function (s) {
+      S.todos = s.docs.filter(function (d) { return d.exists; }).map(function (d) { return Object.assign({ id: d.id }, d.data()); });
+      render();
+    }, function () {});
+    db.collection("suggestions").onSnapshot(function (s) { S.suggestions = docsToMap(s); render(); }, function () {});
+    return window.claude.use("user").then(function (user) {
+      S.user = user;
+      if (!user) return;
+      return Promise.all([user.isOwner(), user.canEdit(), user.id ? user.id() : null]).then(function (r) {
+        S.isOwner = !!r[0]; S.canAct = !!(r[0] || r[1]); S.uid = r[2];
+        if (S.isOwner) {
+          db.doc("private/data").onSnapshot(function (d) { S.priv = d.exists ? d.data() : null; render(); }, function () {});
+          db.collection("requests").onSnapshot(function (s) { S.requests = docsToMap(s); render(); }, function () {});
+        }
+        if (S.uid) db.doc("data/users/" + S.uid + "/calendar").get().then(function (d) {
+          if (d.exists) (d.data().added || []).forEach(function (id) { S.calAdded[id] = true; });
+          render();
+        }).catch(function () {});
+        render();
+      });
+    });
+  }).catch(function () { render(); });
+  window.claude.use("mcp").then(function (mcp) { S.mcp = mcp; render(); }).catch(function () {});
+  render();
+})();
+</script>
