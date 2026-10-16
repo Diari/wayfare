@@ -22,6 +22,7 @@ Home page database (rules: everything owner-only):
 | `private/agent`    | `{triggerId, dailyTriggerId, repo}`: the "Wayfare agent" and "Wayfare daily check" tasks, and where scheduled runs can fetch the plugin |
 | `private/status`   | `{results: [...], checkedAt}`: live flight status records (see "Status record") |
 | `private/chats`    | `{chats: {"<slug>": {triggerId, url, createdAt}}}`: trip chats made with `/wayfare:trip` |
+| `private/changes`  | `{items: [{at, slug, summary}]}`: changes found by background checks, newest 50 |
 | `requests/<id>`    | Sync / fare requests started from this page |
 
 Trip page database:

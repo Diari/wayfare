@@ -89,8 +89,8 @@ read in step 1 (`wayfare-work/db/trips/<slug>/trip/data.json`). A change is:
 a new trip, a new or changed booking, or a new high or medium alert
 (including `flight_delayed`, `flight_cancelled`).
 
-- For each trip with a change that has a chat in `private/chats`: do
-  dashboard-io.md section I with a one- or two-sentence summary.
+- For each trip with a change: dashboard-io.md section I, with a one- or
+  two-sentence summary.
 - The task's own output (its last message) is the notification text: start
   with the most urgent change, in at most three short lines. With no
   changes, the last message is exactly `No changes.`

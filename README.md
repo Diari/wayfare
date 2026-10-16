@@ -25,8 +25,12 @@ Wayfare server.
   status, fares) and **travel-day watches** 24 and 3 hours before each
   flight. You get a phone notification only when something changed.
 - **One chat per trip**: open a new chat and type `/wayfare:trip Lisbon`.
-  Page buttons, travel-day alerts and the daily check then send their
-  results to that chat, and you can ask questions or add plans there.
+  Page buttons then send their requests and results to that chat, it sums
+  up what the background checks found, and you can ask questions or add
+  plans there.
+- Scheduled runs do not load installed plugins. They fetch Wayfare from its
+  GitHub repository instead, so the background checks need the repository
+  to be public (or reachable by your Claude GitHub access).
 - Each booking type looks different, with its own icon and color: a flight
   is a boarding pass, a train has a track line, a stay shows its nights, a
   table is a reservation card. A journey line shows the whole trip.

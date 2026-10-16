@@ -102,7 +102,13 @@ repeat booking codes in chat unless the user asks.
 
 ## H. Unattended runs (scheduled tasks and page requests)
 
-A scheduled task starts a fresh cloud session. Before anything else:
+A scheduled task starts a fresh cloud session. Tested in October 2026:
+installed plugins are NOT loaded there, but Gmail, Google Calendar, the
+artifact tools, web search and web fetch are, and writes to the Wayfare
+pages work without approval. The session's network reaches GitHub, but not
+outside APIs unless the environment allows them (dashboard-io.md J).
+
+Before anything else:
 
 1. If the `/wayfare:...` skills are available, use them.
 2. Otherwise read `repo` from Wayfare Home `private`/`agent` (for example
@@ -114,22 +120,20 @@ A scheduled task starts a fresh cloud session. Before anything else:
 
 Never ask questions. Never book, pay, change or cancel anything.
 
-## I. Tell a trip chat
+## I. Record changes for the user
 
-A trip chat (made with `/wayfare:trip`) has a "doorbell": a scheduled task
-bound to that chat, saved in Home `private`/`chats` as
-`{"chats": {"<slug>": {"triggerId", "url", "createdAt"}}}`.
-To send it a short message, call `fire_trigger` (Claude Code Remote) with
-that `trigger_id` and `text`:
+When a check finds something new that needs the user's attention (a new
+trip, a new or changed booking, a new high or medium alert, a delay or a
+cancellation), append it to Home `private`/`changes`:
+`{"items": [{"at": "<now ISO>", "slug": "<slug>", "summary": "<one or two plain sentences>"}, ...]}`
+(keep the newest 50; `set` with `if_version`). Do not record "nothing
+changed".
 
-```text
-WAYFARE_UPDATE {"slug": "<slug>", "summary": "<one or two plain sentences>"}
-```
+The task's push notification tells the user right away. A trip chat reads
+these changes when the user next writes in it.
 
-Send it only when something new needs the user's attention (a new or
-changed booking, a new high or medium alert, a delay or a cancellation).
-Do not ring it for "nothing changed". If the call fails, carry on; the page
-already shows the change.
+Scheduled runs do not ring a trip chat's doorbell: in tests they would not
+start another task. Only the page buttons ring it (the user's own click).
 
 ## J. Keys for live data (optional)
 
