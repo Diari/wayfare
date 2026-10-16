@@ -1,18 +1,23 @@
 #!/usr/bin/env python3
-"""Wayfare fare check (optional, experimental).
+"""Wayfare fare check (optional).
 
-Looks for a lower fare on the SAME flight you already booked, using the
-Duffel Flights API (https://duffel.com). It does not book or change
-anything. You need your own Duffel access token in DUFFEL_ACCESS_TOKEN.
+Looks for a lower fare on the SAME flight you already booked. It does not
+book or change anything. Two providers:
+
+  searchapi (default)  Google Flights results through SearchApi
+                       (https://www.searchapi.io). Key: SEARCHAPI_API_KEY,
+                       or an API credential for www.searchapi.io on the
+                       cloud environment (then the key never reaches Claude).
+  duffel               Duffel Flights API. Key: DUFFEL_ACCESS_TOKEN.
 
 Limits you should know:
-  * Duffel prices can differ from the airline's own website.
-  * Only single-flight bookings are checked in v0.1 (no connections).
-  * A test token (duffel_test_...) only returns Duffel's fake airline,
-    so real flights never match in test mode.
-  * Duffel may charge $0.005 per search above a 1500:1 search-to-booking
-    ratio. If you never book through Duffel, every search counts. Keep
-    --max-searches low.
+  * The price is the public price for that flight and cabin today. Your fare
+    rules decide whether you can get money back.
+  * Only single-flight bookings are checked (no connections yet).
+  * SearchApi gives 100 free searches, then about $4 per 1,000. Wayfare
+    checks each flight at most every --every-days days (default 3).
+  * Duffel may charge $0.005 per search when you search much more than you
+    book through Duffel.
 
 Output: a JSON list that `wayfare.py build --fares` reads.
 """
@@ -23,11 +28,15 @@ import json
 import os
 import sys
 import urllib.error
+import urllib.parse
 import urllib.request
+from datetime import timedelta
 from datetime import datetime, timezone
 from pathlib import Path
 
 API = "https://api.duffel.com/air/offer_requests?return_offers=true&supplier_timeout=20000"
+SEARCHAPI = "https://www.searchapi.io/api/v1/search"
+CABIN_SEARCHAPI = {"economy": "economy", "premium_economy": "premium_economy", "business": "business", "first": "first_class"}
 
 
 def local_naive(iso: str) -> str:
@@ -96,6 +105,59 @@ def best_matching_offer(b: dict, response: dict) -> dict | None:
     return best
 
 
+def cabin_of(b: dict) -> str:
+    c = (b.get("cabin") or "economy").lower().replace(" ", "_")
+    return c if c in CABIN_SEARCHAPI else "economy"
+
+
+def searchapi_params(b: dict) -> dict:
+    return {"engine": "google_flights", "flight_type": "one_way", "departure_id": b["from"], "arrival_id": b["to"],
+            "outbound_date": b["depart"][:10], "travel_class": CABIN_SEARCHAPI[cabin_of(b)],
+            "adults": int(b.get("travelers") or 1), "currency": (b.get("price") or {}).get("currency") or "EUR",
+            "hl": "en", "gl": "nl"}
+
+
+def norm_flight(v: str) -> str:
+    return "".join(ch for ch in str(v or "").upper() if ch.isalnum()).lstrip("0")
+
+
+def hhmm(v: str) -> str:
+    v = str(v or "").strip()
+    return v[-5:] if len(v) >= 5 and v[-3] == ":" else v
+
+
+def searchapi_match(b: dict, resp: dict) -> dict | None:
+    """Cheapest one-segment result with the same flight number and departure time.
+    SearchApi (like Google Flights) gives the total price for all adults."""
+    want = norm_flight(f"{b.get('carrier', '')}{b.get('flightNumber', '')}")
+    dep_time = b["depart"][11:16]
+    best = None
+    for group in ("best_flights", "other_flights", "flights"):
+        for o in resp.get(group) or []:
+            segs = o.get("flights") or []
+            if len(segs) != 1 or o.get("price") in (None, ""):
+                continue
+            s = segs[0]
+            if norm_flight(s.get("flight_number")) != want:
+                continue
+            if hhmm((s.get("departure_airport") or {}).get("time")) != dep_time:
+                continue
+            amount = float(o["price"])
+            if best is None or amount < best["amount"]:
+                best = {"amount": amount, "currency": searchapi_params(b)["currency"]}
+    return best
+
+
+def searchapi_get(params: dict, timeout: float = 60.0) -> dict:
+    headers = {"Accept": "application/json"}
+    key = os.environ.get("SEARCHAPI_API_KEY", "").strip()
+    if key:
+        headers["Authorization"] = f"Bearer {key}"
+    url = SEARCHAPI + "?" + urllib.parse.urlencode(params)
+    with urllib.request.urlopen(urllib.request.Request(url, headers=headers), timeout=timeout) as r:
+        return json.loads(r.read().decode())
+
+
 def post(body: dict, token: str, timeout: float = 40.0) -> dict:
     req = urllib.request.Request(API, data=json.dumps(body).encode(), method="POST", headers={
         "Authorization": f"Bearer {token}",
@@ -107,60 +169,94 @@ def post(body: dict, token: str, timeout: float = 40.0) -> dict:
         return json.loads(r.read().decode())
 
 
+def recently_checked(previous: dict[str, dict], booking_id: str, now: datetime, every_days: float) -> bool:
+    r = previous.get(booking_id)
+    if not r:
+        return False
+    try:
+        return now - datetime.fromisoformat(r["checkedAt"].replace("Z", "+00:00")) < timedelta(days=every_days)
+    except (KeyError, ValueError):
+        return False
+
+
 def main(argv: list[str] | None = None) -> int:
     p = argparse.ArgumentParser(description=__doc__, formatter_class=argparse.RawDescriptionHelpFormatter)
     p.add_argument("--bookings", required=True)
     p.add_argument("--out", required=True)
-    p.add_argument("--max-searches", type=int, default=10)
+    p.add_argument("--provider", choices=["searchapi", "duffel"], default="searchapi")
+    p.add_argument("--previous", help="earlier fare results (kept; flights checked recently are skipped)")
+    p.add_argument("--every-days", type=float, default=3)
+    p.add_argument("--max-searches", type=int, default=6)
     a = p.parse_args(argv)
 
-    token = os.environ.get("DUFFEL_ACCESS_TOKEN", "").strip()
     data = json.loads(Path(a.bookings).read_text(encoding="utf-8"))
     bookings = data["bookings"] if isinstance(data, dict) else data
+    prev_list = []
+    if a.previous and Path(a.previous).exists() and Path(a.previous).read_text().strip():
+        prev_list = json.loads(Path(a.previous).read_text(encoding="utf-8"))
+        prev_list = prev_list.get("results", prev_list) if isinstance(prev_list, dict) else prev_list
+    previous = {r["bookingId"]: r for r in prev_list}
     now = datetime.now(timezone.utc)
     check, skipped = candidates(bookings, now)
-    report = {"checked": [], "skipped": skipped, "searches": 0, "mode": None, "error": None}
-    results: list[dict] = []
+    due = []
+    for b in check:
+        if recently_checked(previous, b["id"], now, a.every_days):
+            skipped.append({"bookingId": b["id"], "reason": f"checked in the last {a.every_days:g} days"})
+        else:
+            due.append(b)
+    report = {"provider": a.provider, "checked": [], "skipped": skipped, "searches": 0, "mode": None, "error": None}
 
-    if not token:
+    token = os.environ.get("DUFFEL_ACCESS_TOKEN", "").strip()
+    if a.provider == "duffel" and not token:
         report["error"] = "DUFFEL_ACCESS_TOKEN is not set. Fare checks are off."
-    else:
+        due = []
+    if a.provider == "duffel":
         report["mode"] = "test" if token.startswith("duffel_test_") else "live"
-        for b in check[: a.max_searches]:
-            try:
-                resp = post(offer_request_body(b), token)
-            except urllib.error.HTTPError as e:
-                msg = e.read().decode(errors="replace")[:300]
-                report["error"] = f"Duffel returned HTTP {e.code}: {msg}"
-                break
-            except (urllib.error.URLError, TimeoutError, OSError) as e:
-                report["error"] = (f"Cannot reach api.duffel.com ({e}). Cloud sessions often block outside APIs; "
-                                   "run fare checks from Claude Code on your own computer.")
-                break
-            report["searches"] += 1
-            match = best_matching_offer(b, resp)
-            n = int(b.get("travelers") or 1)
-            paid_pp = float(b["price"]["amount"]) / n
-            if not match:
-                report["checked"].append({"bookingId": b["id"], "result": "flight not found in offers"})
-                continue
-            if match["currency"] != b["price"]["currency"]:
-                report["checked"].append({"bookingId": b["id"],
-                                          "result": f"currency differs ({match['currency']} vs {b['price']['currency']}); not compared"})
-                continue
-            live_pp = match["amount"] / n
-            report["checked"].append({"bookingId": b["id"], "result": f"paid {paid_pp:.2f}, now {live_pp:.2f} per traveller"})
-            results.append({
-                "bookingId": b["id"],
-                "paidPerTraveler": round(paid_pp, 2),
-                "livePerTraveler": round(live_pp, 2),
-                "currency": match["currency"],
-                "checkedAt": now.isoformat(timespec="seconds"),
-                "source": "Duffel" + (" (test mode)" if report["mode"] == "test" else ""),
-            })
-        if len(check) > a.max_searches:
-            report["skipped"] += [{"bookingId": b["id"], "reason": "over --max-searches"} for b in check[a.max_searches:]]
+    else:
+        report["mode"] = "key from SEARCHAPI_API_KEY" if os.environ.get("SEARCHAPI_API_KEY") else "key from API credential (if set)"
 
+    for b in due[: a.max_searches]:
+        try:
+            if a.provider == "duffel":
+                match = best_matching_offer(b, post(offer_request_body(b), token))
+            else:
+                match = searchapi_match(b, searchapi_get(searchapi_params(b)))
+        except urllib.error.HTTPError as e:
+            msg = e.read().decode(errors="replace")[:300]
+            hint = ""
+            if e.code in (401, 403) and a.provider == "searchapi":
+                hint = (" No valid SearchApi key: add an API credential for www.searchapi.io on the cloud "
+                        "environment, or set SEARCHAPI_API_KEY.")
+            report["error"] = f"{a.provider} returned HTTP {e.code}: {msg}{hint}"
+            break
+        except (urllib.error.URLError, TimeoutError, OSError) as e:
+            host = "www.searchapi.io" if a.provider == "searchapi" else "api.duffel.com"
+            report["error"] = f"Cannot reach {host} ({e}). In a cloud session, allow {host} or add an API credential for it."
+            break
+        report["searches"] += 1
+        n = int(b.get("travelers") or 1)
+        paid_pp = float(b["price"]["amount"]) / n
+        if not match:
+            report["checked"].append({"bookingId": b["id"], "result": "flight not found in results"})
+            continue
+        if match["currency"] != b["price"]["currency"]:
+            report["checked"].append({"bookingId": b["id"],
+                                      "result": f"currency differs ({match['currency']} vs {b['price']['currency']}); not compared"})
+            continue
+        live_pp = match["amount"] / n
+        report["checked"].append({"bookingId": b["id"], "result": f"paid {paid_pp:.2f}, now {live_pp:.2f} per traveller"})
+        previous[b["id"]] = {
+            "bookingId": b["id"], "paidPerTraveler": round(paid_pp, 2), "livePerTraveler": round(live_pp, 2),
+            "currency": match["currency"], "checkedAt": now.isoformat(timespec="seconds"),
+            "source": "Google Flights via SearchApi" if a.provider == "searchapi" else
+                      "Duffel" + (" (test mode)" if report["mode"] == "test" else ""),
+        }
+    if len(due) > a.max_searches:
+        report["skipped"] += [{"bookingId": b["id"], "reason": "over --max-searches"} for b in due[a.max_searches:]]
+
+    future = {b["id"] for b in bookings if b.get("type") == "flight" and b.get("status") != "cancelled"
+              and datetime.fromisoformat(b["depart"]) > now}
+    results = [r for r in previous.values() if r["bookingId"] in future]
     Path(a.out).write_text(json.dumps(results, indent=1), encoding="utf-8")
     print(json.dumps(report, indent=1))
     return 0

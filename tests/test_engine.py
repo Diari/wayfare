@@ -11,6 +11,7 @@ ROOT = Path(__file__).resolve().parent.parent
 sys.path.insert(0, str(ROOT / "scripts"))
 import wayfare  # noqa: E402
 import fare_check  # noqa: E402
+import flight_status  # noqa: E402
 
 NOW = datetime(2026, 10, 15, 20, 0, tzinfo=timezone.utc)
 SAMPLE = json.loads((ROOT / "samples" / "bookings.sample.json").read_text())
@@ -315,6 +316,91 @@ class Fares(unittest.TestCase):
         check, skipped = fare_check.candidates(SAMPLE, NOW)
         self.assertIn("flight-KL1734-2026-11-12", [b["id"] for b in check])
         self.assertTrue(any(s["bookingId"] == "flight-LH179-2026-12-06" for s in skipped))
+
+
+class LiveStatus(unittest.TestCase):
+    DAY = datetime(2026, 11, 6, 13, 0, tzinfo=timezone.utc)
+
+    def rec(self, **kw):
+        r = {"bookingId": "flight-TP669-2026-11-06", "flightDate": "2026-11-06", "state": "scheduled",
+             "depScheduled": "2026-11-06T16:55", "arrScheduled": "2026-11-06T18:50",
+             "depGate": "D7", "depTerminal": "2", "checkedAt": "2026-11-06T12:30:00+00:00", "source": "test"}
+        r.update(kw)
+        return r
+
+    def lisbon(self, recs, now=None):
+        r = wayfare.build(SAMPLE, PROFILE, [], now or self.DAY, status_list=recs)
+        return trips(r)[0]
+
+    def test_delay_moves_times_and_finds_knock_on(self):
+        t = self.lisbon([self.rec(depEstimated="2026-11-06T17:55", arrEstimated="2026-11-06T19:50", depDelay=60)])
+        k = kinds(t)
+        self.assertIn("flight_delayed", k)
+        self.assertIn("dining_conflict", k)          # 19:50 arrival, table at 19:30
+        f = next(i for i in t["items"] if i["id"] == "flight-TP669-2026-11-06")
+        self.assertEqual(f["time"], "16:55")         # booked time stays
+        self.assertEqual(f["live"]["label"], "60 min late")
+        self.assertEqual(f["live"]["depGate"], "D7")
+        a = next(a for a in t["alerts"] if a["kind"] == "flight_delayed")
+        self.assertIn("flightradar24.com", a["primary"]["url"])
+
+    def test_delay_fingerprint_is_stable(self):
+        a1 = next(a for a in self.lisbon([self.rec(depEstimated="2026-11-06T17:55")])["alerts"] if a["kind"] == "flight_delayed")
+        a2 = next(a for a in self.lisbon([self.rec(depEstimated="2026-11-06T18:10")])["alerts"] if a["kind"] == "flight_delayed")
+        self.assertEqual((a1["id"], a1["fingerprint"]), (a2["id"], a2["fingerprint"]))
+
+    def test_on_time_has_no_alert(self):
+        t = self.lisbon([self.rec(depEstimated="2026-11-06T16:57")])
+        self.assertNotIn("flight_delayed", kinds(t))
+        f = next(i for i in t["items"] if i["id"] == "flight-TP669-2026-11-06")
+        self.assertEqual(f["live"]["label"], "On time")
+
+    def test_cancelled(self):
+        t = self.lisbon([self.rec(state="cancelled")])
+        self.assertIn("flight_cancelled", kinds(t))
+        a = next(a for a in t["alerts"] if a["kind"] == "flight_cancelled")
+        self.assertTrue(a["primary"]["manage"])
+
+    def test_stale_status_is_ignored(self):
+        t = self.lisbon([self.rec(depEstimated="2026-11-06T18:55", checkedAt="2026-11-05T08:00:00+00:00")])
+        self.assertNotIn("flight_delayed", kinds(t))
+        f = next(i for i in t["items"] if i["id"] == "flight-TP669-2026-11-06")
+        self.assertNotIn("live", f)
+
+    def test_chat_goes_to_private(self):
+        r = wayfare.build(SAMPLE, PROFILE, [], NOW, chats={"lisbon-2026-11": {"triggerId": "trig_x", "url": "https://claude.ai/code/session_x"}})
+        self.assertEqual(r["trips"][0]["private"]["chat"]["triggerId"], "trig_x")
+        self.assertIsNone(r["trips"][1]["private"]["chat"])
+        self.assertNotIn("chat", json.dumps(r["trips"][0]["public"]))
+
+
+class Providers(unittest.TestCase):
+    def test_searchapi_match(self):
+        def opt(num, time, price, segs=1):
+            seg = {"flight_number": num, "departure_airport": {"id": "OPO", "time": time}}
+            return {"flights": [seg] * segs, "price": price}
+        resp = {"best_flights": [opt("KL 1734", "2026-11-12 12:10", 260), opt("KL 1736", "2026-11-12 18:00", 90)],
+                "other_flights": [opt("KL 1734", "12:10", 218), opt("KL 1734", "12:10", 50, segs=2)]}
+        m = fare_check.searchapi_match(SAMPLE[5], resp)
+        self.assertEqual(m, {"amount": 218.0, "currency": "EUR"})
+        self.assertEqual(fare_check.searchapi_params(SAMPLE[5])["adults"], 2)
+
+    def test_aviationstack_pick_and_normalise(self):
+        b = SAMPLE[0]
+        data = [{"flight_date": "2026-11-05", "departure": {"iata": "AMS"}},
+                {"flight_date": "2026-11-06", "flight_status": "active",
+                 "departure": {"iata": "AMS", "scheduled": "2026-11-06T16:55:00+00:00", "estimated": "2026-11-06T17:20:00+00:00",
+                               "delay": 25, "gate": "D7", "terminal": "2"},
+                 "arrival": {"iata": "LIS", "scheduled": "2026-11-06T18:50:00+00:00", "baggage": "5"}}]
+        rec = flight_status.normalise(b, flight_status.pick(b, data), NOW)
+        self.assertEqual(rec["state"], "active")
+        self.assertEqual(rec["depEstimated"], "2026-11-06T17:20")
+        self.assertEqual(rec["baggage"], "5")
+
+    def test_status_candidates_window(self):
+        day = datetime(2026, 11, 6, 6, 0, tzinfo=timezone.utc)
+        check, _ = flight_status.candidates(SAMPLE, {}, day, 30, 90)
+        self.assertEqual([b["id"] for b in check], ["flight-TP669-2026-11-06"])
 
 
 if __name__ == "__main__":

@@ -1,14 +1,15 @@
 ---
 name: agent
-description: Handle a request sent from a Wayfare page, a message that starts with WAYFARE_REQUEST and a JSON object - check the inbox, check fares, or find stays for unbooked nights - and report the result back on the page. Use when a message starts with WAYFARE_REQUEST or when the Wayfare agent scheduled task runs.
+description: Handle a request sent from a Wayfare page, a message that starts with WAYFARE_REQUEST and a JSON object - check the inbox, check flight status, check fares, or find stays for unbooked nights - and report the result back on the page. Use when a message starts with WAYFARE_REQUEST or when the Wayfare agent scheduled task runs.
 ---
 
 # Wayfare agent
 
 A Wayfare page started this run through the user's "Wayfare agent" scheduled
-task. Nobody is watching: never ask questions. Read
-`${CLAUDE_PLUGIN_ROOT}/reference/dashboard-io.md` first. `$P` means
-`${CLAUDE_PLUGIN_ROOT}`.
+task, or rang the doorbell of a trip chat. Nobody may be watching: never ask
+questions. In a fresh scheduled session, do
+`${CLAUDE_PLUGIN_ROOT}/reference/dashboard-io.md` section H first. Read
+dashboard-io.md. `$P` means `${CLAUDE_PLUGIN_ROOT}`.
 
 ## 1. Read and check the request
 
@@ -16,7 +17,7 @@ The message is `WAYFARE_REQUEST {json}` with:
 `requestId`, `kind`, `slug` (or null), `alertId` (or null), `params`.
 
 Stop without doing anything if any check fails:
-- `kind` is exactly one of `sync`, `fares`, `find-stays`;
+- `kind` is exactly one of `sync`, `status`, `fares`, `find-stays`;
 - `requestId` matches `^r[0-9a-z]{4,20}$`;
 - `slug` is null or matches `^[a-z0-9-]{1,80}$`;
 - for `find-stays`: `params.city` is a short place name, `params.checkIn`
@@ -38,7 +39,10 @@ exist, stop (the page did not create it, so the request is not genuine).
 
 ## 3. Do the work
 
-- `sync`: follow `$P/skills/sync/SKILL.md`, unattended.
+- `sync`: follow `$P/skills/check/SKILL.md` in daily mode, but skip its
+  step 7 (watches).
+- `status`: follow `$P/skills/check/SKILL.md` in watch mode for all flights
+  that leave in the next 30 hours.
 - `fares`: follow `$P/skills/fares/SKILL.md`.
 - `find-stays`: see below.
 

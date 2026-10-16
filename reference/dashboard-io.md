@@ -1,7 +1,7 @@
 # Reading and writing the Wayfare pages
 
-Shared steps for `/wayfare:setup`, `/wayfare:sync`, `/wayfare:fares` and the
-agent. `$P` means `${CLAUDE_PLUGIN_ROOT}`. Work in a folder named
+Shared steps for `/wayfare:setup`, `/wayfare:sync`, `/wayfare:check`,
+`/wayfare:fares`, `/wayfare:trip` and the agent. `$P` means `${CLAUDE_PLUGIN_ROOT}`. Work in a folder named
 `wayfare-work` in the current working directory.
 
 ## Tool names
@@ -25,7 +25,7 @@ All reads are safe. Use `out_dir` so the documents land in files.
 
 Home (`out_dir: wayfare-work/db/home`):
 `get` `private`/`profile`, `private`/`bookings`, `private`/`fares`,
-`private`/`agent`, and `index`/`trips`.
+`private`/`status`, `private`/`chats`, `private`/`agent`, and `index`/`trips`.
 
 For each trip in `index/trips` whose `status` is `upcoming` or `ongoing` and
 that has a `url`, on that trip page (`out_dir: wayfare-work/db/trips/<slug>`):
@@ -50,6 +50,8 @@ python3 "$P/scripts/wayfare.py" build \
   --bookings wayfare-work/bookings.json \
   --profile  wayfare-work/db/home/private/profile.json \
   --fares    wayfare-work/db/home/private/fares.json \
+  --status   wayfare-work/db/home/private/status.json \
+  --chats    wayfare-work/db/home/private/chats.json \
   --index    wayfare-work/db/home/index/trips.json \
   --agent    wayfare-work/db/home/private/agent.json \
   --trips-db wayfare-work/db/trips \
@@ -97,6 +99,45 @@ the user instead.
 In a few short lines: new trip pages, changed and cancelled bookings, then
 open urgent alerts. Do not paste timelines; the pages show them. Do not
 repeat booking codes in chat unless the user asks.
+
+## H. Unattended runs (scheduled tasks and page requests)
+
+A scheduled task starts a fresh cloud session. Before anything else:
+
+1. If the `/wayfare:...` skills are available, use them.
+2. Otherwise read `repo` from Wayfare Home `private`/`agent` (for example
+   `owner/wayfare`) and run `git clone --depth 1 https://github.com/<repo>.git
+   wayfare-plugin`. Then `$P` is `wayfare-plugin`, and you follow the skill
+   files in `wayfare-plugin/skills/` directly.
+3. If neither works, stop and report "The Wayfare plugin is not available in
+   scheduled runs" in the request status or the task output.
+
+Never ask questions. Never book, pay, change or cancel anything.
+
+## I. Tell a trip chat
+
+A trip chat (made with `/wayfare:trip`) has a "doorbell": a scheduled task
+bound to that chat, saved in Home `private`/`chats` as
+`{"chats": {"<slug>": {"triggerId", "url", "createdAt"}}}`.
+To send it a short message, call `fire_trigger` (Claude Code Remote) with
+that `trigger_id` and `text`:
+
+```text
+WAYFARE_UPDATE {"slug": "<slug>", "summary": "<one or two plain sentences>"}
+```
+
+Send it only when something new needs the user's attention (a new or
+changed booking, a new high or medium alert, a delay or a cancellation).
+Do not ring it for "nothing changed". If the call fails, carry on; the page
+already shows the change.
+
+## J. Keys for live data (optional)
+
+| What | Service | How the key gets to the run |
+|------|---------|-----------------------------|
+| Live fares | SearchApi, Google Flights engine (`www.searchapi.io`) | Best: an **API credential** on the cloud environment for `www.searchapi.io` (Bearer). The key never reaches Claude. Or `SEARCHAPI_API_KEY`. |
+| Flight status | Aviationstack (`api.aviationstack.com`) | Takes the key as a URL parameter, so a header credential does not work: set `AVIATIONSTACK_ACCESS_KEY` in the environment's variables and allow `api.aviationstack.com` (Network access: Custom, keep the default list). |
+| No key | Public flight page | The check skill reads `https://www.flightradar24.com/data/flights/<flight>` with the web fetch tool and writes the same status record by hand. |
 
 ## Static fallback (no artifact tools)
 

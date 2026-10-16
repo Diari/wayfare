@@ -137,6 +137,12 @@ svg.i { width: 18px; height: 18px; fill: currentColor; flex: none; }
 .pass .nm { color: var(--muted); font-size: 13px; }
 .pass .r { text-align: right; justify-self: end; }
 .pass .mid { text-align: center; color: var(--muted); font-size: 12px; }
+.live { display: flex; flex-wrap: wrap; align-items: center; gap: 4px 10px; font-size: 13px; color: var(--muted); padding-top: 2px; }
+.live b { color: var(--train); font-weight: 700; }
+.live .dot { width: 8px; height: 8px; border-radius: 50%; background: var(--train); flex: none; }
+.live.bad b { color: var(--urgent); } .live.bad .dot { background: var(--urgent); }
+.live.done b { color: var(--ink); } .live.done .dot { background: var(--muted); }
+.live .when { margin-left: auto; }
 /* train: track */
 .track { display: grid; grid-template-columns: 14px 1fr auto; gap: 0 12px; }
 .track .rail { grid-row: 1 / span 3; display: grid; grid-template-rows: 14px 1fr 14px; justify-items: center; }
@@ -303,7 +309,10 @@ svg.i { width: 18px; height: 18px; fill: currentColor; flex: none; }
   }
 
   // ---------- Ask Claude ----------
-  function triggerId() { return S.priv && S.priv.agent && S.priv.agent.triggerId; }
+  // A trip chat (set up with /wayfare:trip) gets the requests, so the answer
+  // lands in that chat; otherwise the shared "Wayfare agent" task does the work.
+  function chatInfo() { return S.priv && S.priv.chat && S.priv.chat.triggerId ? S.priv.chat : null; }
+  function triggerId() { var c = chatInfo(); return c ? c.triggerId : S.priv && S.priv.agent && S.priv.agent.triggerId; }
   function canAsk() { return S.isOwner && S.mcp && S.db && triggerId(); }
   function ask(kind, alertId, params) {
     var rid = "r" + Date.now().toString(36);
@@ -335,7 +344,8 @@ svg.i { width: 18px; height: 18px; fill: currentColor; flex: none; }
   function requestLine(r) {
     if (!r) return null;
     if (r.status === "done" && Date.now() - new Date(r.finishedAt || r.createdAt).getTime() > 6 * 3600e3) return null;
-    return el("div", { class: "status" + (r.status === "failed" ? " err" : ""), role: "status", text: (REQ_TEXT[r.status] || r.status) + (r.message ? " " + r.message : "") });
+    var txt = r.status === "sent" && chatInfo() ? "Sent to the trip chat. Results show here and in the chat in a few minutes." : (REQ_TEXT[r.status] || r.status);
+    return el("div", { class: "status" + (r.status === "failed" ? " err" : ""), role: "status", text: txt + (r.message ? " " + r.message : "") });
   }
   function busy(r) { return r && (r.status === "queued" || r.status === "sent" || r.status === "running"); }
 
@@ -398,7 +408,7 @@ svg.i { width: 18px; height: 18px; fill: currentColor; flex: none; }
     return el("div", { class: "suggest" }, [el("b", { text: "Claude suggests" }), list, s.note ? el("div", { class: "muted small", text: s.note }) : null]);
   }
   // The visible part of an issue: what is wrong, why, and ONE button.
-  function issueBox(a) {
+  function issueBox(a, noCta) {
     var r = resolution(a);
     if (r) {
       return el("div", { class: "issue done" }, [el("span", { class: "small", text: RES_LABEL[r] + ": " + a.title }),
@@ -407,7 +417,10 @@ svg.i { width: 18px; height: 18px; fill: currentColor; flex: none; }
     var box = el("div", { class: "issue " + a.level, id: "issue-" + a.id }, [el("p", null, [el("b", { text: a.title })]), el("p", { class: "why", text: a.detail })]);
     var req = latestRequest(function (x) { return x.alertId === a.id; });
     var acts = el("div", { class: "row" });
-    if (a.ask && canAsk()) {
+    if (noCta) {
+      // A card shows one button: the one for its most urgent problem. The
+      // other problems' actions are in the card's menu.
+    } else if (a.ask && canAsk()) {
       acts.appendChild(el("button", { class: "btn dark", type: "button", disabled: busy(req), text: S.suggestions[a.id] ? "Ask Claude again" : "Find stays with Claude",
         on: { click: function () { var p = Object.assign({}, a.ask); delete p.label; delete p.kind; ask(a.ask.kind, a.id, p); } } }));
     } else {
@@ -425,7 +438,7 @@ svg.i { width: 18px; height: 18px; fill: currentColor; flex: none; }
     var out = [];
     if (many) out.push({ hint: a.title });
     var p = primaryFor(a);
-    if (a.ask && canAsk() && p) out.push({ label: p.label, url: p.url });
+    if (p && (many || (a.ask && canAsk()))) out.push({ label: p.label, url: p.url });
     (a.links || []).forEach(function (l) { if (!p || l.url !== a.primary.url) out.push({ label: l.label, url: l.url }); });
     if (S.canAct) {
       out.push({ label: "Mark as handled", onClick: function () { setAction(a, "done"); } });
@@ -455,6 +468,8 @@ svg.i { width: 18px; height: 18px; fill: currentColor; flex: none; }
         el("span", { class: "tm r" }, [it.endTime, arrOld ? el("s", { text: arrOld }) : null]),
         el("span", { class: "nm", text: it.fromName }), el("span"), el("span", { class: "nm r", text: it.toName })
       ]));
+      var lv = liveLine(it);
+      if (lv) main.appendChild(lv);
     } else if (type === "train") {
       main.appendChild(el("div", { class: "track" }, [
         el("span", { class: "rail" }, [el("i"), el("b"), el("i")]),
@@ -474,13 +489,38 @@ svg.i { width: 18px; height: 18px; fill: currentColor; flex: none; }
     return main;
   }
 
+  // Live flight status: one quiet line, colored only when it matters.
+  function liveLine(it) {
+    var v = it.live;
+    if (!v) return null;
+    var bad = v.state === "cancelled" || v.state === "diverted" || v.delay >= 20 || v.arrDelay >= 20;
+    var bits = [];
+    if (v.state !== "cancelled" && (v.delay >= 5 || v.arrDelay >= 5)) bits.push("now " + v.depTime + " → " + v.arrTime);
+    if (v.state === "landed") { if (v.baggage) bits.push("Bags belt " + v.baggage); if (v.arrGate) bits.push("Gate " + v.arrGate); }
+    else if (v.state !== "cancelled") {
+      if (v.depTerminal) bits.push("Terminal " + v.depTerminal);
+      if (v.depGate) bits.push("Gate " + v.depGate);
+    }
+    var at = v.checkedAt ? new Date(v.checkedAt) : null;
+    var when = at && !isNaN(at) ? "checked " + at.toLocaleTimeString([], { hour: "2-digit", minute: "2-digit", hour12: false }) : "";
+    return el("div", { class: "live" + (bad ? " bad" : v.state === "landed" ? " done" : "") }, [
+      el("span", { class: "dot", "aria-hidden": "true" }), el("b", { text: v.label }),
+      bits.length ? el("span", { text: bits.join(" · ") }) : null,
+      when ? el("span", { class: "when", text: when }) : null]);
+  }
+
   function card(it, issues, touch) {
     var top = el("div", { class: "card-top" }, [icon(it.type), el("span", { text: TYPE_NAME[it.type] || "Plan" }),
       el("span", { class: "what", text: [it.number, it.operator].filter(Boolean).join(", ") })]);
     if (it.status === "changed") top.appendChild(el("span", { class: "flag", text: "Time changed" }));
     if (issues.some(function (a) { return !resolution(a); })) touch = null;
     var art = el("article", { class: "card " + it.type + (touch ? " touch-" + touch : ""), id: "card-" + it.id }, [top, cardBody(it)]);
-    issues.forEach(function (a) { art.appendChild(issueBox(a)); });
+    var ctaShown = false;
+    issues.forEach(function (a) {
+      var open = !resolution(a);
+      art.appendChild(issueBox(a, open && ctaShown));
+      if (open) ctaShown = true;
+    });
 
     // foot: quiet facts on the left, the card's menu on the right
     var facts = [];
@@ -536,11 +576,16 @@ svg.i { width: 18px; height: 18px; fill: currentColor; flex: none; }
     head.textContent = "";
     var top = [];
     if (S.mcp && t.status !== "past" && calendarItems().length) top.push({ label: "Add trip to my calendar", onClick: function () { S.calConfirm = true; render(); } });
+    var chat = S.isOwner && chatInfo();
+    if (chat && safeUrl(chat.url)) top.push({ label: "Open the trip chat", url: chat.url });
     if (canAsk()) {
-      var r = latestRequest(function (x) { return x.kind === "sync" || x.kind === "fares"; });
+      var r = latestRequest(function (x) { return x.kind === "sync" || x.kind === "fares" || x.kind === "status"; });
       if (!busy(r)) {
         top.push({ label: "Check my inbox now", onClick: function () { ask("sync"); } });
-        top.push({ label: "Check fares", onClick: function () { ask("fares"); } });
+        if (t.status !== "past" && (t.items || []).some(function (i) { return i.type === "flight"; })) {
+          top.push({ label: "Check flight status now", onClick: function () { ask("status"); } });
+          top.push({ label: "Check fares", onClick: function () { ask("fares"); } });
+        }
       }
     }
     if (S.isOwner && S.priv && S.priv.items) top.push({ label: S.showCodes ? "Hide booking codes" : "Show booking codes", onClick: function () { S.showCodes = !S.showCodes; render(); } });
@@ -567,7 +612,7 @@ svg.i { width: 18px; height: 18px; fill: currentColor; flex: none; }
     if (S.calConfirm) head.appendChild(el("div", { class: "row" }, [el("span", { class: "small", text: "Add " + calendarItems().length + " events to your Google Calendar?" }),
       el("button", { class: "btn dark", type: "button", text: "Add events", on: { click: addToCalendar } }),
       el("button", { class: "btn plain", type: "button", text: "Cancel", on: { click: function () { S.calConfirm = false; render(); } } })]));
-    var r2 = latestRequest(function (x) { return x.kind === "sync" || x.kind === "fares"; });
+    var r2 = latestRequest(function (x) { return x.kind === "sync" || x.kind === "fares" || x.kind === "status"; });
     if (r2) head.appendChild(requestLine(r2));
     if (S.calMsg) head.appendChild(el("div", { class: "status", role: "status", text: S.calMsg }));
     if (t.sample) head.appendChild(el("div", { class: "banner", text: "Sample trip with made-up bookings. Your own trips get their own pages at the first sync." }));

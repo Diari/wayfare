@@ -19,7 +19,9 @@ Home page database (rules: everything owner-only):
 | `private/profile`  | Travel profile |
 | `private/bookings` | `{bookings: [...]}` every booking, with codes and prices |
 | `private/fares`    | `{results: [...], checkedAt}` from the last fare check |
-| `private/agent`    | `{triggerId}` of the "Wayfare agent" scheduled task |
+| `private/agent`    | `{triggerId, dailyTriggerId, repo}`: the "Wayfare agent" and "Wayfare daily check" tasks, and where scheduled runs can fetch the plugin |
+| `private/status`   | `{results: [...], checkedAt}`: live flight status records (see "Status record") |
+| `private/chats`    | `{chats: {"<slug>": {triggerId, url, createdAt}}}`: trip chats made with `/wayfare:trip` |
 | `requests/<id>`    | Sync / fare requests started from this page |
 
 Trip page database:
@@ -123,6 +125,8 @@ Lowercase, letters, digits and `-` only.
   "minConnectionMinutes": 75,
   "arrivalToDinnerMinutes": 150,
   "fareDropMinimum": 25,
+  "delayAlertMinutes": 20,
+  "fareChecks": false,
   "flights": "free text: seats, airlines, alliances",
   "stays": "free text: hotel style, area, budget",
   "dining": "free text: diet, how far ahead to book"
@@ -130,3 +134,32 @@ Lowercase, letters, digits and `-` only.
 ```
 
 `homeAirports` and `homeCity` decide where a trip starts and ends.
+`delayAlertMinutes`: a live delay at or above this makes an alert.
+`fareChecks`: the daily check looks for lower fares (needs a SearchApi key).
+
+## Manual plans
+
+Plans added in a trip chat use the same booking objects with
+`"source": "manual"` and an id that starts with `manual-`. Only these may be
+changed or removed from a chat.
+
+## Status record
+
+Written by `scripts/flight_status.py` (Aviationstack) or by hand from a
+public flight page. Times are local airport times without offset.
+
+```json
+{"bookingId": "flight-TP669-2026-11-06", "flight": "TP 669", "flightDate": "2026-11-06",
+ "state": "scheduled | active | landed | cancelled | diverted",
+ "depScheduled": "2026-11-06T16:55", "depEstimated": "2026-11-06T17:40", "depActual": null,
+ "arrScheduled": "2026-11-06T18:50", "arrEstimated": null, "arrActual": null,
+ "depTerminal": "2", "depGate": "D7", "arrTerminal": null, "arrGate": null, "baggage": null,
+ "checkedAt": "2026-11-06T13:05:00+00:00", "source": "Aviationstack"}
+```
+
+The build uses a record only when it is less than 18 hours old and for the
+booked date. It moves the flight to the expected times for all checks (so a
+delay shows the dinner or connection it breaks) and shows the booked times
+on the page with a live line: status, new times, terminal, gate, bags belt.
+Alerts: `flight_delayed` (medium, high at 2 hours or more),
+`flight_cancelled` and `flight_diverted` (high).

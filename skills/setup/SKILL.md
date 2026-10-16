@@ -1,6 +1,6 @@
 ---
 name: setup
-description: Set up Wayfare, the open-source personal travel agent. Creates the private Wayfare Home page, saves the travel profile, creates the Wayfare agent task that lets the pages ask Claude for work, then runs a first inbox sync (one shareable page per trip) or loads sample trips. Use when the user runs /wayfare:setup or asks to set up, repair or reset Wayfare.
+description: Set up Wayfare, the open-source personal travel agent. Creates the private Wayfare Home page, saves the travel profile, creates the background tasks (the Wayfare agent for page buttons and an optional daily check), explains optional live-data keys and trip chats, then runs a first inbox sync (one shareable page per trip) or loads sample trips. Use when the user runs /wayfare:setup or asks to set up, repair or reset Wayfare.
 ---
 
 # Wayfare setup
@@ -58,38 +58,63 @@ loading it with tool search if deferred. If not: tell the user to connect
 Gmail in Claude's settings under Connectors. Wayfare only opens emails that
 look like bookings.
 
-## 4. The Wayfare agent task
+## 4. Background tasks
 
-This scheduled task lets the pages' buttons ("Ask Claude for stays",
-"Check inbox now", "Check fares") start Claude work. It never runs on a
-schedule; the pages start it.
+Find the scheduling tools with tool search (`create_trigger`,
+`list_triggers`). If there are none, say that the page buttons that ask
+Claude and the background checks stay off, and skip to step 5. Read Home
+`private`/`agent` first; keep tasks that still exist (`list_triggers`).
 
-1. If `private/agent` on Wayfare Home already has a `triggerId` and the
-   scheduling tools list that task, keep it and skip to step 5.
-2. Find the scheduling tools with tool search (`create_trigger`). If there
-   are none, say the page buttons that ask Claude will stay hidden, and skip.
-3. Create the task: name `Wayfare agent`, no schedule (no cron expression,
-   no run time), `initiation: "human_request"`, prompt exactly:
+1. **Wayfare agent** (page buttons). No schedule (no cron expression, no run
+   time), `initiation: "human_request"`, prompt exactly:
 
-   > You are the Wayfare agent. The next message starts with
+   > You are the Wayfare agent. The text after this prompt starts with
    > WAYFARE_REQUEST and a JSON request from one of the user's Wayfare
-   > pages. Load the Wayfare plugin skill `agent` (/wayfare:agent) and follow
-   > it. Work unattended: never ask questions. If the Wayfare plugin is not
-   > available in this session, stop and say so.
+   > pages; act on it as the agent skill says. Use the Wayfare plugin skill
+   > `agent` (/wayfare:agent). If the Wayfare skills are not available,
+   > follow the "Unattended runs" section of the plugin's
+   > reference/dashboard-io.md. Work unattended: never ask questions.
 
-4. Save `{"triggerId": "<id>", "createdAt": "<now ISO>"}` to Wayfare Home
-   `private`/`agent`.
-5. Tell the user in one sentence which approval setting the task got. The
-   task must read Gmail, search the web and write to the pages with nobody
-   there to approve, so if its runs will ask for approval, tell them to turn
-   on "Automatically approve" in the task's settings, if their organization
-   allows it.
+2. **Wayfare daily check**. Ask once (default yes): "Should Wayfare check
+   your inbox and flights every morning?" On yes: a daily schedule at about
+   07:45 in the user's time zone (`CRON_TZ=<zone> <jittered minute> 7 * * *`),
+   `initiation: "human_request"`, `notifications: {"push": true}`, prompt:
 
-Optional, ask once: "Should Wayfare also check your inbox every morning?"
-On yes, create a second task `Wayfare daily sync`, daily at about 07:00 in
-the user's time zone (use a jittered minute), prompt: `Run /wayfare:sync.
-Work unattended: do not ask questions; skip emails you are unsure about and
-list them at the end.` Say that each run uses some of their Claude usage.
+   > Run /wayfare:check daily. If the Wayfare skills are not available,
+   > follow the "Unattended runs" section of the Wayfare plugin's
+   > reference/dashboard-io.md. Work unattended: do not ask questions; skip
+   > emails you are unsure about and list them at the end. End with "No
+   > changes." when nothing changed.
+
+   Each run uses some Claude usage, and the daily check also plans one-time
+   "Wayfare watch" tasks 24 and 3 hours before each flight.
+
+3. Save `{"triggerId": "<agent id>", "dailyTriggerId": "<id or null>",
+   "repo": "<owner/repo of the Wayfare plugin, if known>", "createdAt": "<now>"}`
+   to Wayfare Home `private`/`agent`. `repo` lets scheduled runs fetch the
+   plugin when it is not installed there (dashboard-io.md H). Use the
+   marketplace the user installed Wayfare from; if unknown, ask once.
+4. Tell the user in one sentence which approval setting each task got. The
+   tasks read Gmail, search the web and write to the pages with nobody there
+   to approve, so if runs will ask, tell them to turn on "Automatically
+   approve" in each task's settings, if their organization allows it.
+
+## 4b. Live data keys (optional)
+
+Ask once: "Do you want live flight status and fare checks? They need free
+keys from Aviationstack and SearchApi." On yes, explain dashboard-io.md J in
+plain steps: where to get each key, and where to put it (the cloud
+environment's settings: an API credential for `www.searchapi.io`; the
+variable `AVIATIONSTACK_ACCESS_KEY` plus network access Custom with
+`api.aviationstack.com`). Never ask the user to paste a key into the chat.
+Set `fareChecks: true` in the profile when they want fare checks.
+Without keys, Wayfare still reads public flight pages for status.
+
+## 4c. Trip chats
+
+Say in one line: "For each trip you can open a new chat and type
+/wayfare:trip <city>; that chat then gets the page buttons' results and the
+travel-day alerts, and you can ask or add plans there."
 
 ## 5. First trips
 
@@ -102,6 +127,7 @@ Ask which they want (one question):
   python3 "$P/scripts/wayfare.py" build --sample \
     --bookings "$P/samples/bookings.sample.json" --fares "$P/samples/fares.sample.json" \
     --profile "$P/samples/profile.sample.json" --agent wayfare-work/db/home/private/agent.json \
+    --chats wayfare-work/db/home/private/chats.json \
     --index wayfare-work/db/home/index/trips.json \
     --versions wayfare-work/versions.json --out-dir wayfare-work/out
   ```

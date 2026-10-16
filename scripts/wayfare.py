@@ -36,7 +36,7 @@ from datetime import date, datetime, timedelta, timezone
 from pathlib import Path
 from typing import Any
 
-ENGINE_VERSION = "0.4.0"
+ENGINE_VERSION = "0.5.0"
 TRANSPORT = {"flight", "train", "transfer"}
 TYPES = TRANSPORT | {"hotel", "dining", "other"}
 STATUSES = {"confirmed", "changed", "cancelled"}
@@ -46,7 +46,9 @@ DEFAULT_PROFILE = {
     "minConnectionMinutes": 75,
     "arrivalToDinnerMinutes": 150,
     "fareDropMinimum": 25,
+    "delayAlertMinutes": 20,
 }
+STATUS_MAX_AGE_HOURS = 18
 WEEKDAYS = ["Mon", "Tue", "Wed", "Thu", "Fri", "Sat", "Sun"]
 MONTHS = ["Jan", "Feb", "Mar", "Apr", "May", "Jun", "Jul", "Aug", "Sep", "Oct", "Nov", "Dec"]
 
@@ -115,6 +117,7 @@ class Item:
     end_date: date           # local calendar date at the place it ends
     city_from: str = ""
     city_to: str = ""
+    live: dict | None = None     # live flight status, see apply_status()
 
     @property
     def id(self) -> str:
@@ -242,6 +245,70 @@ def to_item(b: dict) -> Item:
     s = parse_dt(b["start"])
     e = parse_dt(b["end"]) if b.get("end") else s + timedelta(hours=2)
     return Item(b, t, s, e, s.date(), e.date(), b.get("city", ""), b.get("city", ""))
+
+
+def fr24_url(raw: dict) -> str:
+    return "https://www.flightradar24.com/data/flights/" + f"{raw.get('carrier', '')}{raw.get('flightNumber', '')}".lower()
+
+
+def _wall_to_aware(wall: str | None, like: datetime) -> datetime | None:
+    """A local wall-clock time 'YYYY-MM-DDTHH:MM' in the time zone of `like`."""
+    if not wall:
+        return None
+    try:
+        return datetime.fromisoformat(wall[:16]).replace(tzinfo=like.tzinfo)
+    except ValueError:
+        return None
+
+
+def apply_status(items: list[Item], status: dict[str, dict], now: datetime, prof: dict) -> None:
+    """Use recent live flight status: move the item to the expected times, so
+    the normal checks (connections, dinners, hotel check-in) see knock-on
+    effects. The booked times stay in item.raw."""
+    for it in items:
+        rec = status.get(it.id)
+        if it.type != "flight" or not rec:
+            continue
+        try:
+            age = now - parse_dt(rec["checkedAt"])
+        except (KeyError, ValueError):
+            continue
+        if age > timedelta(hours=STATUS_MAX_AGE_HOURS) or rec.get("flightDate") not in (None, it.raw["depart"][:10]):
+            continue
+        state = rec.get("state") or "scheduled"
+        dep_b, arr_b = it.start, it.end
+        sched = _wall_to_aware(rec.get("depScheduled"), dep_b)
+        dep = _wall_to_aware(rec.get("depActual") or rec.get("depEstimated"), dep_b) or sched or dep_b
+        arr = _wall_to_aware(rec.get("arrActual") or rec.get("arrEstimated"), arr_b)
+        if arr is None:
+            arr_s = _wall_to_aware(rec.get("arrScheduled"), arr_b) or arr_b
+            arr = arr_s + max(timedelta(0), dep - (sched or dep_b))
+        delay = minutes(dep - dep_b)
+        arr_delay = minutes(arr - arr_b)
+        if state != "cancelled" and abs(delay) < 24 * 60 and abs(arr_delay) < 24 * 60:
+            it.start, it.end = dep, arr
+            it.start_date, it.end_date = dep.date(), arr.date()
+        if state == "cancelled":
+            label = "Cancelled"
+        elif state == "diverted":
+            label = "Diverted"
+        elif state == "landed":
+            label = f"Landed {arr.strftime('%H:%M')}"
+        elif state in ("active", "incident"):
+            label = "In the air" + (f", {delay} min late" if delay >= prof["delayAlertMinutes"] else "")
+        elif delay >= 5:
+            label = f"{delay} min late"
+        elif delay <= -5:
+            label = f"{-delay} min early"
+        else:
+            label = "On time"
+        it.live = {
+            "state": state, "label": label, "delay": delay, "arrDelay": arr_delay,
+            "depTime": dep.strftime("%H:%M"), "arrTime": arr.strftime("%H:%M"),
+            "depTerminal": rec.get("depTerminal"), "depGate": rec.get("depGate"),
+            "arrTerminal": rec.get("arrTerminal"), "arrGate": rec.get("arrGate"), "baggage": rec.get("baggage"),
+            "checkedAt": rec["checkedAt"], "source": rec.get("source") or "flight status",
+        }
 
 
 def is_home_departure(it: Item, prof: dict) -> bool:
@@ -433,7 +500,8 @@ def find_alerts(trip: Trip, prof: dict, fares: dict[str, dict]) -> list[dict]:
     out: list[dict] = []
     items = sorted(trip.items, key=lambda i: i.start)
     transport = [i for i in items if i.type in TRANSPORT]
-    changed_ids = {i.id for i in items if i.status == "changed"}
+    changed_ids = {i.id for i in items if i.status == "changed" or (i.live and i.live["state"] != "cancelled"
+                                                                    and max(i.live["delay"], i.live["arrDelay"]) >= prof["delayAlertMinutes"])}
 
     # 1. schedule changes
     for it in items:
@@ -441,11 +509,31 @@ def find_alerts(trip: Trip, prof: dict, fares: dict[str, dict]) -> list[dict]:
             p = it.raw["previous"]
             parts = []
             if p.get("depart"):
-                parts.append(f"departs {parse_dt(p['depart']).strftime('%H:%M')} → {it.start.strftime('%H:%M')}")
+                parts.append(f"departs {parse_dt(p['depart']).strftime('%H:%M')} → {parse_dt(it.raw['depart']).strftime('%H:%M')}")
             if p.get("arrive"):
-                parts.append(f"arrives {parse_dt(p['arrive']).strftime('%H:%M')} → {it.end.strftime('%H:%M')}")
+                parts.append(f"arrives {parse_dt(p['arrive']).strftime('%H:%M')} → {parse_dt(it.raw['arrive']).strftime('%H:%M')}")
             out.append(alert("high", "schedule_change", f"Schedule changed: {title_of(it)}",
                              "; ".join(parts) + ". Check what this affects below.", [it.id]))
+
+    # 1b. live flight status (see apply_status)
+    for it in items:
+        lv = it.live
+        if not lv:
+            continue
+        name = title_of(it)
+        when = f"checked {lv['checkedAt'][11:16]} UTC via {lv['source']}"
+        if lv["state"] == "cancelled":
+            out.append(alert("high", "flight_cancelled", f"{name} is cancelled",
+                             f"The flight status shows {name} as cancelled ({when}). Check your email and the airline "
+                             "app for a new flight before you go to the airport.", [it.id]))
+        elif lv["state"] == "diverted":
+            out.append(alert("high", "flight_diverted", f"{name} is diverted",
+                             f"{name} is going to another airport ({when}). Follow the airline's instructions.", [it.id]))
+        elif lv["delay"] >= prof["delayAlertMinutes"] or lv["arrDelay"] >= prof["delayAlertMinutes"]:
+            late = max(lv["delay"], lv["arrDelay"])
+            out.append(alert("high" if late >= 120 else "medium", "flight_delayed", f"{name} is late",
+                             f"About {late} min late: now departs {lv['depTime']} (booked {parse_dt(it.raw['depart']).strftime('%H:%M')}), "
+                             f"arrives {lv['arrTime']} ({when}). Check what this affects below.", [it.id]))
 
     # 2. tight or impossible connections
     for a, b in zip(transport, transport[1:]):
@@ -577,7 +665,7 @@ def enrich_alert(a: dict, by_id: dict[str, Item], travellers: int) -> dict:
     """Add a stable id, a fingerprint, links and an optional Ask-Claude request."""
     key = a.get("key", "")
     a["id"] = f"{a['kind']}-{short_hash(a['kind'] + '|' + '|'.join(sorted(a['itemIds'])) + '|' + key)}"
-    volatile = a["kind"] in ("fare_drop",)
+    volatile = a["kind"] in ("fare_drop", "flight_delayed")
     fp_text = a["title"] + ("" if volatile else "|" + a["detail"])
     a["fingerprint"] = short_hash(fp_text, 10)
     links: list[dict] = []
@@ -610,6 +698,7 @@ PRIMARY_LABEL = {
     "schedule_change": "Check the new time", "tight_connection": "Manage booking", "overlap": "Manage booking",
     "tight_dining": "Change table time", "dining_conflict": "Change table time", "double_booking": "Manage booking",
     "fare_drop": "Check the fare", "no_show_risk": "Contact the hotel", "late_checkin": "Contact the hotel",
+    "flight_cancelled": "Rebook with the airline", "flight_diverted": "Live flight status", "flight_delayed": "Live flight status",
 }
 
 
@@ -622,6 +711,8 @@ def primary_action(a: dict, by_id: dict[str, Item]) -> dict | None:
     if not it:
         return None
     label = PRIMARY_LABEL.get(a["kind"], "Manage booking")
+    if a["kind"] in ("flight_delayed", "flight_diverted"):
+        return {"label": label, "url": fr24_url(it.raw), "itemId": it.id, "manage": False}
     if a["kind"] in ("no_show_risk", "late_checkin"):
         return {"label": label, "url": maps_url(f"{it.raw.get('name')} {it.raw.get('city', '')}"), "itemId": it.id, "manage": False}
     m = manage_link(it.raw)
@@ -645,6 +736,9 @@ def display_key(it: Item, items: list[Item]) -> datetime:
 def public_item(it: Item) -> dict:
     """Shared-safe view of a booking: no prices, no full codes, no notes, no manage links."""
     r = it.raw
+    if it.type in TRANSPORT:      # show the booked times; live times go in "live"
+        it = Item(r, it.type, parse_dt(r["depart"]), parse_dt(r["arrive"]), parse_dt(r["depart"]).date(),
+                  parse_dt(r["arrive"]).date(), it.city_from, it.city_to, it.live)
     base = {"id": it.id, "type": it.type, "status": it.status, "code": mask_code(r.get("confirmation")),
             "day": it.start_date.isoformat(), "dayLabel": day_label(it.start_date),
             "time": it.start.strftime("%H:%M") if it.type != "hotel" else (r.get("checkInFrom") or "Check-in"),
@@ -656,6 +750,10 @@ def public_item(it: Item) -> dict:
     if it.type == "flight":
         base.update({"fromCode": r.get("from"), "toCode": r.get("to"), "fromName": it.city_from, "toName": it.city_to,
                      "number": f"{r.get('carrier', '')} {r.get('flightNumber', '')}".strip(), "cabin": r.get("cabin") or ""})
+        if r.get("carrier") and r.get("flightNumber"):
+            base["links"].append({"label": "Live flight status", "url": fr24_url(r)})
+        if it.live:
+            base["live"] = it.live
     elif it.type in ("train", "transfer"):
         base.update({"fromName": r.get("from") or it.city_from, "toName": r.get("to") or it.city_to,
                      "fromCity": it.city_from, "toCity": it.city_to, "number": r.get("name") or ""})
@@ -750,7 +848,8 @@ def match_trips(computed: list[tuple[Trip, set[str]]], index: list[dict]) -> dic
 
 def build(bookings: list[dict], profile: dict, fares_list: list[dict], now: datetime,
           index: list[dict] | None = None, actions: dict[str, dict[str, dict]] | None = None,
-          agent: dict | None = None, sample: bool = False) -> dict:
+          agent: dict | None = None, sample: bool = False, status_list: list[dict] | None = None,
+          chats: dict[str, dict] | None = None) -> dict:
     prof = {**DEFAULT_PROFILE, **{k: v for k, v in (profile or {}).items() if v not in (None, "")}}
     prof["homeAirports"] = [a.upper() for a in prof.get("homeAirports") or []]
     fares = {f["bookingId"]: f for f in fares_list or []}
@@ -759,6 +858,8 @@ def build(bookings: list[dict], profile: dict, fares_list: list[dict], now: date
     by_raw = {b["id"]: b for b in bookings}
     active = [b for b in bookings if b.get("status", "confirmed") != "cancelled"]
     items = [to_item(b) for b in active]
+    apply_status(items, {r["bookingId"]: r for r in status_list or [] if r.get("bookingId")}, now, prof)
+    chats = chats or {}
     groups = [t for t in group_trips(items, prof) if t.end >= now - timedelta(days=3)]
     computed = [(t, {i.id for i in t.items}) for t in groups]
     matched = match_trips(computed, index)
@@ -821,7 +922,7 @@ def build(bookings: list[dict], profile: dict, fares_list: list[dict], now: date
             public["sample"] = True
         private = {
             "items": {i.id: private_item(by_raw[i.id]) for i in trip.items},
-            "agent": agent or None, "updatedAt": stamp,
+            "agent": agent or None, "chat": chats.get(slug) or None, "updatedAt": stamp,
         }
         index_entry = {
             "slug": slug, "url": url, "pageTitle": page_title, "title": title, "dates": public["dates"],
@@ -1090,9 +1191,15 @@ def run_build(a: argparse.Namespace) -> dict:
     if isinstance(index, dict):
         index = index.get("trips", [])
     agent = unwrap(load_json(getattr(a, "agent", None), None))
+    status = unwrap(load_json(getattr(a, "status", None), []))
+    if isinstance(status, dict):
+        status = status.get("results", [])
+    chats = unwrap(load_json(getattr(a, "chats", None), {}))
+    if isinstance(chats, dict) and isinstance(chats.get("chats"), dict):
+        chats = chats["chats"]
     return build(bookings, profile, fares, get_now(a.now), index=index,
                  actions=load_actions(getattr(a, "trips_db", None)), agent=agent,
-                 sample=getattr(a, "sample", False))
+                 sample=getattr(a, "sample", False), status_list=status, chats=chats)
 
 
 def cmd_build(a: argparse.Namespace) -> int:
@@ -1189,6 +1296,8 @@ def main(argv: list[str] | None = None) -> int:
         sp.add_argument("--index", help="home index/trips doc (trip slugs, page urls, booking ids)")
         sp.add_argument("--trips-db", help="folder with <slug>/actions/*.json saved from each trip page")
         sp.add_argument("--agent", help="home private/agent doc ({triggerId})")
+        sp.add_argument("--status", help="flight_status.py output or home private/status doc")
+        sp.add_argument("--chats", help='home private/chats doc: {"chats": {"<slug>": {"triggerId", "url"}}}')
         sp.add_argument("--sample", action="store_true", help="mark pages as sample data; never write private/bookings")
         sp.add_argument("--template", help="trip page template (default dashboard/trip.html)")
         sp.add_argument("--now", help="override current time (ISO with offset), for tests")

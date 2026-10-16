@@ -1,6 +1,6 @@
 ---
 name: fares
-description: Optional and experimental. Check whether the same flights the user already booked now sell for less, using the user's own Duffel API token, and add fare-drop alerts to their Wayfare trip pages. Use when the user runs /wayfare:fares or asks Wayfare to look for price drops on their flights.
+description: Optional. Check whether the same flights the user already booked now sell for less, with Google Flights prices through the user's own SearchApi key (or Duffel), and add fare-drop alerts to their Wayfare trip pages. Use when the user runs /wayfare:fares or asks Wayfare to look for price drops on their flights.
 ---
 
 # Wayfare fare check
@@ -9,16 +9,15 @@ Read `${CLAUDE_PLUGIN_ROOT}/reference/dashboard-io.md` first. `$P` means
 `${CLAUDE_PLUGIN_ROOT}`.
 
 Explain these limits the first time, in short plain words:
-- It needs the user's own Duffel account and token in the environment
-  variable `DUFFEL_ACCESS_TOKEN`. A test token (`duffel_test_...`) only shows
-  Duffel's fake airline, so real flights never match.
-- Cloud sessions usually cannot reach outside APIs. It works best in Claude
-  Code on the user's own computer.
-- Duffel prices can differ from the airline's own site, and whether a lower
-  fare gives money back depends on the fare rules. Wayfare only alerts. It
-  never changes or rebooks anything.
-- Duffel may charge $0.005 per search above 1500 searches per booking made
-  through Duffel. Each run makes at most 10 searches by default.
+- It needs the user's own SearchApi key (www.searchapi.io; 100 free
+  searches, then about $4 per 1,000). Best: add it as an **API credential**
+  for `www.searchapi.io` on the cloud environment (dashboard-io.md J), so
+  the key never reaches Claude. Or set `SEARCHAPI_API_KEY`.
+- The price is today's public Google Flights price for the same flight and
+  cabin. Whether a lower fare gives money back depends on the fare rules.
+  Wayfare only alerts. It never changes or rebooks anything.
+- Each flight is checked at most every 3 days, at most 6 searches a run.
+- Duffel still works with `--provider duffel` and `DUFFEL_ACCESS_TOKEN`.
 
 ## Steps
 
@@ -26,13 +25,15 @@ Explain these limits the first time, in short plain words:
 2. Run:
 
    ```bash
-   python3 "$P/scripts/fare_check.py" \
+   python3 "$P/scripts/fare_check.py" --provider searchapi \
      --bookings wayfare-work/db/home/private/bookings.json \
-     --out wayfare-work/fares.json --max-searches 10
+     --previous wayfare-work/db/home/private/fares.json \
+     --out wayfare-work/fares.json --every-days 3 --max-searches 6
    ```
 
-   If it reports an error (no token, network blocked), tell the user the
-   error and stop. When this runs from a page request, put the error in the
+   Add `--every-days 0` when the user asked for a check right now. If it
+   reports an error (no key, network blocked), tell the user the error and
+   what to set (dashboard-io.md J), and stop. When this runs from a page request, put the error in the
    request status instead.
 3. Save the results on Wayfare Home: `ArtifactData` `set` `private`/`fares`,
    `data: {"results": <contents of wayfare-work/fares.json>, "checkedAt":

@@ -17,7 +17,16 @@ Wayfare server.
   - schedule changes, and what they break (a dinner you now miss, a hotel
     check-in day you now miss),
   - two stays booked for the same night,
-  - lower fares on the same flight (optional, needs your own Duffel token).
+  - live flight delays, cancellations, terminal, gate and bags belt, and
+    what a delay breaks (a connection, a dinner, a hotel check-in),
+  - lower fares on the same flight (optional, Google Flights prices through
+    your own SearchApi key).
+- Works in the background: a **daily check** every morning (Gmail, live
+  status, fares) and **travel-day watches** 24 and 3 hours before each
+  flight. You get a phone notification only when something changed.
+- **One chat per trip**: open a new chat and type `/wayfare:trip Lisbon`.
+  Page buttons, travel-day alerts and the daily check then send their
+  results to that chat, and you can ask questions or add plans there.
 - Each booking type looks different, with its own icon and color: a flight
   is a boarding pass, a train has a track line, a stay shows its nights, a
   table is a reservation card. A journey line shows the whole trip.
@@ -35,8 +44,9 @@ Wayfare server.
     the map, the provider's manage-booking page,
   - keep a **to-do list** that people you invite as Contributors can tick,
   - **add the trip to your Google Calendar**,
-  - **ask Claude** to find stays for unbooked nights, check your inbox or
-    check fares. The result appears on the page a few minutes later.
+  - **ask Claude** to find stays for unbooked nights, check your inbox,
+    check flight status or check fares. The result appears on the page a
+    few minutes later (and in the trip chat, if the trip has one).
 
 **What it does not do**
 
@@ -52,7 +62,9 @@ Wayfare server.
 |------------------|--------------|
 | `/wayfare:setup` | Makes Wayfare Home, asks for your travel profile, creates the "Wayfare agent" task the page buttons use, then syncs your inbox or loads sample trips. |
 | `/wayfare:sync`  | Reads new bookings, changes and cancellations from Gmail. Updates trip pages and makes pages for new trips. |
-| `/wayfare:fares` | Optional, experimental. Looks for lower fares on your booked flights with the Duffel API. |
+| `/wayfare:check` | The background check: Gmail, live flight status, fares, page updates, travel-day watches. `/wayfare:check watch` checks only flights that leave in the next 30 hours. |
+| `/wayfare:trip`  | Makes the current chat the chat of one trip. |
+| `/wayfare:fares` | Optional. Looks for lower fares on your booked flights (SearchApi, or Duffel). |
 | `/wayfare:agent` | Used by the "Wayfare agent" task to answer page buttons. You do not run it yourself. |
 
 ## Install
@@ -76,13 +88,22 @@ under Settings → Connectors first.
 
 - A Claude account with artifacts and the **Gmail** connector.
 - Optional: the **Google Calendar** connector, for "Add to my calendar".
-- Optional: scheduled tasks, for the "Ask Claude" buttons and a daily sync.
-  Setup creates a task named "Wayfare agent". Turn on "Automatically approve"
-  for it, because nobody is there to approve its steps.
-- Optional, for `/wayfare:fares`: a Duffel account, `DUFFEL_ACCESS_TOKEN` in
-  your environment, and Claude Code on your own computer (cloud sessions
-  usually cannot reach outside APIs). Duffel can charge $0.005 per search
-  when you search much more than you book through Duffel.
+- Optional: scheduled tasks, for the "Ask Claude" buttons, the daily check
+  and travel-day watches. Setup creates "Wayfare agent" and "Wayfare daily
+  check". Turn on "Automatically approve" for them, because nobody is there
+  to approve their steps. Each run uses some of your Claude usage.
+- Optional live data keys, set on the cloud environment (claude.ai/code →
+  environment selector → settings):
+  - **SearchApi** (live fares, Google Flights engine): add an **API
+    credential** for `www.searchapi.io`. The key never reaches Claude.
+    100 free searches, then about $4 per 1,000.
+  - **Aviationstack** (delays, gates, cancellations): set
+    `AVIATIONSTACK_ACCESS_KEY` in the environment variables and allow
+    `api.aviationstack.com` (Network access: Custom, keep the default list).
+    It takes the key in the URL, so a header credential does not work.
+    100 free requests a month; real-time data only (today and tomorrow).
+  - Without keys, Wayfare reads the public Flightradar24 page for status.
+- Duffel still works for fares (`--provider duffel`, `DUFFEL_ACCESS_TOKEN`).
 
 ## Privacy
 
@@ -128,6 +149,10 @@ The sample bookings are invented. Any match with real places is chance.
 ## Roadmap
 
 - Codex / ChatGPT plugin with a Sites dashboard.
+- Train status: NS API (Netherlands) and Deutsche Bahn Timetables API. Both
+  are free and use header keys, so they work as API credentials.
+- Better flight status: AeroDataBox (cheap, future flights) or FlightAware
+  AeroAPI (best data, paid).
 - Hotel price drops for refundable stays.
 - Watch for sold-out stays and tables.
 - Edit your profile on Wayfare Home.
