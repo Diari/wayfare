@@ -41,4 +41,4 @@ ffmpeg -framerate 12 -i /tmp/lite/f%05d.png -vf "scale=960:-1:flags=lanczos,spli
 
 Edit `showreel.src.html`, not `showreel.html`. Scene timings live in
 `build()`: each `at(element, time, {props}, easing)` call is one keyframe.
-The trip data is the invented sample trip from `samples/`.
+The trip data is the invented sample trip from `plugins/wayfare-claude/samples/`.

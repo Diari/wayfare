@@ -1,5 +1,6 @@
 #!/usr/bin/env python3
-"""Copy the shared engine, scripts, pages and samples into the Codex plugin.
+"""Copy the shared engine, scripts, pages and samples from the Claude plugin
+(plugins/wayfare-claude) into the Codex plugin (plugins/wayfare).
 
 The Codex plugin (plugins/wayfare) must be self-contained, because Codex
 installs a plugin folder on its own. Run this after changing any shared file;
@@ -12,6 +13,7 @@ import sys
 from pathlib import Path
 
 ROOT = Path(__file__).resolve().parent.parent
+SOURCE = ROOT / "plugins" / "wayfare-claude"   # the Claude plugin holds the shared originals
 PLUGIN = ROOT / "plugins" / "wayfare"
 SHARED = {
     "scripts/wayfare.py": "scripts/wayfare.py",
@@ -34,7 +36,7 @@ SHARED = {
 def drift() -> list[str]:
     out = []
     for src, dst in SHARED.items():
-        a, b = ROOT / src, PLUGIN / dst
+        a, b = SOURCE / src, PLUGIN / dst
         if not b.exists() or a.read_bytes() != b.read_bytes():
             out.append(dst)
     return out
@@ -48,7 +50,7 @@ def main() -> int:
     for src, dst in SHARED.items():
         b = PLUGIN / dst
         b.parent.mkdir(parents=True, exist_ok=True)
-        shutil.copyfile(ROOT / src, b)
+        shutil.copyfile(SOURCE / src, b)
     print(f"copied {len(SHARED)} files into {PLUGIN.relative_to(ROOT)}")
     return 0
 

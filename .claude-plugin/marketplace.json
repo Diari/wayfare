@@ -9,7 +9,7 @@
   "plugins": [
     {
       "name": "wayfare",
-      "source": "./",
+      "source": "./plugins/wayfare-claude",
       "description": "Inbox-to-trip dashboard with gap, connection, schedule-change and fare-drop alerts.",
       "category": "productivity"
     }

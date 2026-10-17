@@ -36,7 +36,7 @@ from datetime import date, datetime, timedelta, timezone
 from pathlib import Path
 from typing import Any
 
-ENGINE_VERSION = "0.8.0"
+ENGINE_VERSION = "0.9.0"
 TRANSPORT = {"flight", "train", "transfer"}
 TYPES = TRANSPORT | {"hotel", "dining", "other"}
 STATUSES = {"confirmed", "changed", "cancelled"}
@@ -1458,7 +1458,7 @@ def write_site(site_dir: Path, template_dir: Path, page: str, data: dict) -> boo
 
 def site_bundle(result: dict, sites_dir: Path, guides_dir: Path | None, urls: dict[str, str]) -> dict:
     root = plugin_root()
-    template_dir = _find(root / "site", root / "plugins" / "wayfare" / "site")
+    template_dir = _find(root / "site", root.parent / "wayfare" / "site")
     pages_dir = _find(root / "pages", root / "dashboard")
     shim = (template_dir / "shim.js").read_text(encoding="utf-8")
     trip_tpl = (pages_dir / "trip.html").read_text(encoding="utf-8")

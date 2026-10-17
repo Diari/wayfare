@@ -115,8 +115,8 @@ Before anything else:
 1. If the `/wayfare:...` skills are available, use them.
 2. Otherwise read `repo` from Wayfare Home `private`/`agent` (for example
    `owner/wayfare`) and run `git clone --depth 1 https://github.com/<repo>.git
-   wayfare-plugin`. Then `$P` is `wayfare-plugin`, and you follow the skill
-   files in `wayfare-plugin/skills/` directly.
+   wayfare-plugin`. Then `$P` is `wayfare-plugin/plugins/wayfare-claude`, and
+   you follow the skill files in `$P/skills/` directly.
 3. If neither works, stop and report "The Wayfare plugin is not available in
    scheduled runs" in the request status or the task output.
 

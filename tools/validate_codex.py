@@ -21,10 +21,20 @@ def check_path(errs: list[str], root: Path, field: str, value: str) -> None:
         errs.append(f"{field}: {value} does not exist")
 
 
-def check_interface(errs: list[str], where: str, iface: dict) -> None:
+def check_interface(errs: list[str], where: str, iface: dict, root: Path | None = None) -> None:
     for k in ("displayName", "shortDescription", "developerName", "category"):
         if not iface.get(k):
             errs.append(f"{where}.interface.{k} is required")
+    # Directory submission limits (developers.openai.com/plugins/deploy/submission)
+    for k, n in (("displayName", 30), ("shortDescription", 30), ("longDescription", 4000), ("developerName", 80)):
+        if len(iface.get(k) or "") > n:
+            errs.append(f"{where}.interface.{k} is longer than {n} characters")
+    if root is not None:
+        for k in ("logo", "composerIcon"):
+            if not iface.get(k):
+                errs.append(f"{where}.interface.{k} is required for directory submission")
+            else:
+                check_path(errs, root, f"{where}.interface.{k}", iface[k])
     for k in ("websiteURL", "privacyPolicyURL", "termsOfServiceURL"):
         if k in iface and not str(iface[k]).startswith("https://"):
             errs.append(f"{where}.interface.{k} must be an absolute https:// URL")
@@ -65,7 +75,7 @@ def validate_plugin(root: Path) -> list[str]:
         if not iface:
             errs.append(f"{where}: interface metadata is missing")
         else:
-            check_interface(errs, where, iface)
+            check_interface(errs, where, iface, root)
         onboarding = ((m.get("extensions") or {}).get("com.openai") or {}).get("onboardingSkill")
         if onboarding:
             check_path(errs, root, f"{where}.onboardingSkill", onboarding)

@@ -226,6 +226,18 @@ Trip page button ──(Claude Code Remote: fire the "Wayfare agent" task)──
       ──(skills/agent)──> results written back to the page
 ```
 
+Repository layout:
+
+- `plugins/wayfare-claude/`: the Claude plugin (skills, scripts, pages,
+  samples). This is the folder Claude installs.
+- `plugins/wayfare/`: the ChatGPT and Codex plugin (skills, the Sites
+  template, and copies of the shared scripts and pages).
+- `.claude-plugin/marketplace.json` and `.agents/plugins/marketplace.json`:
+  the marketplaces for Claude and Codex.
+- `tests/`, `tools/`, `docs/`: tests, the sync and check tools, the showreel.
+
+In the Claude plugin:
+
 - `skills/` tell Claude what to do for each command.
 - `scripts/wayfare.py` does the exact work: validation, trip grouping and
   matching (a trip keeps its page when it grows), gap and conflict checks,
@@ -233,22 +245,30 @@ Trip page button ──(Claude Code Remote: fire the "Wayfare agent" task)──
 - `dashboard/trip.html` and `dashboard/home.html` are the pages. They read the
   page database live. Access rules decide who can write what.
 
+## Privacy, terms and directories
+
+- [Privacy policy](PRIVACY.md) and [terms of use](TERMS.md).
+- How to submit to the Claude and ChatGPT/Codex directories:
+  [docs/directory-submission.md](docs/directory-submission.md).
+
 ## Develop
 
 ```bash
 python3 -m unittest discover -s tests -v
-python3 scripts/wayfare.py render-static --owner --bookings samples/bookings.sample.json \
-  --profile samples/profile.sample.json --fares samples/fares.sample.json \
+P=plugins/wayfare-claude
+python3 $P/scripts/wayfare.py render-static --owner --bookings $P/samples/bookings.sample.json \
+  --profile $P/samples/profile.sample.json --fares $P/samples/fares.sample.json \
   --now 2026-10-15T20:00:00+00:00 --out-dir /tmp/wayfare-pages
-claude plugin validate . --strict
+claude plugin validate plugins/wayfare-claude --strict
 python3 tools/sync_codex.py && python3 tools/validate_codex.py
+python3 tools/check_claude_directory.py && python3 tools/build_codex_zip.py
 ```
 
 Preview a trip Site locally (Node 22+):
 
 ```bash
-python3 scripts/wayfare.py site-bundle --sample --bookings samples/bookings.sample.json \
-  --profile samples/profile.sample.json --sites-dir /tmp/wayfare-sites
+python3 plugins/wayfare/scripts/wayfare.py site-bundle --sample --bookings plugins/wayfare/samples/bookings.sample.json \
+  --profile plugins/wayfare/samples/profile.sample.json --sites-dir /tmp/wayfare-sites
 cd /tmp/wayfare-sites/lisbon-2026-11 && OWNER_EMAIL=me@example.com DEV_EMAIL=me@example.com node dev.mjs
 ```
 

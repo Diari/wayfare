@@ -1,6 +1,6 @@
 {
   "name": "wayfare",
-  "version": "0.8.0",
+  "version": "0.9.0",
   "description": "Open-source personal travel agent: one ChatGPT Site per trip from your Gmail bookings, with alerts, weather, live flight status and travel tips. Never books or pays.",
   "author": {
     "name": "Wayfare contributors",
@@ -20,7 +20,7 @@
   "skills": "./skills/",
   "interface": {
     "displayName": "Wayfare",
-    "shortDescription": "Trip pages from your Gmail bookings, with alerts, weather and tips",
+    "shortDescription": "Trip pages from your inbox",
     "longDescription": "Wayfare reads travel confirmations from your Gmail and gives each trip its own ChatGPT Site: day by day with weather, alerts for unbooked nights, tight connections, schedule changes and live delays, a Good to know tab (what to pack, local tips, getting around), a shared to-do list and a calendar file. It checks every morning and on new booking emails. It never books or pays.",
     "developerName": "Wayfare contributors",
     "category": "Productivity",
@@ -34,6 +34,10 @@
       "Check my inbox for new trips",
       "What do I need to pack?"
     ],
-    "brandColor": "#1F6FD1"
+    "brandColor": "#1F6FD1",
+    "privacyPolicyURL": "https://github.com/Diari/wayfare/blob/main/PRIVACY.md",
+    "termsOfServiceURL": "https://github.com/Diari/wayfare/blob/main/TERMS.md",
+    "logo": "./assets/logo.png",
+    "composerIcon": "./assets/composer-icon.png"
   }
 }

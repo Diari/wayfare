@@ -13,12 +13,13 @@ from datetime import datetime, timezone
 from pathlib import Path
 
 ROOT = Path(__file__).resolve().parent.parent
-sys.path.insert(0, str(ROOT / "scripts"))
+CP = ROOT / "plugins" / "wayfare-claude"
+sys.path.insert(0, str(CP / "scripts"))
 import wayfare  # noqa: E402
 
 NOW = datetime(2026, 10, 15, 20, 0, tzinfo=timezone.utc)
-SAMPLE = json.loads((ROOT / "samples" / "bookings.sample.json").read_text())
-PROFILE = json.loads((ROOT / "samples" / "profile.sample.json").read_text())
+SAMPLE = json.loads((CP / "samples" / "bookings.sample.json").read_text())
+PROFILE = json.loads((CP / "samples" / "profile.sample.json").read_text())
 
 
 class SiteBundle(unittest.TestCase):
@@ -61,23 +62,23 @@ class SiteBundle(unittest.TestCase):
 
     def test_guide_included(self):
         g = self.dir / "guides"; g.mkdir()
-        shutil.copy(ROOT / "samples" / "guide.lisbon-2026-11.sample.json", g / "lisbon-2026-11.json")
+        shutil.copy(CP / "samples" / "guide.lisbon-2026-11.sample.json", g / "lisbon-2026-11.json")
         wayfare.site_bundle(self.result, self.dir / "sites", g, {})
         self.assertEqual(wayfare.read_site_data(self.dir / "sites" / "lisbon-2026-11")["guide"]["cities"], ["Lisbon", "Porto"])
         self.assertIsNone(wayfare.read_site_data(self.dir / "sites" / "berlin-2026-12")["guide"])
 
     def test_slug_kept_from_last_home(self):
         sites = self.dir / "s"
-        args = ["site-bundle", "--bookings", str(ROOT / "samples" / "bookings.sample.json"), "--profile",
-                str(ROOT / "samples" / "profile.sample.json"), "--sample", "--now", "2026-10-15T20:00:00+00:00",
+        args = ["site-bundle", "--bookings", str(CP / "samples" / "bookings.sample.json"), "--profile",
+                str(CP / "samples" / "profile.sample.json"), "--sample", "--now", "2026-10-15T20:00:00+00:00",
                 "--sites-dir", str(sites)]
-        subprocess.run([sys.executable, str(ROOT / "scripts" / "wayfare.py")] + args, check=True, capture_output=True)
+        subprocess.run([sys.executable, str(CP / "scripts" / "wayfare.py")] + args, check=True, capture_output=True)
         # Add a stay to the Lisbon trip: it must stay on the same Site.
         more = SAMPLE + [{"id": "hotel-extra-2026-11-10", "type": "hotel", "name": "Extra", "city": "Porto",
                           "checkIn": "2026-11-10", "checkOut": "2026-11-12"}]
         f = self.dir / "b.json"; f.write_text(json.dumps(more))
         args[2] = str(f)
-        out = subprocess.run([sys.executable, str(ROOT / "scripts" / "wayfare.py")] + args, check=True, capture_output=True, text=True)
+        out = subprocess.run([sys.executable, str(CP / "scripts" / "wayfare.py")] + args, check=True, capture_output=True, text=True)
         self.assertEqual([s["slug"] for s in json.loads(out.stdout)["sites"]], ["lisbon-2026-11", "berlin-2026-12"])
 
 
@@ -155,6 +156,22 @@ class CodexPackage(unittest.TestCase):
     def test_validator(self):
         r = subprocess.run([sys.executable, str(ROOT / "tools" / "validate_codex.py")], capture_output=True, text=True)
         self.assertEqual(r.returncode, 0, r.stdout)
+
+    def test_claude_directory_precheck(self):
+        r = subprocess.run([sys.executable, str(ROOT / "tools" / "check_claude_directory.py")], capture_output=True, text=True)
+        self.assertEqual(r.returncode, 0, r.stdout)
+
+    def test_codex_zip(self):
+        import zipfile
+        d = Path(tempfile.mkdtemp())
+        subprocess.run([sys.executable, str(ROOT / "tools" / "build_codex_zip.py"), str(d)], check=True, capture_output=True)
+        z = zipfile.ZipFile(next(d.glob("wayfare-codex-*.zip")))
+        names = z.namelist()
+        self.assertEqual(names[0], "plugin.json")
+        for need in (".codex-plugin/plugin.json", "skills/wayfare-setup/SKILL.md", "assets/logo.png", "assets/composer-icon.png", "site/worker/index.js"):
+            self.assertIn(need, names)
+        self.assertFalse(any("__pycache__" in n or n.endswith(".app.json") or n.startswith("hooks/") for n in names))
+        shutil.rmtree(d)
 
     def test_shared_files_in_sync(self):
         r = subprocess.run([sys.executable, str(ROOT / "tools" / "sync_codex.py"), "--check"], capture_output=True, text=True)

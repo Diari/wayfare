@@ -8,7 +8,8 @@ from datetime import datetime, timedelta, timezone
 from pathlib import Path
 
 ROOT = Path(__file__).resolve().parent.parent
-sys.path.insert(0, str(ROOT / "scripts"))
+CP = ROOT / "plugins" / "wayfare-claude"
+sys.path.insert(0, str(CP / "scripts"))
 import wayfare  # noqa: E402
 import fare_check  # noqa: E402
 import flight_status  # noqa: E402
@@ -16,8 +17,8 @@ import weather as weather_mod  # noqa: E402
 import stay_check  # noqa: E402
 
 NOW = datetime(2026, 10, 15, 20, 0, tzinfo=timezone.utc)
-SAMPLE = json.loads((ROOT / "samples" / "bookings.sample.json").read_text())
-PROFILE = json.loads((ROOT / "samples" / "profile.sample.json").read_text())
+SAMPLE = json.loads((CP / "samples" / "bookings.sample.json").read_text())
+PROFILE = json.loads((CP / "samples" / "profile.sample.json").read_text())
 
 
 def build(bookings, profile=PROFILE, fares=None, **kw):
@@ -253,7 +254,7 @@ class Outputs(unittest.TestCase):
             out = Path(d)
             r = build(SAMPLE, agent={"triggerId": "trig_test"})
             versions = {"home": {"index/trips": 4}, "trips": {}}
-            plan = wayfare.write_outputs(r, out, versions, ROOT / "dashboard" / "trip.html")
+            plan = wayfare.write_outputs(r, out, versions, CP / "dashboard" / "trip.html")
             self.assertEqual(len(plan["newTrips"]), 2)
             page = Path(plan["newTrips"][0]["page"]).read_text()
             self.assertIn("<title>Lisbon &amp; Porto, Nov 2026</title>", page)
@@ -272,7 +273,7 @@ class Outputs(unittest.TestCase):
     def test_sample_never_writes_bookings(self):
         with tempfile.TemporaryDirectory() as d:
             out = Path(d)
-            wayfare.write_outputs(build(SAMPLE, sample=True), out, {}, ROOT / "dashboard" / "trip.html")
+            wayfare.write_outputs(build(SAMPLE, sample=True), out, {}, CP / "dashboard" / "trip.html")
             hb = json.loads(wayfare.home_batch(out, {"lisbon-2026-11": "u1", "berlin-2026-12": "u2"}).read_text())
             self.assertEqual([w["doc_id"] for w in hb], ["trips"])
 
@@ -447,7 +448,7 @@ class DaysWeatherRoutes(unittest.TestCase):
     def test_sample_guides_are_well_formed(self):
         import re
         for slug in ("lisbon-2026-11", "berlin-2026-12"):
-            g = json.loads((ROOT / "samples" / f"guide.{slug}.sample.json").read_text())
+            g = json.loads((CP / "samples" / f"guide.{slug}.sample.json").read_text())
             ids = [x["id"] for x in g["pack"]]
             self.assertEqual(len(ids), len(set(ids)))
             self.assertTrue(all(re.fullmatch(r"[a-z0-9-]{1,40}", i) for i in ids))
