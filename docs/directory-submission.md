@@ -84,7 +84,7 @@ done in the organization settings, and a free Cloudflare account.
 1. **Deploy the server** (see `mcp-server/README.md`):
    `cd mcp-server && npm install && npx wrangler login && npx wrangler deploy`.
    Copy the `https://wayfare-mcp.<subdomain>.workers.dev` address.
-2. **Build the ZIP**: `python3 tools/set_mcp_url.py https://wayfare-mcp.<subdomain>.workers.dev/mcp`,
+2. **Build the ZIP**: `python3 tools/set_mcp_url.py https://wayfare-mcp.<subdomain>.workers.dev/mcp` (live: `https://wayfare-mcp.diari-shareef.workers.dev/mcp`),
    then `python3 tools/validate_codex.py && python3 tools/build_codex_zip.py`
    (gives `dist/wayfare-codex-<version>.zip`).
 3. Open https://platform.openai.com/plugins, select **Upload new or existing
