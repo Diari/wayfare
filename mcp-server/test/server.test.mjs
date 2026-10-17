@@ -45,7 +45,7 @@ test("initialize, notifications, list and unknown method", async () => {
 
 test("GET is refused and the challenge route uses the secret", async () => {
   assert.equal((await worker.fetch(new Request("https://x.test/mcp"), {})).status, 405);
-  assert.equal((await worker.fetch(new Request("https://x.test/.well-known/openai-apps-challenge"), {})).status, 404);
+  assert.equal(await (await worker.fetch(new Request("https://x.test/.well-known/openai-apps-challenge"), {})).text(), "9vxESZGyY3x_c99tOQHiv4VdJ_zxbfUlylg223RKpDU");
   const r = await worker.fetch(new Request("https://x.test/.well-known/openai-apps-challenge"), { OPENAI_APPS_CHALLENGE: "abc123\n" });
   assert.equal(await r.text(), "abc123");
 });

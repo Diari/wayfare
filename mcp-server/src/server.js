@@ -13,6 +13,10 @@ import { tripWeather, summarize, checkDates } from "./weather.js";
 import { packingList, ACTIVITIES } from "./packing.js";
 
 export const VERSION = "0.10.0";
+// OpenAI domain verification token for wayfare-mcp.diari-shareef.workers.dev.
+// Not a secret: OpenAI reads it from a public URL. The OPENAI_APPS_CHALLENGE
+// variable overrides it (for a fork on another host).
+const OPENAI_APPS_CHALLENGE = "9vxESZGyY3x_c99tOQHiv4VdJ_zxbfUlylg223RKpDU";
 const PROTOCOLS = ["2025-06-18", "2025-03-26", "2024-11-05"];
 const MAX_BODY = 256 * 1024;
 const SERVER_INFO = { name: "wayfare", title: "Wayfare", version: VERSION };
@@ -234,7 +238,7 @@ export async function handle(request, env = {}) {
     const ctx = { fetcher: (u, o) => fetch(u, o) };
     if (url.pathname === "/mcp" || url.pathname === "/mcp/") return handleMcp(request, ctx);
     if (url.pathname === "/.well-known/openai-apps-challenge") {
-      const token = (env.OPENAI_APPS_CHALLENGE || "").trim();
+      const token = (env.OPENAI_APPS_CHALLENGE || OPENAI_APPS_CHALLENGE).trim();
       return token ? new Response(token, { headers: { "Content-Type": "text/plain" } }) : new Response("Not set", { status: 404 });
     }
     if (url.pathname === "/" || url.pathname === "/health") return new Response(HOME, { headers: { "Content-Type": "text/plain; charset=utf-8" } });
