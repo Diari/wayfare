@@ -2,19 +2,19 @@
 
 <p align="center">
   <a href="docs/media/wayfare-showreel.mp4">
-    <img src="docs/media/wayfare-showreel.gif" alt="Wayfare in 30 seconds: it reads booking emails, builds a page per trip, flags what breaks, watches your flights and shares the trip" width="100%">
+    <img src="docs/media/wayfare-showreel.gif" alt="Wayfare in one minute: it reads booking emails, builds a page per trip, flags what breaks, watches your flights and shares the trip" width="100%">
   </a>
 </p>
 
 <p align="center"><b>Your open-source travel agent for Claude.</b><br>
 Reads your booking emails · one page per trip · alerts when something breaks · never books or pays<br>
-<a href="docs/media/wayfare-showreel.mp4">Watch the 30-second showreel in HD</a></p>
+<a href="docs/media/wayfare-showreel.mp4">Watch the 1-minute showreel in HD, with sound</a></p>
 
 Wayfare is an open-source personal travel agent for Claude. It is a Claude
 plugin. It runs in your own Claude account, with your own Gmail. There is no
 Wayfare server.
 
-## In 30 seconds
+## At a glance
 
 | | |
 |---|---|

@@ -10,7 +10,7 @@ import pathlib, subprocess, sys
 from concurrent.futures import ProcessPoolExecutor
 
 HERE = pathlib.Path(__file__).resolve().parent
-DUR = 30.0
+DUR = 60.0
 LITE = "--lite" in sys.argv
 
 def work(args):
