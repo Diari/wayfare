@@ -208,7 +208,7 @@ h2 { font-size: 18px; font-weight: 800; }
       c.medium ? el("span", { class: "flag medium", text: c.medium + " to check" }) : null,
       !c.high && !c.medium ? el("span", { class: "flag ok", text: "All clear" }) : null,
       types,
-      safeUrl(t.url) ? el("span", { class: "open", text: "Open trip" }) : null
+      safeUrl(t.url) ? el("span", { class: "open", text: "Open trip" }) : el("span", { class: "open", style: "color:var(--muted);font-weight:600", text: "Page not made yet: type /wayfare:sync in a chat" })
     ]);
     var kids = [
       el("div", { class: "trip-top" }, [el("h3", { text: t.title }), el("span", { class: "pill", text: when })]),

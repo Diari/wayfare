@@ -1184,7 +1184,7 @@ def write_outputs(result: dict, out: Path, versions: dict, template_path: Path) 
     return plan
 
 
-def home_batch(out: Path, urls: dict[str, str]) -> Path:
+def home_batch(out: Path, urls: dict[str, str], allow_missing: bool = False) -> Path:
     pending = json.loads((out / "home-pending.json").read_text(encoding="utf-8"))
     index = pending["index"]
     missing = []
@@ -1193,7 +1193,7 @@ def home_batch(out: Path, urls: dict[str, str]) -> Path:
             e["url"] = urls.get(e["slug"])
             if not e["url"]:
                 missing.append(e["slug"])
-    if missing:
+    if missing and not allow_missing:
         raise SystemExit(f"No page url for: {', '.join(missing)}. Publish those pages first and add them to --urls.")
     b = Batch(out / "home" / "docs", pending["versions"])
     b.add("set", "index", "trips", {"trips": index, "updatedAt": pending["updatedAt"], "engineVersion": ENGINE_VERSION})
@@ -1307,7 +1307,7 @@ def cmd_build(a: argparse.Namespace) -> int:
 
 
 def cmd_home_batch(a: argparse.Namespace) -> int:
-    path = home_batch(Path(a.out_dir), load_json(a.urls, {}))
+    path = home_batch(Path(a.out_dir), load_json(a.urls, {}), getattr(a, "allow_missing", False))
     print(f"Wrote {path}")
     return 0
 
@@ -1401,6 +1401,7 @@ def main(argv: list[str] | None = None) -> int:
     b.set_defaults(fn=cmd_build)
     h = sub.add_parser("home-batch", help="after new pages are published: write the home batch with their urls")
     h.add_argument("--out-dir", required=True); h.add_argument("--urls", help='{"<slug>": "<artifact url>"}')
+    h.add_argument("--allow-missing", action="store_true", help="list new trips without a page yet (scheduled runs cannot publish pages)")
     h.set_defaults(fn=cmd_home_batch)
     c = sub.add_parser("capabilities"); c.add_argument("--page", choices=["trip", "home"], required=True)
     c.set_defaults(fn=cmd_capabilities)

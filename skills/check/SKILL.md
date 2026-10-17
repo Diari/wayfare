@@ -94,8 +94,13 @@ weather. Watch mode skips this step.
 
 ## 5. Build and write
 
-dashboard-io.md sections C, D (daily mode only; in watch mode never publish
-new pages), E and F.
+dashboard-io.md sections C, D, E and F, with one rule: a scheduled run
+(nobody watching) cannot publish NEW pages, because publishing a new page
+needs the user's approval. So in a scheduled run, and in watch mode, skip D;
+run `home-batch` with `--allow-missing`, so Wayfare Home lists new trips as
+"page not made yet"; and record each new trip as a change (section I):
+"New trip: <pageTitle>. Open a chat and type /wayfare:sync to make its page."
+When the user runs /wayfare:check in a chat, do D as normal.
 
 ## 5b. Guides (daily mode)
 
