@@ -85,7 +85,7 @@ Wayfare server.
 ### Claude Code
 
 ```text
-/plugin marketplace add <github-user>/wayfare
+/plugin marketplace add Diari/wayfare
 /plugin install wayfare@wayfare
 ```
 
