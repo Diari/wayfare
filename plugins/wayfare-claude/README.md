@@ -61,9 +61,8 @@ So that you can see everything it runs, sends or fetches:
 - **Contacts these services** (all but Gmail are optional):
   - Open-Meteo (`api.open-meteo.com`, `geocoding-api.open-meteo.com`,
     `archive-api.open-meteo.com`): city names and dates, for weather.
-  - Aviationstack (`api.aviationstack.com`): flight numbers, for live status.
   - Flightradar24 (`www.flightradar24.com`): public flight pages, read
-    with web fetch when there is no Aviationstack key.
+    with web fetch, for live flight status.
   - SearchApi (`www.searchapi.io`): airports, dates, cabin and travellers
     (Google Flights), and hotel name, city, dates and guests (Google Hotels),
     for price checks.
@@ -74,11 +73,13 @@ So that you can see everything it runs, sends or fetches:
 
 ## Keys
 
-The price and status checks need your own keys. The safest way is an **API
-credential** on your Claude cloud environment (for `www.searchapi.io`), so the
-key never reaches Claude. The scripts also read `SEARCHAPI_API_KEY`,
-`AVIATIONSTACK_ACCESS_KEY` and `DUFFEL_ACCESS_TOKEN` from the environment and
-send each one only to its own service. Never paste a key into a chat.
+Price checks need your own SearchApi key (or Duffel key). Add it as an **API
+credential** on your Claude cloud environment, for `www.searchapi.io` (or
+`api.duffel.com`). The cloud environment's proxy adds the key to requests for
+that host, so the key never reaches Claude or Wayfare's scripts. Wayfare
+never reads keys from your machine or environment. Live flight status needs
+no key: Wayfare reads the public Flightradar24 page. Never paste a key into a
+chat.
 
 ## Privacy and terms
 

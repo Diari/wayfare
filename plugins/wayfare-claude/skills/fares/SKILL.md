@@ -10,14 +10,15 @@ Read `${CLAUDE_PLUGIN_ROOT}/reference/dashboard-io.md` first. `$P` means
 
 Explain these limits the first time, in short plain words:
 - It needs the user's own SearchApi key (www.searchapi.io; 100 free
-  searches, then about $4 per 1,000). Best: add it as an **API credential**
-  for `www.searchapi.io` on the cloud environment (dashboard-io.md J), so
-  the key never reaches Claude. Or set `SEARCHAPI_API_KEY`.
+  searches, then about $4 per 1,000), added as an **API credential** for
+  `www.searchapi.io` on the cloud environment (dashboard-io.md J), so the
+  key never reaches Claude. Wayfare never reads keys from the user's machine.
 - The price is today's public Google Flights price for the same flight and
   cabin. Whether a lower fare gives money back depends on the fare rules.
   Wayfare only alerts. It never changes or rebooks anything.
 - Each flight is checked at most every 3 days, at most 6 searches a run.
-- Duffel still works with `--provider duffel` and `DUFFEL_ACCESS_TOKEN`.
+- Duffel works too (`--provider duffel`), with an API credential for
+  `api.duffel.com`.
 
 ## Steps
 

@@ -101,15 +101,14 @@ Claude and the background checks stay off, and skip to step 5. Read Home
 
 ## 4b. Live data keys (optional)
 
-Ask once: "Do you want live flight status and fare checks? They need free
-keys from Aviationstack and SearchApi." On yes, explain dashboard-io.md J in
-plain steps (also allow the three Open-Meteo hosts: weather is free and
-needs no key): where to get each key, and where to put it (the cloud
-environment's settings: an API credential for `www.searchapi.io`; the
-variable `AVIATIONSTACK_ACCESS_KEY` plus network access Custom with
-`api.aviationstack.com`). Never ask the user to paste a key into the chat.
-Set `fareChecks: true` in the profile when they want fare checks.
-Without keys, Wayfare still reads public flight pages for status.
+Ask once: "Do you want price checks for flights and refundable stays? They
+need a SearchApi key (100 free searches)." On yes, explain dashboard-io.md J
+in plain steps: where to get the key, and where to put it (an API
+credential for `www.searchapi.io` on the cloud environment, so the key never
+reaches Claude). Also allow the three Open-Meteo hosts: weather is free and
+needs no key. Never ask the user to paste a key into the chat. Set
+`fareChecks: true` in the profile when they want price checks. Live flight
+status needs no key: Wayfare reads the public flight page.
 
 ## 4c. Trip chats
 

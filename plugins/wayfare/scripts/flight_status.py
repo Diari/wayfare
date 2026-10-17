@@ -5,10 +5,9 @@ Gets the live status of your booked flights from Aviationstack
 (https://aviationstack.com): delay, new times, cancellation, terminal, gate
 and baggage belt. It reads only; it never changes a booking.
 
-Key: put your Aviationstack access key in AVIATIONSTACK_ACCESS_KEY.
-Aviationstack takes the key as a URL parameter (access_key=...), so an
-"API credential" that adds a header does not work for it; use an environment
-variable on the cloud environment and allow api.aviationstack.com.
+Key: see keys.py. Aviationstack takes the key as a URL parameter
+(access_key=...), so it needs a key the script can read; without one the
+check skill reads the public Flightradar24 page instead.
 
 Limits you should know:
   * The free plan has 100 requests a month. Wayfare checks only flights that
@@ -27,7 +26,8 @@ from __future__ import annotations
 
 import argparse
 import json
-import os
+
+import keys
 import sys
 import time
 import urllib.error
@@ -118,7 +118,7 @@ def main(argv: list[str] | None = None) -> int:
     p.add_argument("--pause-seconds", type=float, default=2)
     a = p.parse_args(argv)
 
-    key = os.environ.get("AVIATIONSTACK_ACCESS_KEY", "").strip()
+    key = keys.get("aviationstack")
     data = json.loads(Path(a.bookings).read_text(encoding="utf-8"))
     bookings = data["bookings"] if isinstance(data, dict) else data
     prev_list = []
@@ -131,8 +131,8 @@ def main(argv: list[str] | None = None) -> int:
     report = {"checked": [], "skipped": skipped, "requests": 0, "error": None}
 
     if check and not key:
-        report["error"] = ("AVIATIONSTACK_ACCESS_KEY is not set. Live status is off; the watch skill can read a "
-                           "public flight page instead.")
+        report["error"] = ("No Aviationstack key. Live status from Aviationstack is off; the check skill reads "
+                           "the public flight page instead.")
     elif check:
         for i, b in enumerate(check[: a.max_requests]):
             if i:

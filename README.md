@@ -194,15 +194,16 @@ samples with the Claude plugin (`python3 tools/sync_codex.py` copies them).
   - **SearchApi** (live fares, Google Flights engine): add an **API
     credential** for `www.searchapi.io`. The key never reaches Claude.
     100 free searches, then about $4 per 1,000.
-  - **Aviationstack** (delays, gates, cancellations): set
-    `AVIATIONSTACK_ACCESS_KEY` in the environment variables and allow
-    `api.aviationstack.com` (Network access: Custom, keep the default list).
-    It takes the key in the URL, so a header credential does not work.
-    100 free requests a month; real-time data only (today and tomorrow).
-  - Without keys, Wayfare reads the public Flightradar24 page for status.
+  - **Flight status** needs no key: Wayfare reads the public Flightradar24
+    page. (Aviationstack is used only by the Codex plugin.)
   - **Weather** (Open-Meteo, free, no key): allow `api.open-meteo.com`,
     `geocoding-api.open-meteo.com` and `archive-api.open-meteo.com`.
-- Duffel still works for fares (`--provider duffel`, `DUFFEL_ACCESS_TOKEN`).
+- Duffel still works for fares (`--provider duffel`): add an API credential
+  for `api.duffel.com`.
+- The Claude plugin never reads keys from your machine or from environment
+  variables. The Codex plugin reads `SEARCHAPI_API_KEY` and
+  `AVIATIONSTACK_ACCESS_KEY` from your environment and sends each key only to
+  its own service.
 
 ## Privacy
 

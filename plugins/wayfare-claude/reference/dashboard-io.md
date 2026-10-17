@@ -139,12 +139,17 @@ start another task. Only the page buttons ring it (the user's own click).
 
 ## J. Keys for live data (optional)
 
+Wayfare never reads API keys from the user's machine or environment
+(`scripts/keys.py`). Keys reach a service only as an API credential that the
+cloud environment's proxy adds to requests for that service's host.
+
 | What | Service | How the key gets to the run |
 |------|---------|-----------------------------|
-| Live fares and stay prices | SearchApi, Google Flights and Google Hotels engines (`www.searchapi.io`) | Best: an **API credential** on the cloud environment for `www.searchapi.io` (Bearer). The key never reaches Claude. Or `SEARCHAPI_API_KEY`. |
-| Flight status | Aviationstack (`api.aviationstack.com`) | Takes the key as a URL parameter, so a header credential does not work: set `AVIATIONSTACK_ACCESS_KEY` in the environment's variables and allow `api.aviationstack.com` (Network access: Custom, keep the default list). |
+| Live fares and stay prices | SearchApi, Google Flights and Google Hotels engines (`www.searchapi.io`) | An **API credential** on the cloud environment for `www.searchapi.io` (Bearer). The agent proxy adds it to each request; the key never reaches Claude or the scripts. |
+| Fares with Duffel (optional) | Duffel (`api.duffel.com`) | An API credential for `api.duffel.com` (Bearer). |
+| Flight status | Public flight page (Flightradar24) | No key. The check skill reads the page with the web fetch tool. (Aviationstack takes its key in the URL, so the Claude version does not use it.) |
 | Weather | Open-Meteo (free, no key) | Allow `api.open-meteo.com`, `geocoding-api.open-meteo.com` and `archive-api.open-meteo.com` (Network access: Custom). |
-| No key | Public flight page | The check skill reads `https://www.flightradar24.com/data/flights/<flight>` with the web fetch tool and writes the same status record by hand. |
+
 
 ## Static fallback (no artifact tools)
 

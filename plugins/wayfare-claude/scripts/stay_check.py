@@ -6,8 +6,7 @@ same hotel on Google Hotels through SearchApi (https://www.searchapi.io) and
 finds the cheapest offer for the same dates and guests that ALSO has free
 cancellation. It never books or cancels anything.
 
-Key: SEARCHAPI_API_KEY, or an API credential for www.searchapi.io on the
-cloud environment (then the key never reaches Claude).
+Keys: see keys.py.
 
 Limits you should know:
   * Google Hotels shows the cheapest room of the hotel. Your room type can
@@ -25,7 +24,6 @@ from __future__ import annotations
 
 import argparse
 import json
-import os
 import re
 import sys
 import urllib.error
@@ -33,6 +31,8 @@ import urllib.parse
 import urllib.request
 from datetime import date, datetime, timedelta, timezone
 from pathlib import Path
+
+import keys
 
 SEARCHAPI = "https://www.searchapi.io/api/v1/search"
 STOP = {"hotel", "the", "and", "&", "rooms", "room", "guesthouse", "guest", "house", "hostel", "apartments",
@@ -89,7 +89,7 @@ def candidates(bookings: list[dict], now: datetime) -> tuple[list[dict], list[di
 
 def get(params: dict, timeout: float = 60.0) -> dict:
     headers = {"Accept": "application/json"}
-    key = os.environ.get("SEARCHAPI_API_KEY", "").strip()
+    key = keys.get("searchapi")
     if key:
         headers["Authorization"] = f"Bearer {key}"
     url = SEARCHAPI + "?" + urllib.parse.urlencode(params)
@@ -173,8 +173,7 @@ def main(argv: list[str] | None = None) -> int:
             report["searches"] += 1
         except urllib.error.HTTPError as e:
             msg = e.read().decode(errors="replace")[:300]
-            hint = (" No valid SearchApi key: add an API credential for www.searchapi.io or set SEARCHAPI_API_KEY."
-                    if e.code in (401, 403) else "")
+            hint = (" " + keys.missing("searchapi", "www.searchapi.io")) if e.code in (401, 403) else ""
             report["error"] = f"SearchApi returned HTTP {e.code}: {msg}{hint}"
             break
         except (urllib.error.URLError, TimeoutError, OSError) as e:

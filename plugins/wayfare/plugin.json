@@ -1,7 +1,7 @@
 {
   "$schema": "https://agent-plugins.org/schemas/1.0.0/plugin.schema.json",
   "name": "wayfare",
-  "version": "0.9.0",
+  "version": "0.9.1",
   "description": "Open-source personal travel agent: one ChatGPT Site per trip from your Gmail bookings, with alerts, weather, live flight status and travel tips. Never books or pays.",
   "author": {
     "name": "Wayfare contributors",

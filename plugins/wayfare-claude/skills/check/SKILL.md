@@ -40,7 +40,7 @@ python3 "$P/scripts/flight_status.py" \
 It checks only flights that leave in the next 30 hours (watch mode: add
 `--window-hours 30 --min-age-minutes 20`). Read its report:
 
-- **No key** (`AVIATIONSTACK_ACCESS_KEY is not set`) or the host is blocked:
+- **No key** (the usual case in Claude) or the host is blocked:
   for each flight it listed as due (at most 3), use the web fetch tool on
   `https://www.flightradar24.com/data/flights/<carrier+number, lower case>`
   and ask for the row of the booked date: scheduled, estimated or actual
@@ -149,4 +149,4 @@ For each flight that leaves in the next 72 hours and is not cancelled:
 
 dashboard-io.md section G, plus: flights checked live (source), fares
 checked, watches planned, and any error a key or setting can fix (for
-example "Add AVIATIONSTACK_ACCESS_KEY to get gates and delays").
+example "Allow the Open-Meteo hosts to get the weather").

@@ -510,5 +510,25 @@ class StayPrices(unittest.TestCase):
         self.assertEqual((best["source"], best["total"], best["link"]), ("C", 255.0, None))
 
 
+class NoMachineCredentials(unittest.TestCase):
+    """Claude directory policy: the Claude plugin must not read keys from the
+    user's machine. Keys are API credentials added by the cloud proxy."""
+
+    def test_claude_scripts_do_not_read_environment(self):
+        import re
+        bad = re.compile(r"os\.environ|os\.getenv|getenv\(|load_dotenv|open\([^)]*\.env")
+        hits = []
+        for f in (CP / "scripts").rglob("*.py"):
+            for n, line in enumerate(f.read_text(encoding="utf-8").splitlines(), 1):
+                if bad.search(line):
+                    hits.append(f"{f.name}:{n}: {line.strip()}")
+        self.assertEqual(hits, [])
+
+    def test_claude_keys_module_returns_nothing(self):
+        import keys
+        for s in ("searchapi", "aviationstack", "duffel"):
+            self.assertEqual(keys.get(s), "")
+
+
 if __name__ == "__main__":
     unittest.main()

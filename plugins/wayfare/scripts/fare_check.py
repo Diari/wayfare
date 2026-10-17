@@ -5,10 +5,9 @@ Looks for a lower fare on the SAME flight you already booked. It does not
 book or change anything. Two providers:
 
   searchapi (default)  Google Flights results through SearchApi
-                       (https://www.searchapi.io). Key: SEARCHAPI_API_KEY,
-                       or an API credential for www.searchapi.io on the
-                       cloud environment (then the key never reaches Claude).
-  duffel               Duffel Flights API. Key: DUFFEL_ACCESS_TOKEN.
+                       (https://www.searchapi.io).
+  duffel               Duffel Flights API.
+Keys: see keys.py.
 
 Limits you should know:
   * The price is the public price for that flight and cabin today. Your fare
@@ -25,7 +24,6 @@ from __future__ import annotations
 
 import argparse
 import json
-import os
 import sys
 import urllib.error
 import urllib.parse
@@ -33,6 +31,8 @@ import urllib.request
 from datetime import timedelta
 from datetime import datetime, timezone
 from pathlib import Path
+
+import keys
 
 API = "https://api.duffel.com/air/offer_requests?return_offers=true&supplier_timeout=20000"
 SEARCHAPI = "https://www.searchapi.io/api/v1/search"
@@ -150,7 +150,7 @@ def searchapi_match(b: dict, resp: dict) -> dict | None:
 
 def searchapi_get(params: dict, timeout: float = 60.0) -> dict:
     headers = {"Accept": "application/json"}
-    key = os.environ.get("SEARCHAPI_API_KEY", "").strip()
+    key = keys.get("searchapi")
     if key:
         headers["Authorization"] = f"Bearer {key}"
     url = SEARCHAPI + "?" + urllib.parse.urlencode(params)
@@ -159,12 +159,10 @@ def searchapi_get(params: dict, timeout: float = 60.0) -> dict:
 
 
 def post(body: dict, token: str, timeout: float = 40.0) -> dict:
-    req = urllib.request.Request(API, data=json.dumps(body).encode(), method="POST", headers={
-        "Authorization": f"Bearer {token}",
-        "Duffel-Version": "v2",
-        "Content-Type": "application/json",
-        "Accept": "application/json",
-    })
+    headers = {"Duffel-Version": "v2", "Content-Type": "application/json", "Accept": "application/json"}
+    if token:
+        headers["Authorization"] = f"Bearer {token}"
+    req = urllib.request.Request(API, data=json.dumps(body).encode(), method="POST", headers=headers)
     with urllib.request.urlopen(req, timeout=timeout) as r:
         return json.loads(r.read().decode())
 
@@ -206,14 +204,11 @@ def main(argv: list[str] | None = None) -> int:
             due.append(b)
     report = {"provider": a.provider, "checked": [], "skipped": skipped, "searches": 0, "mode": None, "error": None}
 
-    token = os.environ.get("DUFFEL_ACCESS_TOKEN", "").strip()
-    if a.provider == "duffel" and not token:
-        report["error"] = "DUFFEL_ACCESS_TOKEN is not set. Fare checks are off."
-        due = []
+    token = keys.get("duffel")
     if a.provider == "duffel":
-        report["mode"] = "test" if token.startswith("duffel_test_") else "live"
+        report["mode"] = "test" if token.startswith("duffel_test_") else ("live" if token else "key from " + keys.WHERE)
     else:
-        report["mode"] = "key from SEARCHAPI_API_KEY" if os.environ.get("SEARCHAPI_API_KEY") else "key from API credential (if set)"
+        report["mode"] = "key from " + keys.WHERE
 
     for b in due[: a.max_searches]:
         try:
@@ -224,9 +219,9 @@ def main(argv: list[str] | None = None) -> int:
         except urllib.error.HTTPError as e:
             msg = e.read().decode(errors="replace")[:300]
             hint = ""
-            if e.code in (401, 403) and a.provider == "searchapi":
-                hint = (" No valid SearchApi key: add an API credential for www.searchapi.io on the cloud "
-                        "environment, or set SEARCHAPI_API_KEY.")
+            if e.code in (401, 403):
+                hint = " " + (keys.missing("searchapi", "www.searchapi.io") if a.provider == "searchapi"
+                              else keys.missing("duffel", "api.duffel.com"))
             report["error"] = f"{a.provider} returned HTTP {e.code}: {msg}{hint}"
             break
         except (urllib.error.URLError, TimeoutError, OSError) as e:

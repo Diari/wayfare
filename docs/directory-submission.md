@@ -40,9 +40,10 @@ your GitHub account connected on claude.ai with push access to
      No email text is stored.
    - *Sends data to services other than its declared connectors?* Yes,
      optional and limited: Open-Meteo (city names and dates, for weather),
-     Aviationstack (flight numbers, with the user's key), SearchApi (airports,
-     dates, cabin, travellers; hotel name, city, dates, guests; with the
-     user's key), Duffel (only if chosen, with the user's key), public
+     SearchApi (airports,
+     dates, cabin, travellers; hotel name, city, dates, guests; the key is
+     an API credential on the user's cloud environment), Duffel (only if
+     chosen, same way), public
      Flightradar24 pages and web search. Never booking codes, names, prices
      or email content. It also downloads its own code from
      github.com/Diari/wayfare in scheduled runs.
@@ -56,11 +57,12 @@ your GitHub account connected on claude.ai with push access to
    review**, then **Set up push updates** (you are admin of the repository).
 
 What the review may hold (a hold is not a rejection):
-- **Uses a credential from the user's machine**: the price and status
-  scripts read `SEARCHAPI_API_KEY`, `AVIATIONSTACK_ACCESS_KEY` or
-  `DUFFEL_ACCESS_TOKEN` from the environment and send each only to its own
-  service. The README says so; the recommended way is an API credential on
-  the cloud environment, where the key never reaches Claude.
+- **Uses a credential from the user's machine**: fixed in 0.9.1. The Claude
+  plugin no longer reads any key from the environment
+  (`plugins/wayfare-claude/scripts/keys.py` returns nothing). Keys are API
+  credentials on the cloud environment, added by its proxy, so they never
+  reach Claude or the scripts. A test (`tests/test_engine.py`) fails if a
+  Claude script reads `os.environ` or `os.getenv`.
 - **Name may be confused with an existing listing**, if another plugin is
   called Wayfare.
 

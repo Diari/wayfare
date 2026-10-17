@@ -44,7 +44,7 @@ what is needed:
 | Service | What it receives | When |
 |---------|------------------|------|
 | Open-Meteo (`open-meteo.com`) | city names, coordinates and trip dates | weather |
-| Aviationstack (`aviationstack.com`) | your flight number | live flight status, only with your key |
+| Aviationstack (`aviationstack.com`) | your flight number | live flight status, Codex plugin only, with your key |
 | Flightradar24 (`flightradar24.com`) | your flight number (a public page is read) | live flight status without a key |
 | SearchApi (`searchapi.io`) | airports, dates, cabin, number of travellers; hotel name, city, dates, number of guests | fare and stay price checks, only with your key |
 | Duffel (`duffel.com`) | airports, dates, cabin, number of travellers | fare checks, only if you choose Duffel and add your key |
