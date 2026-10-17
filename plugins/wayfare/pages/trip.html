@@ -1,0 +1,977 @@
+<title>Wayfare Trip</title>
+<meta name="claude:viewport-fit-sides" content="cover">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Figtree:wght@400;500;600;700;800&display=swap">
+<style>
+/* Layout: one column, day by day. A short header (trip, dates, journey, one menu),
+   then each day's bookings as typed cards. A problem shows inside the card it is about,
+   with one main action; everything else sits in that card's menu. */
+:root {
+  --bg: #f4f5f7;
+  --surface: #ffffff;
+  --ink: #1c2330;
+  --muted: #687385;
+  --line: #e2e5ea;
+  --flight: #1f6fd1;
+  --train: #1e8a5a;
+  --stay: #6b4bc4;
+  --table: #c2357a;
+  --gap: #b7791f;
+  --urgent: #c8322b;
+  --info: #2b6cb0;
+  --shadow: 0 10px 30px rgba(20, 28, 40, .14);
+  --font: "Figtree", system-ui, -apple-system, "Segoe UI", Roboto, sans-serif;
+}
+@media (prefers-color-scheme: dark) {
+  :root:not([data-theme="light"]) {
+    --bg: #12161c; --surface: #1b212a; --ink: #e8ecf1; --muted: #9aa5b4; --line: #2a323d;
+    --flight: #6aa8f5; --train: #4cc18a; --stay: #a88bf0; --table: #f07ab2; --gap: #e3b04b; --urgent: #f2766c; --info: #7fb2e8;
+    --shadow: 0 10px 30px rgba(0, 0, 0, .5);
+    color-scheme: dark;
+  }
+}
+:root[data-theme="dark"] {
+  --bg: #12161c; --surface: #1b212a; --ink: #e8ecf1; --muted: #9aa5b4; --line: #2a323d;
+  --flight: #6aa8f5; --train: #4cc18a; --stay: #a88bf0; --table: #f07ab2; --gap: #e3b04b; --urgent: #f2766c; --info: #7fb2e8;
+  --shadow: 0 10px 30px rgba(0, 0, 0, .5);
+  color-scheme: dark;
+}
+* { box-sizing: border-box; }
+body {
+  background: var(--bg); color: var(--ink); font: 400 15px/1.5 var(--font); font-variant-numeric: tabular-nums;
+  padding-left: max(16px, env(safe-area-inset-left, 0px)); padding-right: max(16px, env(safe-area-inset-right, 0px));
+  padding-block: 18px 56px;
+}
+h1, h2, h3, h4, p { margin: 0; }
+h1, h2, h3 { text-wrap: balance; }
+a { color: inherit; }
+.page { max-width: 640px; margin: 0 auto; display: grid; gap: 26px; }
+.stack { display: grid; gap: 26px; min-width: 0; }
+.muted { color: var(--muted); }
+.small { font-size: 13px; }
+svg.i { width: 18px; height: 18px; fill: currentColor; flex: none; }
+.row { display: flex; flex-wrap: wrap; gap: 8px; align-items: center; }
+
+.btn {
+  font: 600 14px/1 var(--font); color: var(--ink); background: var(--surface); border: 1px solid var(--line);
+  border-radius: 999px; padding: 9px 14px; cursor: pointer; text-decoration: none; display: inline-flex; align-items: center; gap: 6px;
+}
+.btn.dark { background: var(--ink); color: var(--bg); border-color: var(--ink); }
+.btn.plain { background: transparent; border-color: transparent; padding-inline: 6px; color: var(--muted); }
+.btn[disabled] { opacity: .5; cursor: default; }
+.btn:focus-visible, a:focus-visible, summary:focus-visible, input:focus-visible, .menu-list button:focus-visible { outline: 2px solid var(--ink); outline-offset: 2px; }
+.status { font-size: 13px; color: var(--muted); }
+.status.err { color: var(--urgent); }
+.banner { border: 1px solid var(--gap); background: color-mix(in srgb, var(--gap) 10%, var(--surface)); border-radius: 12px; padding: 10px 14px; font-size: 14px; }
+.banner.bad { border-color: var(--urgent); background: color-mix(in srgb, var(--urgent) 10%, var(--surface)); }
+
+/* menu (top and per card) */
+.menu { position: relative; }
+.menu > summary { list-style: none; cursor: pointer; width: 34px; height: 34px; border-radius: 50%; display: grid; place-items: center; color: var(--muted); border: 1px solid transparent; }
+.menu > summary::-webkit-details-marker { display: none; }
+.menu > summary:hover, .menu[open] > summary { border-color: var(--line); background: var(--surface); color: var(--ink); }
+.menu-list { position: absolute; right: 0; top: calc(100% + 6px); z-index: 20; min-width: 230px; max-width: min(300px, calc(100vw - 32px));
+  background: var(--surface); border: 1px solid var(--line); border-radius: 14px; box-shadow: var(--shadow); padding: 6px; display: grid; }
+.menu-list button, .menu-list a { font: 500 15px/1.3 var(--font); color: var(--ink); background: none; border: 0; text-align: left; padding: 10px 12px; border-radius: 10px; cursor: pointer; text-decoration: none; }
+.menu-list button:hover, .menu-list a:hover { background: var(--bg); }
+.menu-list a::after { content: " ↗"; color: var(--muted); }
+.menu-list .sep { height: 1px; background: var(--line); margin: 4px 6px; }
+.menu-list .hint { font-size: 12px; color: var(--muted); padding: 6px 12px 2px; }
+
+/* header */
+.head { display: grid; gap: 8px; }
+.topline { display: flex; justify-content: space-between; align-items: center; gap: 12px; min-height: 34px; }
+.brand { font-weight: 800; letter-spacing: -.01em; }
+.top-right { display: flex; align-items: center; gap: 6px; font-size: 13px; color: var(--muted); }
+.trip-title { font-size: clamp(34px, 9vw, 50px); font-weight: 800; line-height: 1; letter-spacing: -.03em; }
+.meta { display: flex; flex-wrap: wrap; gap: 4px 12px; align-items: baseline; font-size: 16px; color: var(--muted); }
+.meta b { color: var(--ink); font-weight: 700; }
+.to-check { font: inherit; font-weight: 700; color: var(--gap); background: none; border: 0; padding: 0; cursor: pointer; text-decoration: underline; text-underline-offset: 3px; }
+.to-check.high { color: var(--urgent); }
+.route { display: flex; flex-wrap: wrap; align-items: center; gap: 4px 6px; font-weight: 600; font-size: 15px; }
+.route .flight { color: var(--flight); } .route .train { color: var(--train); } .route .unknown { color: var(--muted); }
+.route svg.i { width: 16px; height: 16px; }
+
+/* days */
+.days { display: grid; gap: 24px; }
+.day { display: grid; gap: 10px; }
+.day h2 { font-size: 15px; font-weight: 700; color: var(--muted); }
+.card { background: var(--surface); border: 1px solid var(--line); border-radius: 16px; --c: var(--muted); scroll-margin-top: 16px; }
+.card.flight { --c: var(--flight); }
+.card.train, .card.transfer { --c: var(--train); }
+.card.hotel { --c: var(--stay); }
+.card.dining { --c: var(--table); }
+.card.touch-high { border-color: color-mix(in srgb, var(--urgent) 55%, var(--line)); }
+.card.touch-medium { border-color: color-mix(in srgb, var(--gap) 55%, var(--line)); }
+.card-top { display: flex; align-items: center; gap: 8px; padding: 10px 14px; background: color-mix(in srgb, var(--c) 10%, var(--surface)); color: var(--c); font-size: 13px; font-weight: 700; border-radius: 15px 15px 0 0; }
+.card-top .what { color: var(--ink); font-weight: 600; min-width: 0; overflow-wrap: anywhere; }
+.card-top .flag { margin-left: auto; font-size: 12px; font-weight: 700; padding: 2px 8px; border-radius: 999px; background: var(--surface); color: var(--urgent); border: 1px solid currentColor; white-space: nowrap; }
+.card-main { padding: 14px; display: grid; gap: 10px; }
+.card-foot { display: flex; gap: 8px 12px; align-items: center; padding: 6px 8px 6px 14px; border-top: 1px dashed var(--line); font-size: 13px; color: var(--muted); min-height: 46px; }
+.card-foot .facts { display: flex; flex-wrap: wrap; gap: 4px 12px; min-width: 0; flex: 1; }
+.code { font-weight: 600; letter-spacing: .04em; }
+.code.full { color: var(--ink); }
+
+/* issue inside a card */
+.issue { margin: 0 14px 14px; padding: 12px 14px; border-radius: 12px; border-left: 4px solid; display: grid; gap: 8px; }
+.issue.high { border-color: var(--urgent); background: color-mix(in srgb, var(--urgent) 9%, var(--surface)); }
+.issue.medium { border-color: var(--gap); background: color-mix(in srgb, var(--gap) 11%, var(--surface)); }
+.issue.info { border-color: var(--info); background: color-mix(in srgb, var(--info) 9%, var(--surface)); }
+.issue b { font-weight: 700; }
+.issue p { font-size: 14px; }
+.issue .why { color: var(--muted); font-size: 13px; }
+.issue.done { border-color: var(--line); background: transparent; color: var(--muted); padding-block: 8px; display: flex; justify-content: space-between; align-items: center; gap: 10px; flex-wrap: wrap; }
+.suggest { display: grid; gap: 6px; padding-top: 4px; }
+.suggest ol { margin: 0; padding-left: 18px; display: grid; gap: 8px; font-size: 14px; }
+.suggest .links { display: flex; flex-wrap: wrap; gap: 6px; padding-top: 4px; }
+.suggest .links a { font-size: 13px; font-weight: 600; }
+
+/* flight: boarding pass */
+.pass { display: grid; grid-template-columns: auto 1fr auto; gap: 4px 12px; align-items: center; }
+.pass .code3 { font-size: 34px; font-weight: 800; letter-spacing: -.02em; line-height: 1; }
+.pass .path { display: flex; align-items: center; gap: 6px; color: var(--c); }
+.pass .path::before, .pass .path::after { content: ""; flex: 1; border-top: 2px dashed currentColor; opacity: .6; }
+.pass .tm { font-size: 20px; font-weight: 700; }
+.pass .tm s { display: block; font-size: 13px; font-weight: 500; color: var(--muted); }
+.pass .nm { color: var(--muted); font-size: 13px; }
+.pass .r { text-align: right; justify-self: end; }
+.pass .mid { text-align: center; color: var(--muted); font-size: 12px; }
+.live { display: flex; flex-wrap: wrap; align-items: center; gap: 4px 10px; font-size: 13px; color: var(--muted); padding-top: 2px; }
+.live b { color: var(--train); font-weight: 700; }
+.live .dot { width: 8px; height: 8px; border-radius: 50%; background: var(--train); flex: none; }
+.live.bad b { color: var(--urgent); } .live.bad .dot { background: var(--urgent); }
+.live.done b { color: var(--ink); } .live.done .dot { background: var(--muted); }
+.live .when { margin-left: auto; }
+/* train: track */
+.track { display: grid; grid-template-columns: 14px 1fr auto; gap: 0 12px; }
+.track .rail { grid-row: 1 / span 3; display: grid; grid-template-rows: 14px 1fr 14px; justify-items: center; }
+.track .rail i { width: 12px; height: 12px; border-radius: 50%; border: 3px solid var(--c); background: var(--surface); }
+.track .rail b { width: 3px; background: repeating-linear-gradient(var(--c) 0 6px, transparent 6px 10px); }
+.track .st { font-weight: 700; min-width: 0; overflow-wrap: anywhere; }
+.track .tm { font-weight: 700; font-size: 18px; text-align: right; }
+.track .gapline { grid-column: 2 / span 2; height: 18px; }
+/* stay */
+.stay h3 { font-size: 20px; font-weight: 800; letter-spacing: -.01em; }
+.moons { display: flex; flex-wrap: wrap; gap: 4px; color: var(--c); }
+.moons svg { width: 18px; height: 18px; fill: currentColor; }
+.stay .when { display: flex; flex-wrap: wrap; gap: 4px 10px; color: var(--muted); font-size: 14px; }
+.stay .when b { color: var(--ink); }
+/* table */
+.resv { display: grid; grid-template-columns: auto 1fr; gap: 2px 14px; align-items: center; }
+.resv .tm { grid-row: span 2; font-size: 26px; font-weight: 800; color: var(--c); }
+.resv h3 { font-size: 18px; font-weight: 700; }
+/* gap */
+.card.gap { background: transparent; border: 2px dashed var(--gap); }
+.card.gap .card-main { padding: 8px 8px 6px 14px; }
+.card.gap .gap-top { display: flex; justify-content: space-between; align-items: center; min-height: 34px; }
+.card.gap h3 { padding-right: 6px; }
+.card.gap .label { color: var(--gap); font-weight: 700; display: flex; gap: 6px; align-items: center; }
+.card.gap h3 { font-size: 18px; font-weight: 700; }
+.card.gap .issue { margin-top: 0; }
+
+/* tabs */
+.tabs2 { display: inline-flex; gap: 4px; padding: 4px; background: var(--surface); border: 1px solid var(--line); border-radius: 999px; justify-self: start; }
+.tabs2 button { font: 600 14px/1 var(--font); color: var(--muted); background: none; border: 0; border-radius: 999px; padding: 9px 16px; cursor: pointer; }
+.tabs2 button[aria-selected="true"] { background: var(--ink); color: var(--bg); }
+/* day header */
+.day-h { display: flex; align-items: center; gap: 6px 10px; flex-wrap: wrap; }
+.day-h h2 { margin-right: auto; }
+.day-h h2 .city { color: var(--ink); }
+.wx { display: inline-flex; align-items: center; gap: 5px; font-size: 13px; font-weight: 600; color: var(--ink); }
+.wx svg { width: 18px; height: 18px; fill: none; stroke: currentColor; stroke-width: 1.8; stroke-linecap: round; stroke-linejoin: round; }
+.wx .lo { color: var(--muted); font-weight: 500; }
+.wx .rain { color: var(--info); font-weight: 600; }
+.wx.past-year { opacity: .75; }
+.route-link { font-size: 13px; font-weight: 600; color: var(--muted); text-decoration: none; display: inline-flex; gap: 4px; align-items: center; }
+.route-link svg.i { width: 15px; height: 15px; }
+.free-day { font-size: 14px; color: var(--muted); padding: 2px 2px 0; }
+.wx-note { font-size: 13px; color: var(--muted); }
+/* guide */
+.guide { display: grid; gap: 26px; }
+.guide h2 { font-size: 18px; font-weight: 800; margin-bottom: 10px; }
+.guide .lead { font-size: 17px; line-height: 1.45; }
+.panel { background: var(--surface); border: 1px solid var(--line); border-radius: 16px; padding: 6px 14px; }
+.wx-cities { display: grid; grid-template-columns: repeat(auto-fit, minmax(150px, 1fr)); gap: 10px; }
+.wx-city { background: var(--surface); border: 1px solid var(--line); border-radius: 16px; padding: 14px; display: grid; gap: 4px; }
+.wx-city b { font-size: 16px; }
+.wx-city .big { display: flex; align-items: center; gap: 8px; font-size: 22px; font-weight: 800; }
+.wx-city .big svg { width: 28px; height: 28px; fill: none; stroke: currentColor; stroke-width: 1.6; stroke-linecap: round; stroke-linejoin: round; }
+.pack-row { display: grid; grid-template-columns: auto 1fr; gap: 12px; align-items: center; padding: 10px 0; border-bottom: 1px solid var(--line); }
+.pack-row:last-child { border-bottom: 0; }
+.pack-row .why { display: block; font-size: 13px; color: var(--muted); }
+.pack-row.done .what { text-decoration: line-through; color: var(--muted); }
+.pack-row.done .check { background: var(--ink); }
+.progress { font-size: 13px; color: var(--muted); font-weight: 600; }
+.know { display: grid; grid-template-columns: repeat(auto-fit, minmax(240px, 1fr)); gap: 10px; }
+.know-item { background: var(--surface); border: 1px solid var(--line); border-radius: 16px; padding: 14px; display: grid; grid-template-columns: auto 1fr; gap: 4px 12px; }
+.know-item .ic { grid-row: span 2; width: 36px; height: 36px; border-radius: 10px; display: grid; place-items: center; background: color-mix(in srgb, var(--flight) 12%, var(--surface)); color: var(--flight); }
+.know-item .ic svg { width: 20px; height: 20px; fill: none; stroke: currentColor; stroke-width: 1.8; stroke-linecap: round; stroke-linejoin: round; }
+.know-item b { font-size: 15px; }
+.know-item p { font-size: 14px; color: var(--muted); }
+.around-city { display: grid; gap: 8px; }
+.around-city h3 { font-size: 15px; font-weight: 700; color: var(--muted); }
+details.tip { background: var(--surface); border: 1px solid var(--line); border-radius: 14px; }
+details.tip > summary { list-style: none; cursor: pointer; padding: 12px 14px; font-weight: 600; display: flex; justify-content: space-between; gap: 10px; }
+details.tip > summary::-webkit-details-marker { display: none; }
+details.tip > summary::after { content: "+"; color: var(--muted); font-weight: 700; }
+details.tip[open] > summary::after { content: "–"; }
+details.tip .body { padding: 0 14px 14px; display: grid; gap: 8px; font-size: 14px; }
+details.tip .body a { font-weight: 600; font-size: 13px; }
+.maps a { display: flex; justify-content: space-between; gap: 10px; padding: 12px 0; border-bottom: 1px solid var(--line); text-decoration: none; font-weight: 600; }
+.maps a:last-child { border-bottom: 0; }
+.maps a span { color: var(--muted); font-weight: 500; }
+.sources { font-size: 13px; color: var(--muted); display: grid; gap: 4px; }
+/* to-do */
+.todo-sec { display: grid; gap: 10px; }
+.todo-sec h2 { font-size: 18px; font-weight: 800; }
+.todos { background: var(--surface); border: 1px solid var(--line); border-radius: 16px; padding: 4px 14px 12px; }
+.todo { display: grid; grid-template-columns: auto 1fr auto; gap: 12px; align-items: center; padding: 10px 0; border-bottom: 1px solid var(--line); }
+.todo .text { min-width: 0; overflow-wrap: anywhere; }
+.todo.done .text { text-decoration: line-through; color: var(--muted); }
+.check { width: 26px; height: 26px; border-radius: 8px; border: 2px solid var(--ink); background: transparent; color: var(--bg); cursor: pointer; font-weight: 800; }
+.todo.done .check { background: var(--ink); }
+.add-todo { display: flex; gap: 8px; padding-top: 12px; }
+.add-todo input { flex: 1; min-width: 0; font: 15px var(--font); padding: 9px 12px; border: 1px solid var(--line); border-radius: 999px; background: var(--bg); color: var(--ink); }
+
+.foot { color: var(--muted); font-size: 13px; display: grid; gap: 6px; border-top: 1px solid var(--line); padding-top: 16px; }
+.empty { background: var(--surface); border: 1px dashed var(--line); border-radius: 16px; padding: 28px 20px; display: grid; gap: 8px; }
+.empty h2 { font-size: 24px; font-weight: 800; }
+@media (max-width: 420px) { .pass .code3 { font-size: 28px; } .issue { margin-inline: 10px; } }
+</style>
+
+<!--WAYFARE_STATIC_DATA-->
+<div class="page">
+  <header id="head" class="head">
+    <div class="topline"><span class="brand">Wayfare</span><span class="top-right" id="updated">Loading the trip…</span></div>
+    <div class="empty">
+      <h2>Your trip appears here</h2>
+      <p>Wayfare builds this page from your travel confirmations: flights, stays, trains and tables, with nights that have no stay, tight connections and schedule changes.</p>
+      <p class="muted">In Claude, run /wayfare:sync.</p>
+    </div>
+  </header>
+  <div id="main" class="stack"></div>
+  <footer class="foot">
+    <div>Only you and the people you invite can open this page. People you share it with never see full booking codes or prices.</div>
+    <div>Wayfare never books or pays. Links open the provider's own website.</div>
+  </footer>
+</div>
+
+<script>
+(function () {
+  "use strict";
+  var S = {
+    trip: null, priv: null, actions: {}, todos: [], suggestions: {}, requests: {},
+    db: null, mcp: null, uid: null, isOwner: false, canAct: false, canTodo: true,
+    source: "none", showCodes: false, calAdded: {}, calMsg: "", calBusy: false, calConfirm: false, topMsg: "",
+    openMenu: null, tab: "days", guide: null, packDone: {}
+  };
+  try { if (localStorage.getItem("wayfare-tab") === "guide") S.tab = "guide"; } catch (e) {}
+  var ICON = {
+    flight: "M21 16v-2l-8-5V3.5a1.5 1.5 0 0 0-3 0V9l-8 5v2l8-2.5V19l-2 1.5V22l3.5-1 3.5 1v-1.5L13 19v-5.5z",
+    train: "M12 2c-4 0-8 .5-8 4v9.5A3.5 3.5 0 0 0 7.5 19L6 20.5v.5h2.2l2-2h3.6l2 2H18v-.5L16.5 19a3.5 3.5 0 0 0 3.5-3.5V6c0-3.5-4-4-8-4zM7.5 17a1.5 1.5 0 1 1 0-3 1.5 1.5 0 0 1 0 3zm3.5-7H6V6h5v4zm2 0V6h5v4h-5zm3.5 7a1.5 1.5 0 1 1 0-3 1.5 1.5 0 0 1 0 3z",
+    hotel: "M7 13c1.66 0 3-1.34 3-3S8.66 7 7 7s-3 1.34-3 3 1.34 3 3 3zm12-6h-8v7H3V5H1v15h2v-3h18v3h2v-9c0-2.21-1.79-4-4-4z",
+    dining: "M11 9H9V2H7v7H5V2H3v7c0 2.12 1.66 3.84 3.75 3.97V22h2.5v-9.03C11.34 12.84 13 11.12 13 9V2h-2v7zm5-3v8h2.5v8H21V2c-2.76 0-5 2.24-5 4z",
+    moon: "M12 3a9 9 0 1 0 9 9c0-.46-.04-.92-.1-1.36a5.4 5.4 0 0 1-4.4 2.26 5.4 5.4 0 0 1-3.14-9.8c-.44-.06-.9-.1-1.36-.1z",
+    pin: "M12 2a7 7 0 0 0-7 7c0 5.25 7 13 7 13s7-7.75 7-13a7 7 0 0 0-7-7zm0 9.5a2.5 2.5 0 1 1 0-5 2.5 2.5 0 0 1 0 5z",
+    dots: "M6 10.5a1.5 1.5 0 1 1 0 3 1.5 1.5 0 0 1 0-3zm6 0a1.5 1.5 0 1 1 0 3 1.5 1.5 0 0 1 0-3zm6 0a1.5 1.5 0 1 1 0 3 1.5 1.5 0 0 1 0-3z"
+  };
+  ICON.transfer = ICON.train; ICON.other = ICON.pin;
+  var TYPE_NAME = { flight: "Flight", train: "Train", transfer: "Transfer", hotel: "Stay", dining: "Table", other: "Plan" };
+  var MONTHS = ["January", "February", "March", "April", "May", "June", "July", "August", "September", "October", "November", "December"];
+  var WEEK = ["Sunday", "Monday", "Tuesday", "Wednesday", "Thursday", "Friday", "Saturday"];
+
+  function el(tag, attrs, kids) {
+    var n = document.createElement(tag);
+    if (attrs) Object.keys(attrs).forEach(function (k) {
+      var v = attrs[k];
+      if (v === null || v === undefined || v === false) return;
+      if (k === "text") n.textContent = v;
+      else if (k === "class") n.className = v;
+      else if (k === "on") Object.keys(v).forEach(function (ev) { n.addEventListener(ev, v[ev]); });
+      else n.setAttribute(k, v === true ? "" : v);
+    });
+    (kids || []).forEach(function (c) { if (c !== null && c !== undefined && c !== false) n.appendChild(typeof c === "string" ? document.createTextNode(c) : c); });
+    return n;
+  }
+  function icon(name, cls) {
+    var svg = document.createElementNS("http://www.w3.org/2000/svg", "svg");
+    svg.setAttribute("viewBox", "0 0 24 24"); svg.setAttribute("aria-hidden", "true"); svg.setAttribute("class", cls || "i");
+    var p = document.createElementNS("http://www.w3.org/2000/svg", "path"); p.setAttribute("d", ICON[name] || ICON.pin);
+    svg.appendChild(p); return svg;
+  }
+  function safeUrl(u) { return typeof u === "string" && /^https:\/\//.test(u) ? u : null; }
+  function nowIso() { return new Date().toISOString(); }
+  function longDay(iso) { var d = new Date(iso + "T12:00:00Z"); return WEEK[d.getUTCDay()] + " " + d.getUTCDate() + " " + MONTHS[d.getUTCMonth()]; }
+  function ago(iso) {
+    var mins = Math.round((Date.now() - new Date(iso).getTime()) / 60000);
+    if (!iso || isNaN(mins)) return "";
+    if (mins < 2) return "Updated just now";
+    if (mins < 60) return "Updated " + mins + " min ago";
+    var h = Math.round(mins / 60);
+    return h < 48 ? "Updated " + h + " h ago" : "Updated " + Math.round(h / 24) + " days ago";
+  }
+  function closeMenus() { S.openMenu = null; document.querySelectorAll("details.menu[open]").forEach(function (d) { d.open = false; }); }
+  document.addEventListener("click", function (e) {
+    document.querySelectorAll("details.menu[open]").forEach(function (d) { if (!d.contains(e.target)) { d.open = false; if (S.openMenu === d.dataset.key) S.openMenu = null; } });
+  });
+  document.addEventListener("keydown", function (e) { if (e.key === "Escape") closeMenus(); });
+
+  // A menu: entries are {label, onClick} | {label, url} | {sep: true} | {hint: "text"}
+  function menu(key, label, entries) {
+    entries = entries.filter(Boolean);
+    while (entries.length && entries[entries.length - 1].sep) entries.pop();
+    if (!entries.length) return null;
+    var list = el("div", { class: "menu-list", role: "menu" });
+    entries.forEach(function (m) {
+      if (m.sep) { list.appendChild(el("div", { class: "sep", role: "separator" })); return; }
+      if (m.hint) { list.appendChild(el("div", { class: "hint", text: m.hint })); return; }
+      if (m.url) {
+        var u = safeUrl(m.url);
+        if (u) list.appendChild(el("a", { role: "menuitem", href: u, target: "_blank", rel: "noopener noreferrer", text: m.label, on: { click: closeMenus } }));
+        return;
+      }
+      list.appendChild(el("button", { role: "menuitem", type: "button", text: m.label, on: { click: function (e) { e.stopPropagation(); closeMenus(); m.onClick(e); } } }));
+    });
+    var d = el("details", { class: "menu", "data-key": key, open: S.openMenu === key }, [el("summary", { "aria-label": label, title: label }, [icon("dots")]), list]);
+    d.addEventListener("toggle", function () { if (d.open) { S.openMenu = key; document.querySelectorAll("details.menu[open]").forEach(function (o) { if (o !== d) o.open = false; }); } else if (S.openMenu === key) S.openMenu = null; });
+    return d;
+  }
+
+  // ---------- alert state ----------
+  function resolution(a) {
+    if (S.source === "static") return a.resolution || null;
+    var act = S.actions[a.id];
+    if (!act || act.fingerprint !== a.fingerprint) return null;
+    if (act.status === "snoozed") return new Date(act.until) > new Date() ? "snoozed" : null;
+    return act.status === "done" || act.status === "ignored" ? act.status : null;
+  }
+  var RES_LABEL = { done: "Marked as handled", ignored: "Marked as not a problem", snoozed: "Hidden for 3 days" };
+  function setAction(a, status) {
+    if (!S.db) return;
+    var body = { alertId: a.id, fingerprint: a.fingerprint, status: status, at: nowIso(), title: a.title };
+    if (status === "snoozed") body.until = new Date(Date.now() + 3 * 864e5).toISOString();
+    if (S.uid) body.by = S.uid;
+    S.actions[a.id] = body; render();
+    S.db.doc("actions/" + a.id).set(body).catch(function () { delete S.actions[a.id]; S.topMsg = "Could not save. You may only have view access to this trip."; render(); });
+  }
+  function undoAction(a) {
+    if (!S.db) return;
+    var prev = S.actions[a.id]; delete S.actions[a.id]; render();
+    S.db.doc("actions/" + a.id).delete().catch(function () { S.actions[a.id] = prev; render(); });
+  }
+
+  // ---------- Ask Claude ----------
+  // A trip chat (set up with /wayfare:trip) gets the requests, so the answer
+  // lands in that chat; otherwise the shared "Wayfare agent" task does the work.
+  function chatInfo() { return S.priv && S.priv.chat && S.priv.chat.triggerId ? S.priv.chat : null; }
+  function triggerId() { var c = chatInfo(); return c ? c.triggerId : S.priv && S.priv.agent && S.priv.agent.triggerId; }
+  function canAsk() { return S.isOwner && S.mcp && S.db && triggerId(); }
+  function ask(kind, alertId, params) {
+    var rid = "r" + Date.now().toString(36);
+    var req = { kind: kind, alertId: alertId || null, slug: S.trip.slug, params: params || {}, status: "queued", createdAt: nowIso() };
+    S.requests[rid] = req; render();
+    S.db.doc("requests/" + rid).set(req).then(function () {
+      var text = "WAYFARE_REQUEST " + JSON.stringify({ requestId: rid, kind: kind, slug: S.trip.slug, alertId: alertId || null, params: params || {} });
+      return S.mcp.callTool("Claude Code Remote", "fire_trigger", { trigger_id: triggerId(), text: text });
+    }).then(function () {
+      S.requests[rid] = Object.assign({}, req, { status: "sent", sentAt: nowIso() }); render();
+      return S.db.doc("requests/" + rid).update({ status: "sent", sentAt: S.requests[rid].sentAt }).catch(function () {});
+    }).catch(function (e) {
+      var code = e && e.code;
+      var msg = code === "server_not_connected" ? "Claude Code Remote is not connected for this account."
+        : code === "approval_required" || code === "not_in_manifest" ? "This page needs your approval to start Claude tasks. Try again and choose Allow."
+        : code === "tool_error" ? "The Wayfare task could not start. Run /wayfare:setup again to repair it."
+        : "Could not reach Claude. Try again in a moment.";
+      S.requests[rid] = Object.assign({}, req, { status: "failed", message: msg });
+      if (S.db) S.db.doc("requests/" + rid).set(S.requests[rid]).catch(function () {});
+      render();
+    });
+  }
+  function latestRequest(filter) {
+    var best = null;
+    Object.keys(S.requests).forEach(function (k) { var r = S.requests[k]; if (filter(r) && (!best || r.createdAt > best.createdAt)) best = r; });
+    return best;
+  }
+  var REQ_TEXT = { queued: "Sending to Claude…", sent: "Claude is on it. Results show here in a few minutes.", running: "Claude is working on it…", done: "Done.", failed: "Failed." };
+  function requestLine(r) {
+    if (!r) return null;
+    if (r.status === "done" && Date.now() - new Date(r.finishedAt || r.createdAt).getTime() > 6 * 3600e3) return null;
+    var txt = r.status === "sent" && chatInfo() ? "Sent to the trip chat. Results show here and in the chat in a few minutes." : (REQ_TEXT[r.status] || r.status);
+    return el("div", { class: "status" + (r.status === "failed" ? " err" : ""), role: "status", text: txt + (r.message ? " " + r.message : "") });
+  }
+  function busy(r) { return r && (r.status === "queued" || r.status === "sent" || r.status === "running"); }
+
+  // ---------- Calendar ----------
+  function calendarItems() { return (S.trip.items || []).filter(function (it) { return it.calendar && !S.calAdded[it.id]; }); }
+  function addToCalendar() {
+    var todo = calendarItems();
+    S.calBusy = true; S.calConfirm = false; S.calMsg = "Adding " + todo.length + " events…"; render();
+    var added = 0, chain = Promise.resolve();
+    todo.forEach(function (it) {
+      chain = chain.then(function () {
+        var c = it.calendar;
+        var input = c.allDay
+          ? { summary: c.summary, allDay: true, startTime: c.start + "T00:00:00", endTime: c.end + "T00:00:00", location: c.location, description: "Added from your Wayfare trip page." }
+          : { summary: c.summary, startTime: c.start, endTime: c.end, location: c.location, description: "Added from your Wayfare trip page." };
+        return S.mcp.callTool("Google Calendar", "create_event", input).then(function () { S.calAdded[it.id] = true; added++; });
+      });
+    });
+    chain.then(function () {
+      S.calMsg = "Added " + added + " event" + (added === 1 ? "" : "s") + " to your Google Calendar.";
+    }).catch(function (e) {
+      var code = e && e.code;
+      S.calMsg = (added ? "Added " + added + ", then stopped. " : "")
+        + (code === "server_not_connected" ? "Connect Google Calendar in Claude: Settings → Connectors."
+          : code === "needs_reauth" ? "Reconnect Google Calendar in Claude: Settings → Connectors."
+          : code === "approval_required" || code === "not_in_manifest" ? "Calendar needs your approval. Try again and choose Allow."
+          : code === "tool_error" ? "Google Calendar refused an event."
+          : "Google Calendar did not answer. Check your calendar before you try again, so you do not get doubles.");
+    }).then(function () {
+      S.calBusy = false;
+      if (S.db && S.uid) S.db.doc("data/users/" + S.uid + "/calendar").set({ added: Object.keys(S.calAdded) }).catch(function () {});
+      render();
+    });
+  }
+  function copyCode(code) {
+    navigator.clipboard.writeText(code).then(function () { S.topMsg = ""; S.calMsg = "Copied booking code " + code + "."; render(); },
+      function () { S.calMsg = "Booking code: " + code; render(); });
+  }
+
+  // ---------- issues on cards ----------
+  function priv(id) { return S.priv && S.priv.items && S.priv.items[id]; }
+  function primaryFor(a) {
+    var p = a.primary;
+    if (!p) return null;
+    var mine = p.manage && S.isOwner && priv(p.itemId) && safeUrl(priv(p.itemId).manageUrl);
+    return { label: p.label, url: mine || p.url };
+  }
+  function suggestionsFor(a) {
+    var s = S.suggestions[a.id];
+    if (!s || !s.items || !s.items.length) return null;
+    var list = el("ol");
+    s.items.slice(0, 5).forEach(function (x) {
+      var li = el("li", null, [el("b", { text: x.name || "" }), x.area ? ", " + x.area : "", x.price ? ". " + x.price : ""]);
+      if (x.why) li.appendChild(el("div", { class: "muted small", text: x.why }));
+      var ls = el("div", { class: "links" });
+      (x.links || []).slice(0, 2).forEach(function (l) { var u = safeUrl(l.url); if (u) ls.appendChild(el("a", { href: u, target: "_blank", rel: "noopener noreferrer", text: l.label })); });
+      if (ls.childNodes.length) li.appendChild(ls);
+      list.appendChild(li);
+    });
+    return el("div", { class: "suggest" }, [el("b", { text: "Claude suggests" }), list, s.note ? el("div", { class: "muted small", text: s.note }) : null]);
+  }
+  // The visible part of an issue: what is wrong, why, and ONE button.
+  function issueBox(a, noCta) {
+    var r = resolution(a);
+    if (r) {
+      return el("div", { class: "issue done" }, [el("span", { class: "small", text: RES_LABEL[r] + ": " + a.title }),
+        S.canAct ? el("button", { class: "btn plain", type: "button", text: "Undo", on: { click: function () { undoAction(a); } } }) : null]);
+    }
+    var box = el("div", { class: "issue " + a.level, id: "issue-" + a.id }, [el("p", null, [el("b", { text: a.title })]), el("p", { class: "why", text: a.detail })]);
+    var req = latestRequest(function (x) { return x.alertId === a.id; });
+    var acts = el("div", { class: "row" });
+    if (noCta) {
+      // A card shows one button: the one for its most urgent problem. The
+      // other problems' actions are in the card's menu.
+    } else if (a.ask && canAsk()) {
+      acts.appendChild(el("button", { class: "btn dark", type: "button", disabled: busy(req), text: S.suggestions[a.id] ? "Ask Claude again" : "Find stays with Claude",
+        on: { click: function () { var p = Object.assign({}, a.ask); delete p.label; delete p.kind; ask(a.ask.kind, a.id, p); } } }));
+    } else {
+      var p = primaryFor(a);
+      if (p && safeUrl(p.url)) acts.appendChild(el("a", { class: "btn dark", href: safeUrl(p.url), target: "_blank", rel: "noopener noreferrer", text: p.label }));
+    }
+    if (acts.childNodes.length) box.appendChild(acts);
+    var line = requestLine(req); if (line) box.appendChild(line);
+    var sug = suggestionsFor(a); if (sug) box.appendChild(sug);
+    return box;
+  }
+  // Menu entries for an issue: the rest of its links, then handled / not a problem / later.
+  function issueMenu(a, many) {
+    if (resolution(a)) return [];
+    var out = [];
+    if (many) out.push({ hint: a.title });
+    var p = primaryFor(a);
+    if (p && (many || (a.ask && canAsk()))) out.push({ label: p.label, url: p.url });
+    (a.links || []).forEach(function (l) { if (!p || l.url !== a.primary.url) out.push({ label: l.label, url: l.url }); });
+    if (S.canAct) {
+      out.push({ label: "Mark as handled", onClick: function () { setAction(a, "done"); } });
+      out.push({ label: "Not a problem", onClick: function () { setAction(a, "ignored"); } });
+      out.push({ label: "Remind me in 3 days", onClick: function () { setAction(a, "snoozed"); } });
+    }
+    out.push({ sep: true });
+    return out;
+  }
+
+  // ---------- cards ----------
+  function moons(n) {
+    var box = el("span", { class: "moons", "aria-label": n + " night" + (n === 1 ? "" : "s") });
+    for (var i = 0; i < Math.min(n, 14); i++) box.appendChild(icon("moon"));
+    return box;
+  }
+  function cardBody(it) {
+    var type = it.type === "transfer" ? "train" : it.type;
+    var main = el("div", { class: "card-main" });
+    if (it.type === "flight") {
+      var depOld = it.previous && it.previous.depart ? it.previous.depart.split("· ")[1] : null;
+      var arrOld = it.previous && it.previous.arrive ? it.previous.arrive.split("· ")[1] : null;
+      main.appendChild(el("div", { class: "pass" }, [
+        el("span", { class: "code3", text: it.fromCode }), el("span", { class: "path" }, [icon("flight")]), el("span", { class: "code3 r", text: it.toCode }),
+        el("span", { class: "tm" }, [it.time, depOld ? el("s", { text: depOld }) : null]),
+        el("span", { class: "mid", text: it.endDayOffset ? "arrives next day" : "" }),
+        el("span", { class: "tm r" }, [it.endTime, arrOld ? el("s", { text: arrOld }) : null]),
+        el("span", { class: "nm", text: it.fromName }), el("span"), el("span", { class: "nm r", text: it.toName })
+      ]));
+      var lv = liveLine(it);
+      if (lv) main.appendChild(lv);
+    } else if (type === "train") {
+      main.appendChild(el("div", { class: "track" }, [
+        el("span", { class: "rail" }, [el("i"), el("b"), el("i")]),
+        el("span", { class: "st", text: it.fromName }), el("span", { class: "tm", text: it.time }),
+        el("span", { class: "gapline" }),
+        el("span", { class: "st", text: it.toName }), el("span", { class: "tm", text: it.endTime })
+      ]));
+    } else if (it.type === "hotel") {
+      main.className += " stay";
+      main.appendChild(el("h3", { text: it.title }));
+      main.appendChild(el("div", { class: "row" }, [moons(it.nights || 1), el("b", { text: (it.nights || 1) + " night" + ((it.nights || 1) === 1 ? "" : "s") })]));
+      main.appendChild(el("div", { class: "when" }, [el("span", null, ["In ", el("b", { text: it.checkInLabel })]), el("span", null, ["Out ", el("b", { text: it.checkOutLabel })]), it.city ? el("span", { text: it.city }) : null]));
+    } else {
+      main.appendChild(el("div", { class: "resv" }, [el("span", { class: "tm", text: it.time }), el("h3", { text: it.title }),
+        el("span", { class: "muted", text: [it.party ? "Table for " + it.party : null, it.city].filter(Boolean).join(", ") })]));
+    }
+    return main;
+  }
+
+  // ---------- weather ----------
+  var WX = {
+    sun: "M12 8a4 4 0 1 0 0 8 4 4 0 0 0 0-8zM12 2v2M12 20v2M4.9 4.9l1.4 1.4M17.7 17.7l1.4 1.4M2 12h2M20 12h2M4.9 19.1l1.4-1.4M17.7 6.3l1.4-1.4",
+    partly: "M8 2v1.5M3.2 4.2l1 1M1.5 9H3M12.8 4.2l-1 1M5 11.5A3.5 3.5 0 0 1 11 7M9 20h8a3.5 3.5 0 0 0 0-7 5 5 0 0 0-9.6 1.5A2.8 2.8 0 0 0 9 20z",
+    cloud: "M7 18h10a4 4 0 0 0 0-8 6 6 0 0 0-11.3 1.5A3.3 3.3 0 0 0 7 18z",
+    rain: "M7 15h10a4 4 0 0 0 0-8 6 6 0 0 0-11.3 1.5A3.3 3.3 0 0 0 7 15zM9 18l-1 3M13 18l-1 3M17 18l-1 3",
+    snow: "M7 15h10a4 4 0 0 0 0-8 6 6 0 0 0-11.3 1.5A3.3 3.3 0 0 0 7 15zM9 19h.01M13 19h.01M17 19h.01M11 22h.01M15 22h.01",
+    storm: "M7 15h10a4 4 0 0 0 0-8 6 6 0 0 0-11.3 1.5A3.3 3.3 0 0 0 7 15zM13 15l-2 4h3l-2 4",
+    fog: "M4 9h16M4 13h16M6 17h12"
+  };
+  function wxKind(code) {
+    if (code === 0) return ["sun", "Clear"];
+    if (code === 1 || code === 2) return ["partly", "Partly cloudy"];
+    if (code === 3) return ["cloud", "Cloudy"];
+    if (code === 45 || code === 48) return ["fog", "Fog"];
+    if (code >= 51 && code <= 57) return ["rain", "Drizzle"];
+    if ((code >= 61 && code <= 67) || (code >= 80 && code <= 82)) return ["rain", code >= 80 ? "Showers" : "Rain"];
+    if ((code >= 71 && code <= 77) || code === 85 || code === 86) return ["snow", "Snow"];
+    if (code >= 95) return ["storm", "Thunderstorms"];
+    return ["cloud", "Cloudy"];
+  }
+  function strokeIcon(d) {
+    var svg = document.createElementNS("http://www.w3.org/2000/svg", "svg");
+    svg.setAttribute("viewBox", "0 0 24 24"); svg.setAttribute("aria-hidden", "true");
+    var p = document.createElementNS("http://www.w3.org/2000/svg", "path"); p.setAttribute("d", d); svg.appendChild(p);
+    return svg;
+  }
+  function rainy(w) { return w.kind === "forecast" ? (w.rain || 0) >= 40 : (w.rain || 0) >= 1; }
+  function wxChip(w) {
+    var k = wxKind(w.code);
+    var label = k[1] + ", " + w.hi + "° high, " + w.lo + "° low" + (w.kind === "lastYear" ? " (last year on this date)" : "") +
+      (w.kind === "forecast" && w.rain != null ? ", " + w.rain + "% chance of rain" : "");
+    return el("span", { class: "wx" + (w.kind === "lastYear" ? " past-year" : ""), title: label, "aria-label": label }, [
+      strokeIcon(WX[k[0]]), el("span", { text: w.hi + "°" }), el("span", { class: "lo", text: w.lo + "°" }),
+      w.kind === "forecast" && (w.rain || 0) >= 30 ? el("span", { class: "rain", text: w.rain + "%" }) : null]);
+  }
+  function wxByDate(t) {
+    var m = {};
+    ((t.weather && t.weather.days) || []).forEach(function (w) { m[w.date] = w; });
+    return m;
+  }
+
+  // Live flight status: one quiet line, colored only when it matters.
+  function liveLine(it) {
+    var v = it.live;
+    if (!v) return null;
+    var bad = v.state === "cancelled" || v.state === "diverted" || v.delay >= 20 || v.arrDelay >= 20;
+    var bits = [];
+    if (v.state !== "cancelled" && (v.delay >= 5 || v.arrDelay >= 5)) bits.push("now " + v.depTime + " → " + v.arrTime);
+    if (v.state === "landed") { if (v.baggage) bits.push("Bags belt " + v.baggage); if (v.arrGate) bits.push("Gate " + v.arrGate); }
+    else if (v.state !== "cancelled") {
+      if (v.depTerminal) bits.push("Terminal " + v.depTerminal);
+      if (v.depGate) bits.push("Gate " + v.depGate);
+    }
+    var at = v.checkedAt ? new Date(v.checkedAt) : null;
+    var when = at && !isNaN(at) ? "checked " + at.toLocaleTimeString([], { hour: "2-digit", minute: "2-digit", hour12: false }) : "";
+    return el("div", { class: "live" + (bad ? " bad" : v.state === "landed" ? " done" : "") }, [
+      el("span", { class: "dot", "aria-hidden": "true" }), el("b", { text: v.label }),
+      bits.length ? el("span", { text: bits.join(" · ") }) : null,
+      when ? el("span", { class: "when", text: when }) : null]);
+  }
+
+  function card(it, issues, touch) {
+    var top = el("div", { class: "card-top" }, [icon(it.type), el("span", { text: TYPE_NAME[it.type] || "Plan" }),
+      el("span", { class: "what", text: [it.number, it.operator].filter(Boolean).join(", ") })]);
+    if (it.status === "changed") top.appendChild(el("span", { class: "flag", text: "Time changed" }));
+    if (issues.some(function (a) { return !resolution(a); })) touch = null;
+    var art = el("article", { class: "card " + it.type + (touch ? " touch-" + touch : ""), id: "card-" + it.id }, [top, cardBody(it)]);
+    var ctaShown = false;
+    issues.forEach(function (a) {
+      var open = !resolution(a);
+      art.appendChild(issueBox(a, open && ctaShown));
+      if (open) ctaShown = true;
+    });
+
+    // foot: quiet facts on the left, the card's menu on the right
+    var facts = [];
+    if (it.type === "flight" && it.cabin) facts.push(it.cabin);
+    if (it.travellers > 1 && it.type !== "dining") facts.push(it.travellers + (it.type === "hotel" ? " guests" : " travellers"));
+    var p = priv(it.id);
+    var codeEl = S.showCodes && p && p.confirmation ? el("span", { class: "code full", text: "Code " + p.confirmation })
+      : it.code ? el("span", { class: "code", text: "Code " + it.code }) : null;
+    var entries = [];
+    var open = issues.filter(function (a) { return !resolution(a); });
+    open.forEach(function (a) { entries = entries.concat(issueMenu(a, open.length > 1)); });
+    if (S.isOwner && p && safeUrl(p.manageUrl)) entries.push({ label: "Open my booking", url: p.manageUrl });
+    (it.links || []).forEach(function (l) { entries.push({ label: l.label === "Map" ? "Show on the map" : l.label, url: l.url }); });
+    if (S.isOwner && p && p.confirmation) entries.push({ label: "Copy booking code", onClick: function () { copyCode(p.confirmation); } });
+    var seen = {};
+    entries = entries.filter(function (m) { if (!m.url) return true; if (seen[m.url]) return false; seen[m.url] = true; return true; });
+    art.appendChild(el("div", { class: "card-foot" }, [
+      el("span", { class: "facts" }, [facts.length ? el("span", { text: facts.join(", ") }) : null, codeEl]),
+      menu("card-" + it.id, "More for this booking", entries)
+    ]));
+    return art;
+  }
+
+  function gapCard(g, a) {
+    var gm = a ? menu("gap-" + a.id, "More for these nights", issueMenu(a, false)) : null;
+    var art = el("article", { class: "card gap", id: a ? "card-gap-" + a.id : null }, [el("div", { class: "card-main" }, [
+      el("div", { class: "gap-top" }, [el("span", { class: "label" }, [icon("hotel"), "No stay booked"]), gm]),
+      el("h3", { text: g.nights + " night" + (g.nights > 1 ? "s" : "") + (g.city ? " in " + g.city : "") })
+    ])]);
+    if (a) {
+      var r = resolution(a);
+      if (r) art.appendChild(issueBox(a));
+      else {
+        var box = el("div", { class: "issue medium", id: "issue-" + a.id });
+        var req = latestRequest(function (x) { return x.alertId === a.id; });
+        var acts = el("div", { class: "row" });
+        if (a.ask && canAsk()) acts.appendChild(el("button", { class: "btn dark", type: "button", disabled: busy(req), text: S.suggestions[a.id] ? "Ask Claude again" : "Find stays with Claude",
+          on: { click: function () { var p = Object.assign({}, a.ask); delete p.label; delete p.kind; ask(a.ask.kind, a.id, p); } } }));
+        else if (a.primary && safeUrl(a.primary.url)) acts.appendChild(el("a", { class: "btn dark", href: a.primary.url, target: "_blank", rel: "noopener noreferrer", text: a.primary.label }));
+        box.appendChild(el("p", { class: "why", text: "Nothing in your bookings covers these nights." }));
+        box.appendChild(acts);
+        var line = requestLine(req); if (line) box.appendChild(line);
+        var sug = suggestionsFor(a); if (sug) box.appendChild(sug);
+        art.appendChild(box);
+      }
+    }
+    return art;
+  }
+
+  // ---------- header ----------
+  function renderHead(t, openIssues) {
+    var head = document.getElementById("head");
+    head.textContent = "";
+    var top = [];
+    if (S.mcp && t.status !== "past" && calendarItems().length) top.push({ label: "Add trip to my calendar", onClick: function () { S.calConfirm = true; render(); } });
+    // On ChatGPT Sites the page has no calendar connector; it offers a calendar file instead.
+    if (!S.mcp && window.WAYFARE_SITE && window.WAYFARE_SITE.ics && t.status !== "past" && (t.items || []).some(function (i) { return i.calendar; }))
+      top.push({ label: "Download calendar file (.ics)", url: location.origin + window.WAYFARE_SITE.ics });
+    var chat = S.isOwner && chatInfo();
+    if (chat && safeUrl(chat.url)) top.push({ label: "Open the trip chat", url: chat.url });
+    if (canAsk()) {
+      var r = latestRequest(function (x) { return x.kind === "sync" || x.kind === "fares" || x.kind === "status"; });
+      if (!busy(r)) {
+        top.push({ label: "Check my inbox now", onClick: function () { ask("sync"); } });
+        if (t.status !== "past" && (t.items || []).some(function (i) { return i.type === "flight"; })) {
+          top.push({ label: "Check flight status now", onClick: function () { ask("status"); } });
+          top.push({ label: "Check fares", onClick: function () { ask("fares"); } });
+        }
+      }
+    }
+    if (S.isOwner && S.priv && S.priv.items) top.push({ label: S.showCodes ? "Hide booking codes" : "Show booking codes", onClick: function () { S.showCodes = !S.showCodes; render(); } });
+    head.appendChild(el("div", { class: "topline" }, [el("span", { class: "brand", text: "Wayfare" }),
+      el("span", { class: "top-right" }, [el("span", { text: ago(t.updatedAt) }), menu("top", "Trip actions", top)])]));
+    head.appendChild(el("h1", { class: "trip-title", text: t.title }));
+    var days = t.daysUntil;
+    var when = t.status === "past" ? "Trip ended" : t.status === "ongoing" ? "On the road" : days === 0 ? "Today" : days === 1 ? "Tomorrow" : "In " + days + " days";
+    var meta = el("div", { class: "meta" }, [el("b", { text: t.dates }), el("span", { text: t.travellers + (t.travellers > 1 ? " travellers" : " traveller") }), el("span", { text: when })]);
+    if (openIssues.length) {
+      var high = openIssues.some(function (a) { return a.level === "high"; });
+      meta.appendChild(el("button", { class: "to-check" + (high ? " high" : ""), type: "button", text: openIssues.length + " to check",
+        on: { click: function () { var n = document.getElementById("issue-" + openIssues[0].id); if (n) n.scrollIntoView({ behavior: "smooth", block: "center" }); } } }));
+    }
+    head.appendChild(meta);
+    if ((t.route || []).length > 1) {
+      var route = el("div", { class: "route", "aria-label": "Journey" });
+      t.route.forEach(function (s, i) {
+        if (i > 0) { var m = s.mode === "transfer" ? "train" : s.mode; route.appendChild(el("span", { class: m || "unknown" }, [icon(m || "other")])); }
+        route.appendChild(el("span", { text: s.city + (s.kind === "stay" && s.unbooked ? " (" + s.unbooked + " unbooked)" : "") }));
+      });
+      head.appendChild(route);
+    }
+    if (S.calConfirm) head.appendChild(el("div", { class: "row" }, [el("span", { class: "small", text: "Add " + calendarItems().length + " events to your Google Calendar?" }),
+      el("button", { class: "btn dark", type: "button", text: "Add events", on: { click: addToCalendar } }),
+      el("button", { class: "btn plain", type: "button", text: "Cancel", on: { click: function () { S.calConfirm = false; render(); } } })]));
+    var r2 = latestRequest(function (x) { return x.kind === "sync" || x.kind === "fares" || x.kind === "status"; });
+    if (r2) head.appendChild(requestLine(r2));
+    if (S.calMsg) head.appendChild(el("div", { class: "status", role: "status", text: S.calMsg }));
+    if (t.sample) head.appendChild(el("div", { class: "banner", text: "Sample trip with made-up bookings. Your own trips get their own pages at the first sync." }));
+    if (t.status === "cancelled") head.appendChild(el("div", { class: "banner bad", text: "All bookings on this trip were cancelled. Wayfare no longer updates this page." }));
+    if (S.topMsg) head.appendChild(el("div", { class: "banner bad", role: "alert", text: S.topMsg }));
+  }
+
+  // ---------- to-do ----------
+  function renderTodos() {
+    if (S.source !== "db") return null;
+    var sec = el("section", { class: "todo-sec", "aria-labelledby": "todo-h" }, [el("h2", { id: "todo-h", text: "To do" })]);
+    var box = el("div", { class: "todos" });
+    var items = S.todos.slice().sort(function (a, b) { return (a.done - b.done) || (a.at < b.at ? -1 : 1); });
+    items.forEach(function (td) {
+      box.appendChild(el("div", { class: "todo" + (td.done ? " done" : "") }, [
+        el("button", { class: "check", type: "button", "aria-label": td.done ? "Mark as not done" : "Mark as done", "aria-pressed": String(!!td.done), text: td.done ? "✓" : "",
+          disabled: !S.canTodo, on: { click: function () { S.db.doc("todos/" + td.id).update({ done: !td.done, doneAt: nowIso() }).catch(function () { S.canTodo = false; render(); }); } } }),
+        el("span", { class: "text", text: td.text }),
+        S.isOwner ? el("button", { class: "btn plain", type: "button", text: "Remove", on: { click: function () { S.db.doc("todos/" + td.id).delete().catch(function () {}); } } }) : el("span")
+      ]));
+    });
+    if (S.canTodo) {
+      var input = el("input", { id: "todo-input", type: "text", maxlength: "200", placeholder: items.length ? "Add a to-do" : "Add a to-do, like travel insurance", "aria-label": "New to-do" });
+      box.appendChild(el("form", { class: "add-todo", on: { submit: function (e) {
+        e.preventDefault();
+        var text = input.value.trim(); if (!text) return;
+        input.value = "";
+        var body = { text: text, done: false, at: nowIso() }; if (S.uid) body.by = S.uid;
+        S.db.collection("todos").add(body).catch(function () { S.canTodo = false; render(); });
+      } } }, [input, el("button", { class: "btn", type: "submit", text: "Add" })]));
+    } else if (!items.length) return null;
+    sec.appendChild(box);
+    return sec;
+  }
+
+  // ---------- tabs ----------
+  function setTab(tab) {
+    S.tab = tab;
+    try { localStorage.setItem("wayfare-tab", tab); } catch (e) {}
+    render();
+    window.scrollTo(0, 0);
+  }
+  function renderTabs() {
+    var bar = el("div", { class: "tabs2", role: "tablist", "aria-label": "Views" });
+    [["days", "Days"], ["guide", "Good to know"]].forEach(function (x) {
+      bar.appendChild(el("button", { type: "button", role: "tab", "aria-selected": String(S.tab === x[0]), text: x[1],
+        on: { click: function () { if (S.tab !== x[0]) setTab(x[0]); } } }));
+    });
+    return bar;
+  }
+
+  // ---------- good to know ----------
+  var KNOW = {
+    money: "M3 7h18v10H3zM12 9.5a2.5 2.5 0 1 0 0 5 2.5 2.5 0 0 0 0-5zM6 12h.01M18 12h.01",
+    card: "M3 6h18v12H3zM3 10h18M7 15h3",
+    plug: "M9 2v5M15 2v5M6 7h12v4a6 6 0 0 1-12 0zM12 17v5",
+    tip: "M12 20s-7-4.4-7-10a4 4 0 0 1 7-2.6A4 4 0 0 1 19 10c0 5.6-7 10-7 10z",
+    phone: "M5 3h4l2 5-2.5 1.5a11 11 0 0 0 6 6L16 13l5 2v4a2 2 0 0 1-2 2A16 16 0 0 1 3 5a2 2 0 0 1 2-2z",
+    water: "M12 3s6 6.5 6 11a6 6 0 0 1-12 0c0-4.5 6-11 6-11z",
+    time: "M12 3a9 9 0 1 0 0 18 9 9 0 0 0 0-18zM12 7v5l3 2",
+    lang: "M4 5h16v11H9l-5 4zM8 10h8M8 13h5",
+    id: "M3 5h18v14H3zM7 10a2 2 0 1 0 4 0 2 2 0 0 0-4 0zM6 16c.5-1.5 1.7-2 3-2s2.5.5 3 2M14 10h4M14 13h4",
+    safety: "M12 3l8 3v6c0 4.5-3.4 8.3-8 9-4.6-.7-8-4.5-8-9V6z",
+    food: "M7 3v8M5 3v4a2 2 0 0 0 4 0V3M7 11v10M16 3c-2 0-3 2-3 5v5h3v8M16 3v18"
+  };
+  function packToggle(id) {
+    if (!S.db || !S.uid) return;
+    var next = Object.assign({}, S.packDone);
+    if (next[id]) delete next[id]; else next[id] = true;
+    S.packDone = next; render();
+    S.db.doc("data/users/" + S.uid + "/packing").set({ done: Object.keys(next), at: nowIso() }).catch(function () {});
+  }
+  function renderGuide(t) {
+    var g = S.guide, box = el("div", { class: "guide" });
+    // Weather per city, from the per-day data
+    var byCity = {}, order = [];
+    ((t.weather && t.weather.days) || []).forEach(function (w) {
+      if (!byCity[w.city]) { byCity[w.city] = []; order.push(w.city); }
+      byCity[w.city].push(w);
+    });
+    if (g && g.summary) box.appendChild(el("p", { class: "lead", text: g.summary }));
+    if (order.length) {
+      var grid = el("div", { class: "wx-cities" });
+      order.forEach(function (c) {
+        var ws = byCity[c], hi = Math.max.apply(null, ws.map(function (w) { return w.hi; })), lo = Math.min.apply(null, ws.map(function (w) { return w.lo; }));
+        var counts = {}; ws.forEach(function (w) { var k = wxKind(w.code)[1]; counts[k] = (counts[k] || 0) + 1; });
+        var common = Object.keys(counts).sort(function (a, b) { return counts[b] - counts[a]; })[0];
+        var wet = ws.filter(rainy).length;
+        var code = ws.filter(function (w) { return wxKind(w.code)[1] === common; })[0].code;
+        var lastYear = ws.every(function (w) { return w.kind === "lastYear"; });
+        grid.appendChild(el("div", { class: "wx-city" }, [el("b", { text: c }),
+          el("span", { class: "big" }, [strokeIcon(WX[wxKind(code)[0]]), lo + "–" + hi + "°"]),
+          el("span", { class: "muted small", text: common + (wet ? ", rain likely on " + wet + " of " + ws.length + " days" : ", little rain") }),
+          lastYear ? el("span", { class: "muted small", text: "Last year on these dates" }) : null]));
+      });
+      box.appendChild(el("section", null, [el("h2", { text: "Weather" }), grid]));
+    }
+    if (!g) {
+      var msg = el("div", { class: "empty" }, [el("h2", { text: "Tips for this trip" }),
+        el("p", { text: "What to pack for the weather and your plans, money and plugs, tipping, how to get from the airport, and train tips for each city." })]);
+      if (canAsk()) {
+        var r = latestRequest(function (x) { return x.kind === "guide"; });
+        msg.appendChild(el("div", { class: "row" }, [el("button", { class: "btn dark", type: "button", disabled: busy(r), text: "Write the guide with Claude",
+          on: { click: function () { ask("guide"); } } })]));
+        var line = requestLine(r); if (line) msg.appendChild(line);
+      } else msg.appendChild(el("p", { class: "muted", text: "Claude writes this part at the next check." }));
+      box.appendChild(msg);
+      return box;
+    }
+    // Pack
+    if ((g.pack || []).length) {
+      var done = g.pack.filter(function (x) { return S.packDone[x.id]; }).length;
+      var canTick = !!(S.db && S.uid);
+      var panel = el("div", { class: "panel" });
+      g.pack.forEach(function (x) {
+        var on = !!S.packDone[x.id];
+        panel.appendChild(el("div", { class: "pack-row" + (on ? " done" : "") }, [
+          canTick ? el("button", { class: "check", type: "button", "aria-pressed": String(on), "aria-label": (on ? "Unpack " : "Packed: ") + x.text, text: on ? "✓" : "",
+            on: { click: function () { packToggle(x.id); } } }) : el("span", { text: "•" }),
+          el("span", null, [el("span", { class: "what", text: x.text }), x.why ? el("span", { class: "why", text: x.why }) : null])]));
+      });
+      box.appendChild(el("section", null, [el("div", { class: "row", style: "justify-content:space-between" }, [el("h2", { text: "What to pack" }),
+        canTick ? el("span", { class: "progress", text: done + " of " + g.pack.length + " packed" }) : null]), panel,
+        canTick ? el("p", { class: "muted small", style: "margin-top:6px", text: "Your ticks are only yours." }) : null]));
+    }
+    // Know
+    if ((g.know || []).length) {
+      var know = el("div", { class: "know" });
+      g.know.forEach(function (k) {
+        know.appendChild(el("div", { class: "know-item" }, [el("span", { class: "ic" }, [strokeIcon(KNOW[k.icon] || KNOW.tip)]),
+          el("b", { text: k.title }), el("p", { text: k.text })]));
+      });
+      box.appendChild(el("section", null, [el("h2", { text: "Good to know" }), know]));
+    }
+    // Around
+    if ((g.around || []).length) {
+      var sec = el("section", null, [el("h2", { text: "Getting around" })]);
+      var wrap = el("div", { style: "display:grid;gap:16px" });
+      g.around.forEach(function (c) {
+        var col = el("div", { class: "around-city" }, [el("h3", { text: c.city })]);
+        (c.items || []).forEach(function (x) {
+          var body = el("div", { class: "body" }, [el("p", { text: x.text })]);
+          var ls = (x.links || []).map(function (l) { var u = safeUrl(l.url); return u ? el("a", { href: u, target: "_blank", rel: "noopener noreferrer", text: l.label + " ↗" }) : null; }).filter(Boolean);
+          if (ls.length) body.appendChild(el("div", { class: "row" }, ls));
+          col.appendChild(el("details", { class: "tip" }, [el("summary", { text: x.title }), body]));
+        });
+        wrap.appendChild(col);
+      });
+      sec.appendChild(wrap);
+      box.appendChild(sec);
+    }
+    // Maps
+    var routes = t.dayRoutes || {}, rk = Object.keys(routes).sort();
+    var stays = (t.items || []).filter(function (i) { return i.type === "hotel"; });
+    if (rk.length || stays.length) {
+      var maps = el("div", { class: "panel maps" });
+      rk.forEach(function (d) { var u = safeUrl(routes[d]); if (u) maps.appendChild(el("a", { href: u, target: "_blank", rel: "noopener noreferrer" }, [longDay(d), el("span", { text: "Route ↗" })])); });
+      stays.forEach(function (h) { var l = (h.links || [])[0]; var u = l && safeUrl(l.url); if (u) maps.appendChild(el("a", { href: u, target: "_blank", rel: "noopener noreferrer" }, [h.title, el("span", { text: "Map ↗" })])); });
+      box.appendChild(el("section", null, [el("h2", { text: "Maps" }), maps]));
+    }
+    var src = el("div", { class: "sources" }, [el("span", { text: "Written by Claude from a web search" + (g.updatedAt ? " on " + new Date(g.updatedAt).toLocaleDateString([], { day: "numeric", month: "short" }) : "") + ". Check times and prices before you go." })]);
+    (g.sources || []).slice(0, 8).forEach(function (x) { var u = safeUrl(x.url); if (u) src.appendChild(el("a", { href: u, target: "_blank", rel: "noopener noreferrer", text: x.title })); });
+    if (canAsk()) src.appendChild(el("button", { class: "btn plain", type: "button", style: "justify-self:start;padding-left:0", text: "Refresh the guide with Claude", on: { click: function () { ask("guide"); } } }));
+    var gl = requestLine(latestRequest(function (x) { return x.kind === "guide"; })); if (gl) src.appendChild(gl);
+    box.appendChild(src);
+    return box;
+  }
+
+  // ---------- page ----------
+  function render() {
+    var t = S.trip, main = document.getElementById("main");
+    if (!t) {
+      if (S.source === "nodb" || S.source === "db") {
+        document.getElementById("head").textContent = "";
+        main.textContent = "";
+        main.appendChild(el("div", { class: "empty" }, S.source === "nodb"
+          ? [el("h2", { text: "Sign in to see this trip" }), el("p", { text: "This trip is shared with named people. Sign in to Claude with the account it was shared with." })]
+          : [el("h2", { text: "No trip data yet" }), el("p", { text: "In Claude, run /wayfare:sync to fill this page." })]));
+      }
+      return;
+    }
+    document.title = t.pageTitle || document.title;
+    var y = window.scrollY;
+    var byAnchor = {}, touch = {}, gapAlert = {}, openIssues = [];
+    t.alerts.forEach(function (a) {
+      var res = resolution(a);
+      if (!res) openIssues.push(a);
+      if (a.kind === "lodging_gap" && a.gap) { gapAlert[a.gap.firstNight] = a; return; }
+      if (a.anchor) (byAnchor[a.anchor] = byAnchor[a.anchor] || []).push(a);
+      if (!res) (a.itemIds || []).forEach(function (id) { if (id !== a.anchor && (!touch[id] || a.level === "high")) touch[id] = a.level; });
+    });
+    var order = { high: 0, medium: 1, info: 2 };
+    Object.keys(byAnchor).forEach(function (k) { byAnchor[k].sort(function (a, b) { return order[a.level] - order[b.level]; }); });
+    openIssues.sort(function (a, b) { return order[a.level] - order[b.level]; });
+    renderHead(t, openIssues);
+    main.textContent = "";
+    main.appendChild(renderTabs());
+    if (S.tab === "guide") { main.appendChild(renderGuide(t)); window.scrollTo(0, y); return; }
+
+    var days = {}, keys = [], cityOf = {};
+    function bucket(d) { if (!days[d]) { days[d] = []; keys.push(d); } return days[d]; }
+    (t.days || []).forEach(function (x) { bucket(x.date); cityOf[x.date] = x.city; });
+    t.items.forEach(function (it) { bucket(it.day).push({ it: it }); });
+    (t.gaps || []).forEach(function (g) { bucket(g.firstNight).push({ g: g }); });
+    keys.sort();
+    var wx = wxByDate(t), routes = t.dayRoutes || {};
+    var list = el("div", { class: "days" });
+    if (Object.keys(wx).some(function (k) { return wx[k].kind === "lastYear"; }))
+      list.appendChild(el("p", { class: "wx-note", text: "Weather: a forecast for the next 16 days. Later days show last year's weather on the same date, as a guide for packing." }));
+    keys.forEach(function (d) {
+      var h = el("div", { class: "day-h" }, [el("h2", null, [longDay(d), cityOf[d] ? el("span", { class: "city", text: " · " + cityOf[d] }) : null])]);
+      if (wx[d]) h.appendChild(wxChip(wx[d]));
+      if (safeUrl(routes[d])) h.appendChild(el("a", { class: "route-link", href: routes[d], target: "_blank", rel: "noopener noreferrer", title: "This day's places on Google Maps" }, [icon("pin"), "Route"]));
+      var sec = el("section", { class: "day" }, [h]);
+      if (!days[d].length) sec.appendChild(el("p", { class: "free-day", text: "Nothing booked. A free day" + (cityOf[d] ? " in " + cityOf[d] : "") + "." }));
+      days[d].forEach(function (r) { sec.appendChild(r.g ? gapCard(r.g, gapAlert[r.g.firstNight]) : card(r.it, byAnchor[r.it.id] || [], touch[r.it.id])); });
+      list.appendChild(sec);
+    });
+    main.appendChild(list);
+    var todos = renderTodos(); if (todos) main.appendChild(todos);
+    window.scrollTo(0, y);
+  }
+
+  // ---------- data ----------
+  var staticNode = document.getElementById("wayfare-static");
+  if (staticNode) {
+    try { var data = JSON.parse(staticNode.textContent); S.trip = data.trip || null; S.priv = data.private || null; S.guide = data.guide || null; S.isOwner = !!data.private; } catch (e) {}
+    S.source = "static"; render(); return;
+  }
+  if (!window.claude || typeof window.claude.use !== "function") { S.source = "nodb"; render(); return; }
+  function docsToMap(snap) { var m = {}; snap.docs.forEach(function (d) { if (d.exists) m[d.id] = d.data(); }); return m; }
+  window.claude.use("db").then(function (db) {
+    if (!db) { S.source = "nodb"; render(); return; }
+    S.db = db; S.source = "db";
+    db.doc("trip/data").onSnapshot(function (d) { S.trip = d.exists ? d.data() : null; render(); }, function () { render(); });
+    db.collection("actions").onSnapshot(function (s) { S.actions = docsToMap(s); render(); }, function () {});
+    db.collection("todos").onSnapshot(function (s) { S.todos = s.docs.filter(function (d) { return d.exists; }).map(function (d) { return Object.assign({ id: d.id }, d.data()); }); render(); }, function () {});
+    db.collection("suggestions").onSnapshot(function (s) { S.suggestions = docsToMap(s); render(); }, function () {});
+    db.doc("guide/data").onSnapshot(function (d) { S.guide = d.exists ? d.data() : null; render(); }, function () {});
+    return window.claude.use("user").then(function (user) {
+      if (!user) return;
+      return Promise.all([user.isOwner(), user.canEdit(), user.id ? user.id() : null]).then(function (r) {
+        S.isOwner = !!r[0]; S.canAct = !!(r[0] || r[1]); S.uid = r[2];
+        if (S.isOwner) {
+          db.doc("private/data").onSnapshot(function (d) { S.priv = d.exists ? d.data() : null; render(); }, function () {});
+          db.collection("requests").onSnapshot(function (s) { S.requests = docsToMap(s); render(); }, function () {});
+        }
+        if (S.uid) db.doc("data/users/" + S.uid + "/packing").get().then(function (d) {
+          S.packDone = {};
+          if (d.exists) (d.data().done || []).forEach(function (id) { S.packDone[id] = true; });
+          render();
+        }).catch(function () {});
+        if (S.uid) db.doc("data/users/" + S.uid + "/calendar").get().then(function (d) {
+          if (d.exists) (d.data().added || []).forEach(function (id) { S.calAdded[id] = true; });
+          render();
+        }).catch(function () {});
+        render();
+      });
+    });
+  }).catch(function () { render(); });
+  window.claude.use("mcp").then(function (mcp) { S.mcp = mcp; render(); }).catch(function () {});
+  render();
+})();
+</script>

@@ -1,0 +1,191 @@
+{
+ "updatedAt": "2026-10-16T21:45:00Z",
+ "cities": [
+  "Lisbon",
+  "Porto"
+ ],
+ "summary": "Mild autumn days in both cities, usually about 15–19° by day and 9–13° at night, with rain on some days, more often in Porto. Lisbon and Porto are hilly, so plan for a lot of walking up and down.",
+ "pack": [
+  {
+   "id": "rain-jacket",
+   "text": "Light rain jacket",
+   "why": "November often has showers, more in Porto"
+  },
+  {
+   "id": "umbrella",
+   "text": "Small umbrella"
+  },
+  {
+   "id": "layers",
+   "text": "A warm layer for the evenings",
+   "why": "Nights are about 9–13°"
+  },
+  {
+   "id": "shoes",
+   "text": "Comfortable shoes with good grip",
+   "why": "Steep streets and smooth stone pavements get slippery in rain"
+  },
+  {
+   "id": "dinner-outfit",
+   "text": "Something for a dinner out",
+   "why": "Table at Taberna Azul on Friday"
+  },
+  {
+   "id": "id",
+   "text": "ID card or passport",
+   "why": "Needed at the airport and the hotels"
+  },
+  {
+   "id": "ehic",
+   "text": "European health insurance card",
+   "why": "On the back of your Dutch health insurance card"
+  },
+  {
+   "id": "power-bank",
+   "text": "Phone charger and power bank",
+   "why": "Long days and a 3-hour train ride"
+  },
+  {
+   "id": "bottle",
+   "text": "Refillable water bottle",
+   "why": "Tap water is safe"
+  },
+  {
+   "id": "day-bag",
+   "text": "Small day bag that closes",
+   "why": "Pickpockets work on busy trams"
+  }
+ ],
+ "know": [
+  {
+   "icon": "money",
+   "title": "Money",
+   "text": "Euro. Cards work almost everywhere. Keep a few euros in coins for small cafés and markets."
+  },
+  {
+   "icon": "plug",
+   "title": "Plugs",
+   "text": "Type F, 230 V: the same as in the Netherlands. No adapter needed."
+  },
+  {
+   "icon": "tip",
+   "title": "Tipping",
+   "text": "Not expected. Round up, or leave about 5–10% for good service at a restaurant."
+  },
+  {
+   "icon": "food",
+   "title": "Couvert",
+   "text": "Bread, olives or cheese that come to the table before you order are not free. If you do not want them, say \"não, obrigado\" and they go back."
+  },
+  {
+   "icon": "phone",
+   "title": "Emergency",
+   "text": "Call 112 for police, ambulance or fire."
+  },
+  {
+   "icon": "lang",
+   "title": "A few words",
+   "text": "Olá (hello) · Obrigado / Obrigada (thank you; a man / a woman says) · A conta, por favor (the bill, please)."
+  },
+  {
+   "icon": "time",
+   "title": "Time",
+   "text": "Portugal is 1 hour behind Amsterdam. Your flight times are local times."
+  },
+  {
+   "icon": "id",
+   "title": "ID",
+   "text": "No passport control from Amsterdam (Schengen), but take your ID card or passport: airlines and hotels ask for it."
+  }
+ ],
+ "around": [
+  {
+   "city": "Lisbon",
+   "items": [
+    {
+     "title": "Airport to the centre",
+     "text": "Take the metro red line from Aeroporto, about 20–30 min to the centre (change at Alameda, Saldanha or São Sebastião for other lines). Tap a contactless bank card at the gate (about €1.92 a ride), or buy a Navegante card (€0.50) and load credit (about €1.72 a ride). Tap in and tap out.",
+     "links": [
+      {
+       "label": "Metro Lisboa",
+       "url": "https://www.metrolisboa.pt/en/"
+      }
+     ]
+    },
+    {
+     "title": "Trams and buses",
+     "text": "Contactless cards work on Carris buses and most trams. On tram 28 a bank card costs about €3.30 a ride, but Navegante credit only about €1.72. Go early: tram 28 is very busy.",
+     "links": [
+      {
+       "label": "Carris",
+       "url": "https://www.carris.pt/en/"
+      }
+     ]
+    },
+    {
+     "title": "Train to Porto (Sunday)",
+     "text": "Alfa Pendular from Santa Apolónia, about 3 hours. Every seat is reserved: your coach and seat are on the ticket. There are no ticket gates; find the platform on the departure board and get on before departure, because doors close about 1 minute before. The train stops at Lisboa Oriente about 9 minutes later.",
+     "links": [
+      {
+       "label": "CP (Portuguese trains)",
+       "url": "https://www.cp.pt/passageiros/en"
+      }
+     ]
+    }
+   ]
+  },
+  {
+   "city": "Porto",
+   "items": [
+    {
+     "title": "Campanhã station to the centre",
+     "text": "Take a local train from Campanhã to São Bento, in the old centre: about 4 minutes, every 5–15 minutes. Your Alfa Pendular ticket covers it within 1 hour of arrival. The Ribeira riverside is about 10 minutes' walk downhill from São Bento.",
+     "links": [
+      {
+       "label": "CP (Portuguese trains)",
+       "url": "https://www.cp.pt/passageiros/en"
+      }
+     ]
+    },
+    {
+     "title": "Metro and buses",
+     "text": "Buy an Andante card (about €0.60) at a metro machine and load trips. Zone Z2 covers the centre (about €1.40 a ride). Tap the yellow validator before every ride, also when you change. Fines start at €50.",
+     "links": [
+      {
+       "label": "Andante",
+       "url": "https://andante.pt/en/"
+      },
+      {
+       "label": "Metro do Porto",
+       "url": "https://www.metrodoporto.pt/"
+      }
+     ]
+    },
+    {
+     "title": "To the airport (Thursday)",
+     "text": "Metro line E (violet) runs from Trindade to the airport in about 25–30 minutes; you need a Z4 ticket. For the 12:10 KLM flight, leave the centre by about 9:30.",
+     "links": [
+      {
+       "label": "Metro do Porto",
+       "url": "https://www.metrodoporto.pt/"
+      }
+     ]
+    }
+   ]
+  }
+ ],
+ "sources": [
+  {
+   "title": "Contactless payment in Lisbon (2026)",
+   "url": "https://publictransportguide.com/lisbon-contactless-payment-2026/"
+  },
+  {
+   "title": "Lisbon to Porto by train (Seat 61)",
+   "url": "https://www.seat61.com/trains-and-routes/lisbon-to-porto-by-train"
+  },
+  {
+   "title": "Getting around Porto (2026)",
+   "url": "https://migaku.com/blog/language-fun/getting-around-porto-metro-buses-and-cp-trains-for-newcomers"
+  }
+ ]
+}

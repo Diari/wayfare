@@ -671,6 +671,9 @@ details.tip .body a { font-weight: 600; font-size: 13px; }
     head.textContent = "";
     var top = [];
     if (S.mcp && t.status !== "past" && calendarItems().length) top.push({ label: "Add trip to my calendar", onClick: function () { S.calConfirm = true; render(); } });
+    // On ChatGPT Sites the page has no calendar connector; it offers a calendar file instead.
+    if (!S.mcp && window.WAYFARE_SITE && window.WAYFARE_SITE.ics && t.status !== "past" && (t.items || []).some(function (i) { return i.calendar; }))
+      top.push({ label: "Download calendar file (.ics)", url: location.origin + window.WAYFARE_SITE.ics });
     var chat = S.isOwner && chatInfo();
     if (chat && safeUrl(chat.url)) top.push({ label: "Open the trip chat", url: chat.url });
     if (canAsk()) {

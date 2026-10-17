@@ -1,8 +1,9 @@
 # Wayfare
 
-Wayfare is an open-source personal travel agent for Claude. It is a Claude
-plugin. It runs in your own Claude account, with your own Gmail. There is no
-Wayfare server.
+Wayfare is an open-source personal travel agent. It is a plugin for
+**Claude** (trip pages are Claude artifacts) and for **ChatGPT and Codex**
+(trip pages are ChatGPT Sites). It runs in your own account, with your own
+Gmail. There is no Wayfare server.
 
 **What it does**
 
@@ -97,6 +98,37 @@ Add this repository as a plugin marketplace in the app's plugin settings,
 install **Wayfare**, then type `/wayfare:setup` in a chat. Connect **Gmail**
 under Settings → Connectors first.
 
+### ChatGPT and Codex (Sites)
+
+In the ChatGPT desktop app (Codex):
+
+```text
+codex plugin marketplace add Diari/wayfare
+```
+
+Then install **Wayfare** from the Plugins directory, connect the **Gmail**
+plugin, and ask: "Set up Wayfare for my trips" (`$wayfare-setup`).
+
+- Each trip is a **ChatGPT Site**, plus a private **Wayfare Home** Site. A
+  Site's facts are rebuilt and redeployed after each check; what people do
+  on it (handled problems, to-dos, their own packing ticks) is kept in the
+  Site's own database.
+- Viewers sign in with ChatGPT. The owner (the email you give at setup) sees
+  full booking codes and manage links; people you share with never do.
+- A **calendar file** (.ics) replaces "add to calendar".
+- **Site tools**: when you open a trip Site in the ChatGPT app's browser,
+  ChatGPT can read the trip, mark a problem as handled or add a to-do.
+- Scheduled tasks in the app: a **daily check**, a check on **new booking
+  emails** (Plus and Pro), and **travel-day watches**. They run on your
+  computer, so it must be on with the app running.
+- Use `$wayfare-trip Lisbon` in a chat to make it the chat for that trip.
+- Sites needs a Plus, Pro or eligible workspace plan and is not available in
+  every region; check that you see **Sites** in ChatGPT. Without Sites you can
+  still preview a trip page locally (`node dev.mjs` in its Site folder).
+
+The Codex plugin is in `plugins/wayfare/` and shares the engine, pages and
+samples with the Claude plugin (`python3 tools/sync_codex.py` copies them).
+
 ## Requirements
 
 - A Claude account with artifacts and the **Gmail** connector.
@@ -157,13 +189,21 @@ python3 scripts/wayfare.py render-static --owner --bookings samples/bookings.sam
   --profile samples/profile.sample.json --fares samples/fares.sample.json \
   --now 2026-10-15T20:00:00+00:00 --out-dir /tmp/wayfare-pages
 claude plugin validate . --strict
+python3 tools/sync_codex.py && python3 tools/validate_codex.py
+```
+
+Preview a trip Site locally (Node 22+):
+
+```bash
+python3 scripts/wayfare.py site-bundle --sample --bookings samples/bookings.sample.json \
+  --profile samples/profile.sample.json --sites-dir /tmp/wayfare-sites
+cd /tmp/wayfare-sites/lisbon-2026-11 && OWNER_EMAIL=me@example.com DEV_EMAIL=me@example.com node dev.mjs
 ```
 
 The sample bookings are invented. Any match with real places is chance.
 
 ## Roadmap
 
-- Codex / ChatGPT plugin with a Sites dashboard.
 - Train status: NS API (Netherlands) and Deutsche Bahn Timetables API. Both
   are free and use header keys, so they work as API credentials.
 - Better flight status: AeroDataBox (cheap, future flights) or FlightAware

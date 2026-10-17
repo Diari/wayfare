@@ -1,0 +1,149 @@
+{
+ "updatedAt": "2026-10-16T21:45:00Z",
+ "cities": [
+  "Berlin"
+ ],
+ "summary": "Early December in Berlin is cold and grey, usually about 0–5°, with short days: dark by about 16:00. The Christmas markets are open. Sunday is your travel day, and most shops are closed on Sundays.",
+ "pack": [
+  {
+   "id": "warm-coat",
+   "text": "Warm winter coat",
+   "why": "About 0–5°, and colder in the wind"
+  },
+  {
+   "id": "hat-gloves",
+   "text": "Hat, gloves and scarf",
+   "why": "Christmas markets are outside"
+  },
+  {
+   "id": "shoes",
+   "text": "Warm, waterproof shoes",
+   "why": "Wet streets and long walks"
+  },
+  {
+   "id": "layers",
+   "text": "Warm layers",
+   "why": "Cold outside, warm inside trains and museums"
+  },
+  {
+   "id": "id",
+   "text": "ID card or passport",
+   "why": "Needed at the airport and the hotel"
+  },
+  {
+   "id": "ehic",
+   "text": "European health insurance card",
+   "why": "On the back of your Dutch health insurance card"
+  },
+  {
+   "id": "cash",
+   "text": "Some cash in euros",
+   "why": "Market stalls and small bars often want cash"
+  },
+  {
+   "id": "train-kit",
+   "text": "Snacks, water and something to read",
+   "why": "The train to Berlin takes about 6 hours"
+  },
+  {
+   "id": "power-bank",
+   "text": "Phone charger and power bank",
+   "why": "Cold weather drains phone batteries"
+  }
+ ],
+ "know": [
+  {
+   "icon": "money",
+   "title": "Money",
+   "text": "Euro. Cards are accepted in more places than before, but many small cafés, bars and market stalls still want cash."
+  },
+  {
+   "icon": "plug",
+   "title": "Plugs",
+   "text": "Type F, 230 V: the same as in the Netherlands. No adapter needed."
+  },
+  {
+   "icon": "tip",
+   "title": "Tipping",
+   "text": "Round up or add about 5–10%. Say the total you want to pay when you hand over the money or card, for example \"25, bitte\"."
+  },
+  {
+   "icon": "food",
+   "title": "Christmas markets",
+   "text": "Mulled wine (Glühwein) comes with a cup deposit (Pfand) of a few euros. Give the cup back to get it, or keep it."
+  },
+  {
+   "icon": "card",
+   "title": "Sunday",
+   "text": "Most shops and supermarkets are closed on Sunday; shops in the main stations stay open. Some Advent Sundays are shopping Sundays in Berlin, so check before you plan to shop."
+  },
+  {
+   "icon": "phone",
+   "title": "Emergency",
+   "text": "Call 112 for an ambulance or fire, 110 for the police."
+  },
+  {
+   "icon": "lang",
+   "title": "A few words",
+   "text": "Hallo (hello) · Danke (thank you) · Die Rechnung, bitte (the bill, please)."
+  },
+  {
+   "icon": "time",
+   "title": "Time",
+   "text": "Same time as Amsterdam."
+  },
+  {
+   "icon": "water",
+   "title": "Water",
+   "text": "Tap water is safe. In restaurants, water is usually bottled and you pay for it."
+  }
+ ],
+ "around": [
+  {
+   "city": "Berlin",
+   "items": [
+    {
+     "title": "Train from Amsterdam (Friday)",
+     "text": "The train arrives at Berlin Hauptbahnhof. On German trains a seat reservation is optional; check if your ticket has one, otherwise look for free seats without a reservation sign. The train has a restaurant car.",
+     "links": [
+      {
+       "label": "NS International",
+       "url": "https://www.nsinternational.com/en"
+      }
+     ]
+    },
+    {
+     "title": "Tickets in the city",
+     "text": "An AB ticket covers the city. Buy it in the BVG app or at a machine. Validate a paper ticket in the small stamping machine before you get on.",
+     "links": [
+      {
+       "label": "BVG",
+       "url": "https://www.bvg.de/en"
+      }
+     ]
+    },
+    {
+     "title": "To BER airport (Sunday)",
+     "text": "The FEX airport express leaves Hauptbahnhof every 15 minutes and takes about 23 minutes. You need an ABC ticket (€5.00). For the 17:00 Lufthansa flight, leave the centre by about 15:00.",
+     "links": [
+      {
+       "label": "VBB: to the airport",
+       "url": "https://www.vbb.de/unterwegs-im-vbb/flughafen-ber/"
+      }
+     ]
+    },
+    {
+     "title": "Connection in Frankfurt",
+     "text": "You change planes in Frankfurt with only 35 minutes. Both flights are Lufthansa, so your bag should go through to Amsterdam. Go straight to the next gate; Frankfurt is large.",
+     "links": []
+    }
+   ]
+  }
+ ],
+ "sources": [
+  {
+   "title": "VBB: by public transport to BER",
+   "url": "https://www.vbb.de/unterwegs-im-vbb/flughafen-ber/"
+  }
+ ]
+}

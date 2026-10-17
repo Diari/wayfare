@@ -36,7 +36,7 @@ from datetime import date, datetime, timedelta, timezone
 from pathlib import Path
 from typing import Any
 
-ENGINE_VERSION = "0.6.0"
+ENGINE_VERSION = "0.7.0"
 TRANSPORT = {"flight", "train", "transfer"}
 TYPES = TRANSPORT | {"hotel", "dining", "other"}
 STATUSES = {"confirmed", "changed", "cancelled"}
@@ -1372,6 +1372,123 @@ def cmd_render_static(a: argparse.Namespace) -> int:
     return 0
 
 
+# ----------------------------------------------------------------- ChatGPT Sites (Codex version)
+
+SITE_TEMPLATE_FILES = ["worker/index.js", "migrations/0001_wayfare.sql", "package.json", "build.mjs", "dev.mjs"]
+
+
+def _find(*candidates: Path) -> Path:
+    for c in candidates:
+        if c.exists():
+            return c
+    raise SystemExit(f"not found: {candidates[0]}")
+
+
+def site_page(template: str, title: str, shim: str) -> str:
+    """A full HTML document for a Site: the shared page plus the Sites adapter."""
+    body = page_html(template, title)
+    tag = "<script>\n" + shim.replace("</script", "<\\/script") + "\n</script>\n"
+    marker = "<!--WAYFARE_STATIC_DATA-->"
+    body = body.replace(marker, tag, 1) if marker in body else body.replace('<div class="page">', tag + '<div class="page">', 1)
+    return STATIC_SKELETON % body
+
+
+def js_module(value: Any) -> str:
+    blob = json.dumps(value, ensure_ascii=False, sort_keys=True)
+    return "// Written by wayfare.py site-bundle. Do not edit; Codex rewrites it after each check.\nexport default " + blob + ";\n"
+
+
+def write_site(site_dir: Path, template_dir: Path, page: str, data: dict) -> bool:
+    """Create or update one Site project. Returns True when its content changed.
+    Keeps .openai/hosting.json once it exists, because Sites writes the project_id there."""
+    (site_dir / "worker").mkdir(parents=True, exist_ok=True)
+    (site_dir / "migrations").mkdir(parents=True, exist_ok=True)
+    for rel in SITE_TEMPLATE_FILES:
+        (site_dir / rel).write_text((template_dir / rel).read_text(encoding="utf-8"), encoding="utf-8")
+    hosting = site_dir / ".openai" / "hosting.json"
+    if not hosting.exists():
+        hosting.parent.mkdir(parents=True, exist_ok=True)
+        hosting.write_text((template_dir / ".openai" / "hosting.json").read_text(encoding="utf-8"), encoding="utf-8")
+    gi = site_dir / ".gitignore"
+    if not gi.exists():
+        gi.write_text("dist/\nnode_modules/\n.env\n", encoding="utf-8")
+    page_js = "// Written by wayfare.py site-bundle.\nexport default " + json.dumps(page, ensure_ascii=False) + ";\n"
+    data_js = js_module(data)
+    digest = short_hash(page_js + data_js + "".join((template_dir / r).read_text(encoding="utf-8") for r in SITE_TEMPLATE_FILES), 16)
+    stamp = site_dir / ".wayfare-hash"
+    changed = not stamp.exists() or stamp.read_text().strip() != digest
+    (site_dir / "worker" / "page.js").write_text(page_js, encoding="utf-8")
+    (site_dir / "worker" / "data.js").write_text(data_js, encoding="utf-8")
+    stamp.write_text(digest, encoding="utf-8")
+    return changed
+
+
+def site_bundle(result: dict, sites_dir: Path, guides_dir: Path | None, urls: dict[str, str]) -> dict:
+    root = plugin_root()
+    template_dir = _find(root / "site", root / "plugins" / "wayfare" / "site")
+    pages_dir = _find(root / "pages", root / "dashboard")
+    shim = (template_dir / "shim.js").read_text(encoding="utf-8")
+    trip_tpl = (pages_dir / "trip.html").read_text(encoding="utf-8")
+    home_tpl = (pages_dir / "home.html").read_text(encoding="utf-8")
+    plan: dict[str, Any] = {"sites": [], "home": None}
+    for t in result["trips"]:
+        slug = t["slug"]
+        guide = None
+        if guides_dir and (guides_dir / f"{slug}.json").exists():
+            guide = json.loads((guides_dir / f"{slug}.json").read_text(encoding="utf-8"))
+        data = {"kind": "trip", "trip": t["public"], "private": {"items": t["private"]["items"]}, "guide": guide}
+        d = sites_dir / slug
+        changed = write_site(d, template_dir, site_page(trip_tpl, t["public"]["pageTitle"], shim), data)
+        plan["sites"].append({"slug": slug, "dir": str(d), "title": t["public"]["pageTitle"], "new": not urls.get(slug),
+                              "changed": changed, "url": urls.get(slug)})
+    index = []
+    for e in [t["index"] for t in result["trips"]] + result["leftovers"]:
+        e = dict(e)
+        e["url"] = urls.get(e["slug"]) or e.get("url")
+        if e.get("url") and not str(e["url"]).startswith("https://"):
+            e["url"] = None
+        index.append(e)
+    home = {"kind": "home", "index": {"trips": index, "updatedAt": result["updatedAt"], "engineVersion": ENGINE_VERSION}}
+    d = sites_dir / "home"
+    changed = write_site(d, template_dir, site_page(home_tpl, "Wayfare Home", shim), home)
+    plan["home"] = {"slug": "home", "dir": str(d), "title": "Wayfare Home", "new": not urls.get("home"),
+                    "changed": changed, "url": urls.get("home")}
+    return plan
+
+
+def read_site_data(site_dir: Path) -> dict | None:
+    f = site_dir / "worker" / "data.js"
+    if not f.exists():
+        return None
+    text = f.read_text(encoding="utf-8")
+    start = text.find("export default ")
+    if start < 0:
+        return None
+    return json.loads(text[start + len("export default "):].rstrip().rstrip(";"))
+
+
+def cmd_site_bundle(a: argparse.Namespace) -> int:
+    sites = Path(a.sites_dir); sites.mkdir(parents=True, exist_ok=True)
+    if not a.index:
+        # Keep each trip on its Site across runs: the last Home build is the index.
+        prev = read_site_data(sites / "home")
+        if prev and prev.get("index"):
+            tmp = sites / ".previous-index.json"
+            tmp.write_text(json.dumps(prev["index"]), encoding="utf-8")
+            a.index = str(tmp)
+    result = run_build(a)
+    plan = site_bundle(result, sites, Path(a.guides_dir) if a.guides_dir else None, load_json(a.urls, {}))
+    plan["weatherPlan"] = result["weatherPlan"]
+    plan["privateBookings"] = None if result["sample"] else result["privateBookings"]
+    (sites / "plan.json").write_text(json.dumps(plan, indent=1, ensure_ascii=False), encoding="utf-8")
+    summary = {"sites": [{k: s[k] for k in ("slug", "title", "new", "changed")} for s in plan["sites"]],
+               "home": {k: plan["home"][k] for k in ("new", "changed")},
+               "open": {t["slug"]: [f"[{x['level']}] {x['title']}" for x in t["public"]["alerts"] if not x.get("resolution")] for t in result["trips"]},
+               "plan": str(sites / "plan.json")}
+    print(json.dumps(summary, indent=1, ensure_ascii=False))
+    return 0
+
+
 def main(argv: list[str] | None = None) -> int:
     p = argparse.ArgumentParser(prog="wayfare", description=__doc__, formatter_class=argparse.RawDescriptionHelpFormatter)
     sub = p.add_subparsers(dest="cmd", required=True)
@@ -1393,6 +1510,13 @@ def main(argv: list[str] | None = None) -> int:
     wp = sub.add_parser("weather-plan", help="print the cities and dates that weather.py should fetch")
     build_args(wp)
     wp.set_defaults(fn=lambda a: print(json.dumps(run_build(a)["weatherPlan"], indent=1)) or 0)
+
+    sb = sub.add_parser("site-bundle", help="ChatGPT Sites: write one Site project per trip plus Wayfare Home")
+    build_args(sb)
+    sb.add_argument("--sites-dir", required=True, help="folder that holds one Site project per trip (and home/)")
+    sb.add_argument("--guides-dir", help="folder with <slug>.json guide documents")
+    sb.add_argument("--urls", help='{"<slug>": "<site url>", "home": "<site url>"}')
+    sb.set_defaults(fn=cmd_site_bundle)
 
     b = sub.add_parser("build", help="build per-trip batches, new page files and the pending home index")
     build_args(b)
