@@ -52,6 +52,11 @@ h2 { font-size: 18px; font-weight: 800; }
 .types { display: flex; gap: 10px; }
 .types span { display: inline-flex; gap: 3px; align-items: center; font-weight: 600; }
 .types .flight { color: var(--flight); } .types .train { color: var(--train); } .types .hotel { color: var(--stay); } .types .dining { color: var(--table); }
+.wxline { display: flex; flex-wrap: wrap; gap: 4px 14px; font-size: 14px; }
+.wxline span { display: inline-flex; align-items: center; gap: 5px; }
+.wxline b { font-weight: 700; }
+.wxline svg { width: 18px; height: 18px; fill: none; stroke: currentColor; stroke-width: 1.8; stroke-linecap: round; stroke-linejoin: round; }
+.wxline .note { color: var(--muted); font-size: 13px; }
 .flag { font-weight: 700; font-size: 13px; padding: 3px 9px; border-radius: 999px; }
 .flag.high { color: var(--urgent); border: 1px solid var(--urgent); }
 .flag.medium { color: var(--gap); border: 1px solid var(--gap); }
@@ -152,6 +157,40 @@ h2 { font-size: 18px; font-weight: 800; }
     });
   }
 
+  // Weather: same icons and codes as the trip page.
+  var WX = {
+    sun: "M12 8a4 4 0 1 0 0 8 4 4 0 0 0 0-8zM12 2v2M12 20v2M4.9 4.9l1.4 1.4M17.7 17.7l1.4 1.4M2 12h2M20 12h2M4.9 19.1l1.4-1.4M17.7 6.3l1.4-1.4",
+    partly: "M8 2v1.5M3.2 4.2l1 1M1.5 9H3M12.8 4.2l-1 1M5 11.5A3.5 3.5 0 0 1 11 7M9 20h8a3.5 3.5 0 0 0 0-7 5 5 0 0 0-9.6 1.5A2.8 2.8 0 0 0 9 20z",
+    cloud: "M7 18h10a4 4 0 0 0 0-8 6 6 0 0 0-11.3 1.5A3.3 3.3 0 0 0 7 18z",
+    rain: "M7 15h10a4 4 0 0 0 0-8 6 6 0 0 0-11.3 1.5A3.3 3.3 0 0 0 7 15zM9 18l-1 3M13 18l-1 3M17 18l-1 3",
+    snow: "M7 15h10a4 4 0 0 0 0-8 6 6 0 0 0-11.3 1.5A3.3 3.3 0 0 0 7 15zM9 19h.01M13 19h.01M17 19h.01M11 22h.01M15 22h.01",
+    storm: "M7 15h10a4 4 0 0 0 0-8 6 6 0 0 0-11.3 1.5A3.3 3.3 0 0 0 7 15zM13 15l-2 4h3l-2 4",
+    fog: "M4 9h16M4 13h16M6 17h12"
+  };
+  function wxKind(code) {
+    if (code === 0) return ["sun", "Clear"];
+    if (code === 1 || code === 2) return ["partly", "Partly cloudy"];
+    if (code === 3) return ["cloud", "Cloudy"];
+    if (code === 45 || code === 48) return ["fog", "Fog"];
+    if ((code >= 51 && code <= 67) || (code >= 80 && code <= 82)) return ["rain", "Rain"];
+    if ((code >= 71 && code <= 77) || code === 85 || code === 86) return ["snow", "Snow"];
+    if (code >= 95) return ["storm", "Thunderstorms"];
+    return ["cloud", "Cloudy"];
+  }
+  function wxLine(list) {
+    if (!list || !list.length) return null;
+    var line = el("div", { class: "wxline" });
+    list.forEach(function (w) {
+      var k = wxKind(w.code);
+      var svg = document.createElementNS("http://www.w3.org/2000/svg", "svg");
+      svg.setAttribute("viewBox", "0 0 24 24"); svg.setAttribute("aria-hidden", "true");
+      var pth = document.createElementNS("http://www.w3.org/2000/svg", "path"); pth.setAttribute("d", WX[k[0]]); svg.appendChild(pth);
+      line.appendChild(el("span", { title: k[1] }, [svg, el("b", { text: w.city }), w.hi + "° / " + w.lo + "°"]));
+    });
+    if (list.every(function (w) { return w.kind === "lastYear"; })) line.appendChild(el("span", { class: "note", text: "last year on these dates" }));
+    return line;
+  }
+
   function tripCard(t) {
     var d = daysUntil(t.startDate), c = t.counts || {};
     var when = t.status === "ongoing" ? "On the road" : d <= 0 ? "Today" : d === 1 ? "Tomorrow" : "In " + d + " days";
@@ -175,6 +214,7 @@ h2 { font-size: 18px; font-weight: 800; }
       el("div", { class: "trip-top" }, [el("h3", { text: t.title }), el("span", { class: "pill", text: when })]),
       el("div", { class: "meta" }, [el("b", { style: "color:var(--ink)", text: t.dates }), t.next ? el("span", { text: "Next: " + t.next.title + ", " + t.next.when }) : null]),
       route.childNodes.length ? route : null,
+      wxLine(t.weather),
       flags
     ];
     var u = safeUrl(t.url);

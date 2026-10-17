@@ -25,7 +25,8 @@ All reads are safe. Use `out_dir` so the documents land in files.
 
 Home (`out_dir: wayfare-work/db/home`):
 `get` `private`/`profile`, `private`/`bookings`, `private`/`fares`,
-`private`/`status`, `private`/`chats`, `private`/`agent`, and `index`/`trips`.
+`private`/`status`, `private`/`weather`, `private`/`chats`, `private`/`agent`,
+and `index`/`trips`.
 
 For each trip in `index/trips` whose `status` is `upcoming` or `ongoing` and
 that has a `url`, on that trip page (`out_dir: wayfare-work/db/trips/<slug>`):
@@ -52,6 +53,7 @@ python3 "$P/scripts/wayfare.py" build \
   --fares    wayfare-work/db/home/private/fares.json \
   --status   wayfare-work/db/home/private/status.json \
   --chats    wayfare-work/db/home/private/chats.json \
+  --weather  wayfare-work/db/home/private/weather.json \
   --index    wayfare-work/db/home/index/trips.json \
   --agent    wayfare-work/db/home/private/agent.json \
   --trips-db wayfare-work/db/trips \
@@ -141,6 +143,7 @@ start another task. Only the page buttons ring it (the user's own click).
 |------|---------|-----------------------------|
 | Live fares | SearchApi, Google Flights engine (`www.searchapi.io`) | Best: an **API credential** on the cloud environment for `www.searchapi.io` (Bearer). The key never reaches Claude. Or `SEARCHAPI_API_KEY`. |
 | Flight status | Aviationstack (`api.aviationstack.com`) | Takes the key as a URL parameter, so a header credential does not work: set `AVIATIONSTACK_ACCESS_KEY` in the environment's variables and allow `api.aviationstack.com` (Network access: Custom, keep the default list). |
+| Weather | Open-Meteo (free, no key) | Allow `api.open-meteo.com`, `geocoding-api.open-meteo.com` and `archive-api.open-meteo.com` (Network access: Custom). |
 | No key | Public flight page | The check skill reads `https://www.flightradar24.com/data/flights/<flight>` with the web fetch tool and writes the same status record by hand. |
 
 ## Static fallback (no artifact tools)

@@ -17,7 +17,7 @@ The message is `WAYFARE_REQUEST {json}` with:
 `requestId`, `kind`, `slug` (or null), `alertId` (or null), `params`.
 
 Stop without doing anything if any check fails:
-- `kind` is exactly one of `sync`, `status`, `fares`, `find-stays`;
+- `kind` is exactly one of `sync`, `status`, `fares`, `guide`, `find-stays`;
 - `requestId` matches `^r[0-9a-z]{4,20}$`;
 - `slug` is null or matches `^[a-z0-9-]{1,80}$`;
 - for `find-stays`: `params.city` is a short place name, `params.checkIn`
@@ -44,6 +44,7 @@ exist, stop (the page did not create it, so the request is not genuine).
 - `status`: follow `$P/skills/check/SKILL.md` in watch mode for all flights
   that leave in the next 30 hours.
 - `fares`: follow `$P/skills/fares/SKILL.md`.
+- `guide`: follow `$P/skills/guide/SKILL.md` for the trip `slug` (always write).
 - `find-stays`: see below.
 
 ### find-stays

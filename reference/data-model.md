@@ -22,6 +22,7 @@ Home page database (rules: everything owner-only):
 | `private/agent`    | `{triggerId, dailyTriggerId, repo}`: the "Wayfare agent" and "Wayfare daily check" tasks, and where scheduled runs can fetch the plugin |
 | `private/status`   | `{results: [...], checkedAt}`: live flight status records (see "Status record") |
 | `private/chats`    | `{chats: {"<slug>": {triggerId, url, createdAt}}}`: trip chats made with `/wayfare:trip` |
+| `private/weather`  | `{days: [{city, date, hi, lo, code, rain, kind}], places, checkedAt}` from `scripts/weather.py`; `kind` is `forecast` (next 16 days) or `lastYear` |
 | `private/changes`  | `{items: [{at, slug, summary}]}`: changes found by background checks, newest 50 |
 | `requests/<id>`    | Sync / fare requests started from this page |
 
@@ -34,6 +35,8 @@ Trip page database:
 | `actions/<alertId>`        | everyone / Editors, owner | `{alertId, fingerprint, status: done|ignored|snoozed, until}` |
 | `todos/<id>`               | everyone / Contributors   | `{text, done, at, by}` |
 | `suggestions/<alertId>`    | everyone / owner          | Claude's suggestions for an alert (for example stays) |
+| `guide/data`               | everyone / owner          | The "Good to know" tab: summary, pack list, local facts, getting around, sources (skills/guide) |
+| `data/users/<you>/packing` | only you                  | `{done: [packItemId]}`: your own ticks on the pack list |
 | `requests/<id>`            | owner / owner             | "Ask Claude" requests and their status |
 | `data/users/<id>/calendar` | that person only          | Which items that person added to their calendar |
 

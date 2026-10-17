@@ -1,8 +1,8 @@
 {
   "name": "wayfare",
   "displayName": "Wayfare",
-  "version": "0.5.0",
-  "description": "Open-source personal travel agent. Reads travel confirmations from your Gmail and gives each trip its own shareable page with alerts (unbooked nights, tight connections, schedule changes, live delays and gates, double bookings, fare drops), background checks, one chat per trip, a shared to-do list and add-to-calendar. Never books or pays.",
+  "version": "0.6.0",
+  "description": "Open-source personal travel agent. Reads travel confirmations from your Gmail and gives each trip its own shareable page: day by day with weather, alerts (unbooked nights, tight connections, schedule changes, live delays and gates, double bookings, fare drops), a Good to know tab (what to pack, local tips, getting around), background checks and one chat per trip. Never books or pays.",
   "author": {
     "name": "Wayfare contributors"
   },

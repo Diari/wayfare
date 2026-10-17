@@ -103,7 +103,8 @@ Claude and the background checks stay off, and skip to step 5. Read Home
 
 Ask once: "Do you want live flight status and fare checks? They need free
 keys from Aviationstack and SearchApi." On yes, explain dashboard-io.md J in
-plain steps: where to get each key, and where to put it (the cloud
+plain steps (also allow the three Open-Meteo hosts: weather is free and
+needs no key): where to get each key, and where to put it (the cloud
 environment's settings: an API credential for `www.searchapi.io`; the
 variable `AVIATIONSTACK_ACCESS_KEY` plus network access Custom with
 `api.aviationstack.com`). Never ask the user to paste a key into the chat.
@@ -132,7 +133,9 @@ Ask which they want (one question):
     --versions wayfare-work/versions.json --out-dir wayfare-work/out
   ```
 
-  then dashboard-io.md D, E and F. Sample pages show a "Sample trip" banner
+  then dashboard-io.md D, E and F. Then, on each sample trip page, `set`
+  `guide`/`data` from `$P/samples/guide.<slug>.sample.json` (the "Good to
+  know" tab). Sample pages show a "Sample trip" banner
   and never touch the real booking list. At the first real sync they stop
   updating; offer once to delete them then (only on the user's yes).
 

@@ -36,7 +36,7 @@ from datetime import date, datetime, timedelta, timezone
 from pathlib import Path
 from typing import Any
 
-ENGINE_VERSION = "0.5.0"
+ENGINE_VERSION = "0.6.0"
 TRANSPORT = {"flight", "train", "transfer"}
 TYPES = TRANSPORT | {"hotel", "dining", "other"}
 STATUSES = {"confirmed", "changed", "cancelled"}
@@ -465,6 +465,71 @@ def trip_nights(trip: Trip, prof: dict) -> list[dict]:
     return out
 
 
+def day_cities(trip: Trip, prof: dict, nights: list[dict]) -> list[tuple[str, str]]:
+    """(date, city) for each day you are away: the city of that night, and on
+    the last day the city you leave from."""
+    by_id = {i.id: i for i in trip.items}
+    out: list[tuple[str, str]] = []
+    last = ""
+    for n in nights:
+        c = n["city"]
+        if not c and n.get("itemId") in by_id:
+            c = by_id[n["itemId"]].city_to
+        c = c or last
+        if c:
+            out.append((n["date"], c))
+            last = c
+    if nights and last:
+        end = (parse_date(nights[-1]["date"]) + timedelta(days=1)).isoformat()
+        out.append((end, last))
+    if not out:                      # day trip
+        away = [i for i in trip.items if not is_home_arrival(i, prof)]
+        if away:
+            out.append((away[0].start_date.isoformat(), away[0].city_to))
+    return out
+
+
+def first_per_city(days_wx: list[dict], today: str, n: int = 2) -> list[dict] | None:
+    """For Wayfare Home: the first coming day in each city (at most n cities)."""
+    out, seen = [], set()
+    for w in days_wx:
+        if w["date"] >= today and w["city"] not in seen:
+            out.append(w); seen.add(w["city"])
+    return out[:n] or None
+
+
+def day_routes(trip: Trip, prof: dict) -> dict[str, str]:
+    """A Google Maps route for each day: the places you go on the ground
+    (a flight splits the day; the part with the most places wins)."""
+    segs_by_day: dict[str, list[list[str]]] = {}
+    for it in sorted(trip.items, key=lambda i: display_key(i, trip.items)):
+        r = it.raw
+        segs = segs_by_day.setdefault(it.start_date.isoformat(), [[]])
+
+        def add(p: str) -> None:
+            if not segs[-1] or segs[-1][-1] != p:
+                segs[-1].append(p)
+        if it.type == "flight":
+            add(f"{r.get('from')} airport")
+            segs.append([f"{r.get('to')} airport"])
+        elif it.type in ("train", "transfer"):
+            for p in (r.get("from") or it.city_from, r.get("to") or it.city_to):
+                add(p if it.type != "train" or "station" in p.lower() else f"{p} station")
+        elif it.type == "hotel":
+            add(f"{r['name']}, {r['city']}")
+        else:
+            add(f"{r['name']}, {r.get('city', '')}".strip(", "))
+    out = {}
+    for d, segs in segs_by_day.items():
+        best = max(reversed(segs), key=len)
+        if len(best) >= 2:
+            q = {"api": 1, "origin": best[0], "destination": best[-1]}
+            if len(best) > 2:
+                q["waypoints"] = "|".join(best[1:-1][:8])
+            out[d] = "https://www.google.com/maps/dir/?" + urlencode(q)
+    return out
+
+
 def trip_route(trip: Trip, prof: dict, nights: list[dict]) -> list[dict]:
     """The journey as places: start, each city you sleep in (with nights and
     unbooked nights), and the way back. `mode` is how you arrive there."""
@@ -849,7 +914,7 @@ def match_trips(computed: list[tuple[Trip, set[str]]], index: list[dict]) -> dic
 def build(bookings: list[dict], profile: dict, fares_list: list[dict], now: datetime,
           index: list[dict] | None = None, actions: dict[str, dict[str, dict]] | None = None,
           agent: dict | None = None, sample: bool = False, status_list: list[dict] | None = None,
-          chats: dict[str, dict] | None = None) -> dict:
+          chats: dict[str, dict] | None = None, weather: dict | None = None) -> dict:
     prof = {**DEFAULT_PROFILE, **{k: v for k, v in (profile or {}).items() if v not in (None, "")}}
     prof["homeAirports"] = [a.upper() for a in prof.get("homeAirports") or []]
     fares = {f["bookingId"]: f for f in fares_list or []}
@@ -860,6 +925,8 @@ def build(bookings: list[dict], profile: dict, fares_list: list[dict], now: date
     items = [to_item(b) for b in active]
     apply_status(items, {r["bookingId"]: r for r in status_list or [] if r.get("bookingId")}, now, prof)
     chats = chats or {}
+    wx = {(d["city"], d["date"]): d for d in (weather or {}).get("days") or [] if d.get("city") and d.get("date")}
+    weather_plan: list[dict] = []
     groups = [t for t in group_trips(items, prof) if t.end >= now - timedelta(days=3)]
     computed = [(t, {i.id for i in t.items}) for t in groups]
     matched = match_trips(computed, index)
@@ -886,6 +953,18 @@ def build(bookings: list[dict], profile: dict, fares_list: list[dict], now: date
         travellers = max([int(i.raw.get("travelers") or 1) for i in trip.items] + [1])
         gaps = lodging_gaps(trip, prof)
         nights = trip_nights(trip, prof)
+        cities_by_day = day_cities(trip, prof, nights)
+        days_wx = []
+        for d, c in cities_by_day:
+            w = wx.get((c, d))
+            if w:
+                days_wx.append({"date": d, "city": c, "hi": w.get("hi"), "lo": w.get("lo"), "code": w.get("code"),
+                                "rain": w.get("rain"), "kind": w.get("kind", "forecast")})
+        if end_d >= now.date():
+            per_city: dict[str, list[str]] = {}
+            for d, c in cities_by_day:
+                per_city.setdefault(c, []).append(d)
+            weather_plan += [{"city": c, "dates": ds, "slug": None} for c, ds in per_city.items()]
         alerts = find_alerts(trip, prof, fares)
         for g in gaps:
             a = alert("medium", "lodging_gap", g["label"], "Nothing in your bookings covers these nights.", [])
@@ -915,6 +994,8 @@ def build(bookings: list[dict], profile: dict, fares_list: list[dict], now: date
             "startDate": start_d.isoformat(), "endDate": end_d.isoformat(), "dates": range_label(start_d, end_d),
             "travellers": travellers, "daysUntil": (start_d - now.date()).days, "status": status,
             "items": pub_items, "gaps": gaps, "alerts": alerts, "nights": nights, "route": trip_route(trip, prof, nights),
+            "days": [{"date": d, "city": c} for d, c in cities_by_day], "dayRoutes": day_routes(trip, prof),
+            "weather": {"days": days_wx, "checkedAt": (weather or {}).get("checkedAt"), "source": (weather or {}).get("source")} if days_wx else None,
             "next": {"title": nxt["title"], "when": nxt["when"]} if nxt else None,
             "counts": counts, "updatedAt": stamp, "engineVersion": ENGINE_VERSION,
         }
@@ -929,6 +1010,7 @@ def build(bookings: list[dict], profile: dict, fares_list: list[dict], now: date
             "startDate": public["startDate"], "endDate": public["endDate"], "status": status,
             "counts": counts, "next": public["next"], "bookingIds": sorted(ids), "sample": sample or None,
             "route": [{"city": s["city"], "mode": s.get("mode"), "kind": s["kind"]} for s in public["route"]],
+            "weather": first_per_city(days_wx, now.date().isoformat()),
             "types": {k: sum(1 for i in trip.items if i.type == k) for k in ("flight", "train", "transfer", "hotel", "dining", "other")
                       if any(i.type == k for i in trip.items)},
         }
@@ -951,7 +1033,11 @@ def build(bookings: list[dict], profile: dict, fares_list: list[dict], now: date
         leftovers.append(e)
     cutoff = now - timedelta(days=30)
     kept = [b for b in bookings if to_item(b).end >= cutoff]
+    merged: dict[str, set] = {}
+    for e in weather_plan:
+        merged.setdefault(e["city"], set()).update(e["dates"])
     return {"trips": trips_out, "leftovers": leftovers, "privateBookings": kept, "updatedAt": stamp,
+            "weatherPlan": [{"city": c, "dates": sorted(ds)} for c, ds in sorted(merged.items())],
             "profile": prof, "sample": sample}
 
 
@@ -1194,12 +1280,13 @@ def run_build(a: argparse.Namespace) -> dict:
     status = unwrap(load_json(getattr(a, "status", None), []))
     if isinstance(status, dict):
         status = status.get("results", [])
+    weather = unwrap(load_json(getattr(a, "weather", None), {}))
     chats = unwrap(load_json(getattr(a, "chats", None), {}))
     if isinstance(chats, dict) and isinstance(chats.get("chats"), dict):
         chats = chats["chats"]
     return build(bookings, profile, fares, get_now(a.now), index=index,
                  actions=load_actions(getattr(a, "trips_db", None)), agent=agent,
-                 sample=getattr(a, "sample", False), status_list=status, chats=chats)
+                 sample=getattr(a, "sample", False), status_list=status, chats=chats, weather=weather)
 
 
 def cmd_build(a: argparse.Namespace) -> int:
@@ -1298,9 +1385,14 @@ def main(argv: list[str] | None = None) -> int:
         sp.add_argument("--agent", help="home private/agent doc ({triggerId})")
         sp.add_argument("--status", help="flight_status.py output or home private/status doc")
         sp.add_argument("--chats", help='home private/chats doc: {"chats": {"<slug>": {"triggerId", "url"}}}')
+        sp.add_argument("--weather", help="weather.py output or home private/weather doc")
         sp.add_argument("--sample", action="store_true", help="mark pages as sample data; never write private/bookings")
         sp.add_argument("--template", help="trip page template (default dashboard/trip.html)")
         sp.add_argument("--now", help="override current time (ISO with offset), for tests")
+
+    wp = sub.add_parser("weather-plan", help="print the cities and dates that weather.py should fetch")
+    build_args(wp)
+    wp.set_defaults(fn=lambda a: print(json.dumps(run_build(a)["weatherPlan"], indent=1)) or 0)
 
     b = sub.add_parser("build", help="build per-trip batches, new page files and the pending home index")
     build_args(b)

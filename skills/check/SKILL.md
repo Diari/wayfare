@@ -77,10 +77,30 @@ On success save `{"results": <fares.json>, "checkedAt": "<now>"}` to Home
 `private`/`fares` and to `wayfare-work/db/home/private/fares.json`. On an
 error, keep the old fares and note the error for the report.
 
+## 4b. Weather
+
+```bash
+python3 "$P/scripts/wayfare.py" weather-plan --bookings wayfare-work/bookings.json \
+  --profile wayfare-work/db/home/private/profile.json > wayfare-work/weather-plan.json
+python3 "$P/scripts/weather.py" --plan wayfare-work/weather-plan.json \
+  --previous wayfare-work/db/home/private/weather.json --out wayfare-work/weather.json
+```
+
+Save `wayfare-work/weather.json` on Home as `private`/`weather` (`set`,
+`if_version` when it exists) and copy it to
+`wayfare-work/db/home/private/weather.json`. If Open-Meteo is blocked, note
+it for the report (dashboard-io.md J) and go on; the pages then show no
+weather. Watch mode skips this step.
+
 ## 5. Build and write
 
 dashboard-io.md sections C, D (daily mode only; in watch mode never publish
 new pages), E and F.
+
+## 5b. Guides (daily mode)
+
+For each upcoming trip, follow `$P/skills/guide/SKILL.md` section 2 to decide
+whether its guide needs writing; write at most 2 guides per run.
 
 ## 6. Tell the user, only about changes
 

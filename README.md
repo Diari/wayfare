@@ -21,6 +21,14 @@ Wayfare server.
     what a delay breaks (a connection, a dinner, a hotel check-in),
   - lower fares on the same flight (optional, Google Flights prices through
     your own SearchApi key).
+- **Weather** for each day of the trip (Open-Meteo, free, no key): a
+  forecast for the next 16 days, and last year's weather on the same dates
+  for later days. Wayfare Home shows it on each trip card.
+- A **Good to know** tab on each trip, written by Claude from a web search:
+  what to pack for that weather and your plans (each person ticks their own
+  list), money, plugs, tipping, emergency number, a few words, time
+  difference, and how to get around each city (airport to centre, transit
+  cards, tips for your booked trains), plus a map route for each day.
 - Works in the background: a **daily check** every morning (Gmail, live
   status, fares) and **travel-day watches** 24 and 3 hours before each
   flight. You get a phone notification only when something changed.
@@ -68,6 +76,7 @@ Wayfare server.
 | `/wayfare:sync`  | Reads new bookings, changes and cancellations from Gmail. Updates trip pages and makes pages for new trips. |
 | `/wayfare:check` | The background check: Gmail, live flight status, fares, page updates, travel-day watches. `/wayfare:check watch` checks only flights that leave in the next 30 hours. |
 | `/wayfare:trip`  | Makes the current chat the chat of one trip. |
+| `/wayfare:guide` | Writes or refreshes a trip's "Good to know" tab. |
 | `/wayfare:fares` | Optional. Looks for lower fares on your booked flights (SearchApi, or Duffel). |
 | `/wayfare:agent` | Used by the "Wayfare agent" task to answer page buttons. You do not run it yourself. |
 
@@ -107,6 +116,8 @@ under Settings → Connectors first.
     It takes the key in the URL, so a header credential does not work.
     100 free requests a month; real-time data only (today and tomorrow).
   - Without keys, Wayfare reads the public Flightradar24 page for status.
+  - **Weather** (Open-Meteo, free, no key): allow `api.open-meteo.com`,
+    `geocoding-api.open-meteo.com` and `archive-api.open-meteo.com`.
 - Duffel still works for fares (`--provider duffel`, `DUFFEL_ACCESS_TOKEN`).
 
 ## Privacy

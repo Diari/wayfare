@@ -12,6 +12,7 @@ sys.path.insert(0, str(ROOT / "scripts"))
 import wayfare  # noqa: E402
 import fare_check  # noqa: E402
 import flight_status  # noqa: E402
+import weather as weather_mod  # noqa: E402
 
 NOW = datetime(2026, 10, 15, 20, 0, tzinfo=timezone.utc)
 SAMPLE = json.loads((ROOT / "samples" / "bookings.sample.json").read_text())
@@ -401,6 +402,58 @@ class Providers(unittest.TestCase):
         day = datetime(2026, 11, 6, 6, 0, tzinfo=timezone.utc)
         check, _ = flight_status.candidates(SAMPLE, {}, day, 30, 90)
         self.assertEqual([b["id"] for b in check], ["flight-TP669-2026-11-06"])
+
+
+class DaysWeatherRoutes(unittest.TestCase):
+    def setUp(self):
+        self.lis, self.ber = trips(build(SAMPLE))
+
+    def test_day_cities(self):
+        self.assertEqual([d["city"] for d in self.lis["days"]], ["Lisbon"] * 2 + ["Porto"] * 5)
+        self.assertEqual(self.lis["days"][0]["date"], "2026-11-06")
+        self.assertEqual(self.lis["days"][-1]["date"], "2026-11-12")
+
+    def test_day_routes_split_at_flights(self):
+        r = self.lis["dayRoutes"]
+        self.assertIn("origin=LIS+airport", r["2026-11-06"])
+        self.assertNotIn("AMS", r["2026-11-06"])
+        self.assertNotIn("2026-11-12", r)          # only the airport that day
+
+    def test_weather_goes_to_days_and_home(self):
+        wx = {"days": [{"city": "Lisbon", "date": "2026-11-06", "hi": 19, "lo": 13, "code": 3, "rain": 10, "kind": "forecast"},
+                       {"city": "Porto", "date": "2026-11-09", "hi": 16, "lo": 10, "code": 61, "rain": 80, "kind": "forecast"},
+                       {"city": "Porto", "date": "2026-11-06", "hi": 1, "lo": 0, "code": 0, "rain": 0, "kind": "forecast"}],
+              "checkedAt": "2026-11-01T06:00:00+00:00"}
+        r = build(SAMPLE, weather=wx)
+        t = r["trips"][0]
+        self.assertEqual([w["date"] for w in t["public"]["weather"]["days"]], ["2026-11-06", "2026-11-09"])
+        self.assertEqual([w["city"] for w in t["index"]["weather"]], ["Lisbon", "Porto"])
+        self.assertIsNone(r["trips"][1]["public"]["weather"])
+
+    def test_weather_plan(self):
+        plan = build(SAMPLE)["weatherPlan"]
+        self.assertEqual({p["city"] for p in plan}, {"Lisbon", "Porto", "Berlin"})
+
+    def test_weather_split_and_rows(self):
+        from datetime import date
+        near, far = weather_mod.split_dates(["2026-10-10", "2026-10-20", "2026-11-20"], date(2026, 10, 15))
+        self.assertEqual((near, far), (["2026-10-20"], ["2026-11-20"]))
+        rows = weather_mod.daily_rows({"daily": {"time": ["2026-10-20"], "temperature_2m_max": [18.6], "temperature_2m_min": [11.2],
+                                                 "weather_code": [61], "precipitation_probability_max": [70]}}, "forecast")
+        self.assertEqual(rows["2026-10-20"], {"hi": 19, "lo": 11, "code": 61, "rain": 70, "kind": "forecast"})
+        self.assertEqual(weather_mod.shift_year("2028-02-29"), "2027-02-28")
+
+    def test_sample_guides_are_well_formed(self):
+        import re
+        for slug in ("lisbon-2026-11", "berlin-2026-12"):
+            g = json.loads((ROOT / "samples" / f"guide.{slug}.sample.json").read_text())
+            ids = [x["id"] for x in g["pack"]]
+            self.assertEqual(len(ids), len(set(ids)))
+            self.assertTrue(all(re.fullmatch(r"[a-z0-9-]{1,40}", i) for i in ids))
+            self.assertTrue(all(k["icon"] in {"money", "plug", "tip", "phone", "water", "time", "lang", "id", "safety", "food", "card"} for k in g["know"]))
+            for c in g["around"]:
+                for it in c["items"]:
+                    self.assertTrue(all(l["url"].startswith("https://") for l in it.get("links", [])))
 
 
 if __name__ == "__main__":
