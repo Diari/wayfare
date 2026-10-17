@@ -1,9 +1,58 @@
 # Wayfare
 
+<p align="center">
+  <a href="docs/media/wayfare-showreel.mp4">
+    <img src="docs/media/wayfare-showreel.gif" alt="Wayfare in one minute: it reads booking emails, builds a page per trip, flags what breaks, watches your flights and shares the trip" width="100%">
+  </a>
+</p>
+
+<p align="center"><b>Your open-source travel agent for Claude, ChatGPT and Codex.</b><br>
+Reads your booking emails · one page per trip · alerts when something breaks · never books or pays<br>
+<a href="docs/media/wayfare-showreel.mp4">Watch the 1-minute showreel in HD, with sound</a></p>
+
 Wayfare is an open-source personal travel agent. It is a plugin for
 **Claude** (trip pages are Claude artifacts) and for **ChatGPT and Codex**
 (trip pages are ChatGPT Sites). It runs in your own account, with your own
 Gmail. There is no Wayfare server.
+
+## At a glance
+
+| | |
+|---|---|
+| **1. It reads your Gmail** | Two passes: sender and subject first, and it opens only real bookings. Newsletters, invoices and personal mail stay closed. |
+| **2. It builds a page per trip** | Day by day: every flight, train, stay and table, with the journey at a glance. Open it on your phone or share it. |
+| **3. It finds what breaks** | Schedule changes and what they break, nights with no stay, tight connections, double bookings, lower fares. |
+| **4. It keeps watch** | A daily check every morning, live status 24 h and 3 h before each flight, and a phone ping only when something changed. |
+| **5. It is ready to share** | Weather per day, a pack list, local tips, a shared to-do list. Shared viewers never see booking codes or prices. |
+
+## Quick start (Claude)
+
+Using ChatGPT or Codex? See [Install](#install) below.
+
+1. **Connect Gmail** in Claude: Settings → Connectors → Gmail.
+   (Optional: Google Calendar, for "Add to my calendar".)
+2. **Install the plugin.** In Claude Code:
+
+   ```text
+   /plugin marketplace add Diari/wayfare
+   /plugin install wayfare@wayfare
+   ```
+
+   In the Claude app, add `Diari/wayfare` as a plugin marketplace in the
+   plugin settings and install **Wayfare**.
+3. **Run `/wayfare:setup`** in a chat. It makes your private Wayfare Home
+   page, asks a few questions for your travel profile (home airport,
+   minimum connection time, stay style), and reads your inbox. No travel
+   mail yet? It loads two sample trips so you can look around.
+4. **Turn on the background checks** (optional). Setup creates the
+   "Wayfare daily check" and "Wayfare agent" scheduled tasks. Open each one
+   and turn on **Automatically approve**, because nobody is there to approve
+   their steps.
+5. **Open a trip chat** (optional): start a new chat and type
+   `/wayfare:trip Lisbon`. Page buttons and background checks report there.
+
+That is all. New bookings appear on their own after the next daily check,
+or right away with `/wayfare:sync`.
 
 **What it does**
 

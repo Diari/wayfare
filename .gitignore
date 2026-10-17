@@ -1,4 +1,5 @@
 wayfare-work/
+wayfare-plugin/
 __pycache__/
 *.pyc
 .env
