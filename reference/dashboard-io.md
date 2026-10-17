@@ -141,7 +141,7 @@ start another task. Only the page buttons ring it (the user's own click).
 
 | What | Service | How the key gets to the run |
 |------|---------|-----------------------------|
-| Live fares | SearchApi, Google Flights engine (`www.searchapi.io`) | Best: an **API credential** on the cloud environment for `www.searchapi.io` (Bearer). The key never reaches Claude. Or `SEARCHAPI_API_KEY`. |
+| Live fares and stay prices | SearchApi, Google Flights and Google Hotels engines (`www.searchapi.io`) | Best: an **API credential** on the cloud environment for `www.searchapi.io` (Bearer). The key never reaches Claude. Or `SEARCHAPI_API_KEY`. |
 | Flight status | Aviationstack (`api.aviationstack.com`) | Takes the key as a URL parameter, so a header credential does not work: set `AVIATIONSTACK_ACCESS_KEY` in the environment's variables and allow `api.aviationstack.com` (Network access: Custom, keep the default list). |
 | Weather | Open-Meteo (free, no key) | Allow `api.open-meteo.com`, `geocoding-api.open-meteo.com` and `archive-api.open-meteo.com` (Network access: Custom). |
 | No key | Public flight page | The check skill reads `https://www.flightradar24.com/data/flights/<flight>` with the web fetch tool and writes the same status record by hand. |

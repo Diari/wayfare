@@ -62,15 +62,20 @@ It checks only flights that leave in the next 30 hours (watch mode: add
   `{"results": <status.json>, "checkedAt": "<now>"}` (pass `if_version` if
   it exists), and copy that object to `wayfare-work/db/home/private/status.json`.
 
-## 4. Fares (daily mode)
+## 4. Fares and stay prices (daily mode)
 
-Only if Home `private`/`profile` has `fareChecks: true`:
+Only if Home `private`/`profile` has `fareChecks: true`. The first command
+looks for lower fares on booked flights, the second for lower prices with
+free cancellation on refundable stays; both write the same results file:
 
 ```bash
 python3 "$P/scripts/fare_check.py" --provider searchapi \
   --bookings wayfare-work/bookings.json \
   --previous wayfare-work/db/home/private/fares.json \
   --out wayfare-work/fares.json --every-days 3 --max-searches 6
+python3 "$P/scripts/stay_check.py" \
+  --bookings wayfare-work/bookings.json \
+  --previous wayfare-work/fares.json --out wayfare-work/fares.json --every-days 2 --max-stays 4
 ```
 
 On success save `{"results": <fares.json>, "checkedAt": "<now>"}` to Home

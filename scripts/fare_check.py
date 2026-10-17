@@ -256,7 +256,8 @@ def main(argv: list[str] | None = None) -> int:
 
     future = {b["id"] for b in bookings if b.get("type") == "flight" and b.get("status") != "cancelled"
               and datetime.fromisoformat(b["depart"]) > now}
-    results = [r for r in previous.values() if r["bookingId"] in future]
+    # Keep stay records from stay_check.py as they are; they share this file.
+    results = [r for r in previous.values() if r.get("kind") == "stay" or r["bookingId"] in future]
     Path(a.out).write_text(json.dumps(results, indent=1), encoding="utf-8")
     print(json.dumps(report, indent=1))
     return 0

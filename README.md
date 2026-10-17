@@ -70,7 +70,10 @@ or right away with `/wayfare:sync`.
   - live flight delays, cancellations, terminal, gate and bags belt, and
     what a delay breaks (a connection, a dinner, a hotel check-in),
   - lower fares on the same flight (optional, Google Flights prices through
-    your own SearchApi key).
+    your own SearchApi key),
+  - a lower price for a refundable stay, with free cancellation, for the
+    same hotel and dates (optional, Google Hotels through SearchApi). Wayfare
+    tells you to book the new rate first and only then cancel the old one.
 - **Weather** for each day of the trip (Open-Meteo, free, no key): a
   forecast for the next 16 days, and last year's weather on the same dates
   for later days. Wayfare Home shows it on each trip card.
@@ -257,7 +260,6 @@ The sample bookings are invented. Any match with real places is chance.
   are free and use header keys, so they work as API credentials.
 - Better flight status: AeroDataBox (cheap, future flights) or FlightAware
   AeroAPI (best data, paid).
-- Hotel price drops for refundable stays.
 - Watch for sold-out stays and tables.
 - Edit your profile on Wayfare Home.
 

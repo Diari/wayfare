@@ -41,12 +41,17 @@ python3 "$P/scripts/weather.py" --plan "$WF/weather-plan.json" \
   --previous "$WF/weather.json" --out "$WF/weather.json"
 ```
 
-## 4. Fares (daily, only if `profile.json` has `fareChecks: true`)
+## 4. Fares and stay prices (daily, only if `profile.json` has `fareChecks: true`)
 
 ```bash
 python3 "$P/scripts/fare_check.py" --provider searchapi --bookings "$WF/bookings.json" \
   --previous "$WF/fares.json" --out "$WF/fares.json" --every-days 3 --max-searches 6
+python3 "$P/scripts/stay_check.py" --bookings "$WF/bookings.json" \
+  --previous "$WF/fares.json" --out "$WF/fares.json" --every-days 2 --max-stays 4
 ```
+
+The second command finds a lower price with free cancellation for each
+refundable stay (Google Hotels via SearchApi).
 
 ## 4b. Guides (daily)
 

@@ -74,6 +74,7 @@ Common fields:
 | `travelers`    | no       | Number of people on the booking (default 1) |
 | `price`        | no       | `{"amount": 412.0, "currency": "EUR"}` total for the booking |
 | `refundable`   | no       | `true`, `false`, or leave out if unknown |
+| `freeCancelUntil` | no    | Stays: the last moment to cancel for free (ISO with offset, or `YYYY-MM-DD`) |
 | `manageUrl`    | no       | The "manage booking" link from the email, only if it is `https://` on the sender's own domain. Owner-only |
 
 `flight`: `carrier` (IATA, "KL"), `flightNumber` ("1734"), `from` and `to`
@@ -131,6 +132,7 @@ Lowercase, letters, digits and `-` only.
   "fareDropMinimum": 25,
   "delayAlertMinutes": 20,
   "fareChecks": false,
+  "stayDropMinimum": 30,
   "flights": "free text: seats, airlines, alliances",
   "stays": "free text: hotel style, area, budget",
   "dining": "free text: diet, how far ahead to book"
@@ -139,7 +141,28 @@ Lowercase, letters, digits and `-` only.
 
 `homeAirports` and `homeCity` decide where a trip starts and ends.
 `delayAlertMinutes`: a live delay at or above this makes an alert.
-`fareChecks`: the daily check looks for lower fares (needs a SearchApi key).
+`fareChecks`: the daily check looks for lower fares on flights and lower
+prices with free cancellation on refundable stays (needs a SearchApi key).
+`stayDropMinimum`: the smallest drop in the total price of a stay worth an
+alert.
+
+## Stay price record
+
+Written by `scripts/stay_check.py` into the same results list as the fare
+records (`private/fares` on Claude, `fares.json` on Codex):
+
+```json
+{"bookingId": "hotel-casa-do-largo-2026-11-06", "kind": "stay", "propertyToken": "...",
+ "paidTotal": 318.0, "liveTotal": 262.0, "currency": "EUR", "offerSource": "Booking.com",
+ "offerLink": "https://...", "offerFreeCancelUntil": "Nov 4", "checkedAt": "2026-10-15T20:00:00Z",
+ "source": "Google Hotels via SearchApi"}
+```
+
+The build makes a `stay_price_drop` alert (info) when the stay is
+`refundable: true`, its free cancellation has not ended, and the drop is at
+least `stayDropMinimum`. The alert tells the user to check the room, book
+the new rate first, and then cancel the old booking. Wayfare never books or
+cancels.
 
 ## Manual plans
 

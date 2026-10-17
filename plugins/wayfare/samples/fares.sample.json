@@ -6,5 +6,18 @@
     "currency": "EUR",
     "checkedAt": "2026-10-15T20:00:00Z",
     "source": "sample data"
+  },
+  {
+    "bookingId": "hotel-casa-do-largo-2026-11-06",
+    "kind": "stay",
+    "propertyToken": "sample",
+    "paidTotal": 318.0,
+    "liveTotal": 262.0,
+    "currency": "EUR",
+    "offerSource": "Booking.com",
+    "offerLink": null,
+    "offerFreeCancelUntil": "Nov 4",
+    "checkedAt": "2026-10-15T20:00:00Z",
+    "source": "sample data"
   }
 ]

@@ -36,7 +36,7 @@ from datetime import date, datetime, timedelta, timezone
 from pathlib import Path
 from typing import Any
 
-ENGINE_VERSION = "0.7.0"
+ENGINE_VERSION = "0.8.0"
 TRANSPORT = {"flight", "train", "transfer"}
 TYPES = TRANSPORT | {"hotel", "dining", "other"}
 STATUSES = {"confirmed", "changed", "cancelled"}
@@ -47,6 +47,7 @@ DEFAULT_PROFILE = {
     "arrivalToDinnerMinutes": 150,
     "fareDropMinimum": 25,
     "delayAlertMinutes": 20,
+    "stayDropMinimum": 30,
 }
 STATUS_MAX_AGE_HOURS = 18
 WEEKDAYS = ["Mon", "Tue", "Wed", "Thu", "Fri", "Sat", "Sun"]
@@ -561,7 +562,7 @@ def alert(level: str, kind: str, title: str, detail: str, item_ids: list[str]) -
     return {"level": level, "kind": kind, "title": title, "detail": detail, "itemIds": item_ids}
 
 
-def find_alerts(trip: Trip, prof: dict, fares: dict[str, dict]) -> list[dict]:
+def find_alerts(trip: Trip, prof: dict, fares: dict[str, dict], now: datetime | None = None) -> list[dict]:
     out: list[dict] = []
     items = sorted(trip.items, key=lambda i: i.start)
     transport = [i for i in items if i.type in TRANSPORT]
@@ -675,6 +676,33 @@ def find_alerts(trip: Trip, prof: dict, fares: dict[str, dict]) -> list[dict]:
                              f"{trav} traveller{'s' if trav > 1 else ''}. Whether you can claim it depends on your "
                              "fare rules; open your booking on the airline site to check.", [it.id]))
 
+    # 7. a lower price for a refundable stay (from stay_check.py results)
+    for h in hotels:
+        f = fares.get(h.id)
+        if not f or f.get("kind") != "stay" or f.get("liveTotal") is None or h.raw.get("refundable") is not True:
+            continue
+        drop = round(float(f["paidTotal"]) - float(f["liveTotal"]), 2)
+        if drop < prof["stayDropMinimum"]:
+            continue
+        cur = f.get("currency", "")
+        nights = (h.end_date - h.start_date).days
+        by = h.raw.get("freeCancelUntil")
+        if by and now:
+            try:
+                end = parse_dt(by) if "T" in by else datetime.fromisoformat(by + "T23:59:00+00:00")
+                if end <= now:
+                    continue
+            except ValueError:
+                pass
+        by_text = f" before your free cancellation ends ({by[:16].replace('T', ' ')})" if by else " while it is still free to cancel"
+        where = f" on {f['offerSource']}" if f.get("offerSource") else ""
+        out.append(alert("info", "stay_price_drop", "Lower price with free cancellation",
+                         f"{cur} {drop:.0f} less. You paid about {cur} {float(f['paidTotal']):.0f} for {nights} night{'s' if nights != 1 else ''}; "
+                         f"the same hotel now shows {cur} {float(f['liveTotal']):.0f}{where}, also with free cancellation "
+                         f"(checked {f['checkedAt'][:16].replace('T', ' ')} UTC). Check that it is the same room. "
+                         f"If it is: book the new rate first, then cancel your booking{by_text}.", [h.id]))
+        out[-1]["offer"] = {"offerLink": f.get("offerLink"), "source": f.get("offerSource")}
+
     # Mark alerts that are a consequence of a schedule change
     for a in out:
         if a["kind"] != "schedule_change" and changed_ids.intersection(a["itemIds"]):
@@ -730,7 +758,7 @@ def enrich_alert(a: dict, by_id: dict[str, Item], travellers: int) -> dict:
     """Add a stable id, a fingerprint, links and an optional Ask-Claude request."""
     key = a.get("key", "")
     a["id"] = f"{a['kind']}-{short_hash(a['kind'] + '|' + '|'.join(sorted(a['itemIds'])) + '|' + key)}"
-    volatile = a["kind"] in ("fare_drop", "flight_delayed")
+    volatile = a["kind"] in ("fare_drop", "flight_delayed", "stay_price_drop")
     fp_text = a["title"] + ("" if volatile else "|" + a["detail"])
     a["fingerprint"] = short_hash(fp_text, 10)
     links: list[dict] = []
@@ -763,7 +791,7 @@ PRIMARY_LABEL = {
     "schedule_change": "Check the new time", "tight_connection": "Manage booking", "overlap": "Manage booking",
     "tight_dining": "Change table time", "dining_conflict": "Change table time", "double_booking": "Manage booking",
     "fare_drop": "Check the fare", "no_show_risk": "Contact the hotel", "late_checkin": "Contact the hotel",
-    "flight_cancelled": "Rebook with the airline", "flight_diverted": "Live flight status", "flight_delayed": "Live flight status",
+    "flight_cancelled": "Rebook with the airline", "stay_price_drop": "See the new rate", "flight_diverted": "Live flight status", "flight_delayed": "Live flight status",
 }
 
 
@@ -776,6 +804,11 @@ def primary_action(a: dict, by_id: dict[str, Item]) -> dict | None:
     if not it:
         return None
     label = PRIMARY_LABEL.get(a["kind"], "Manage booking")
+    if a["kind"] == "stay_price_drop":
+        f = a.get("offer") or {}
+        url = f.get("offerLink") if str(f.get("offerLink") or "").startswith("https://") else \
+            search_url(f"{it.raw.get('name')} {it.raw.get('city', '')} hotel {it.raw.get('checkIn')}")
+        return {"label": label, "url": url, "itemId": it.id, "manage": False}
     if a["kind"] in ("flight_delayed", "flight_diverted"):
         return {"label": label, "url": fr24_url(it.raw), "itemId": it.id, "manage": False}
     if a["kind"] in ("no_show_risk", "late_checkin"):
@@ -965,7 +998,7 @@ def build(bookings: list[dict], profile: dict, fares_list: list[dict], now: date
             for d, c in cities_by_day:
                 per_city.setdefault(c, []).append(d)
             weather_plan += [{"city": c, "dates": ds, "slug": None} for c, ds in per_city.items()]
-        alerts = find_alerts(trip, prof, fares)
+        alerts = find_alerts(trip, prof, fares, now)
         for g in gaps:
             a = alert("medium", "lodging_gap", g["label"], "Nothing in your bookings covers these nights.", [])
             a["key"] = g["firstNight"] + "|" + g["city"]; a["gap"] = g

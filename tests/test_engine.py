@@ -13,6 +13,7 @@ import wayfare  # noqa: E402
 import fare_check  # noqa: E402
 import flight_status  # noqa: E402
 import weather as weather_mod  # noqa: E402
+import stay_check  # noqa: E402
 
 NOW = datetime(2026, 10, 15, 20, 0, tzinfo=timezone.utc)
 SAMPLE = json.loads((ROOT / "samples" / "bookings.sample.json").read_text())
@@ -454,6 +455,58 @@ class DaysWeatherRoutes(unittest.TestCase):
             for c in g["around"]:
                 for it in c["items"]:
                     self.assertTrue(all(l["url"].startswith("https://") for l in it.get("links", [])))
+
+
+class StayPrices(unittest.TestCase):
+    STAY = "hotel-casa-do-largo-2026-11-06"
+
+    def rec(self, **kw):
+        r = {"bookingId": self.STAY, "kind": "stay", "paidTotal": 318.0, "liveTotal": 262.0, "currency": "EUR",
+             "offerSource": "Booking.com", "offerLink": "https://www.google.com/travel/clk?x=1", "checkedAt": "2026-10-15T20:00:00Z"}
+        r.update(kw)
+        return r
+
+    def alerts(self, fares, bookings=SAMPLE, now=NOW):
+        return [a for a in trips(wayfare.build(bookings, PROFILE, fares, now))[0]["alerts"] if a["kind"] == "stay_price_drop"]
+
+    def test_drop_alert_with_offer_link(self):
+        a = self.alerts([self.rec()])
+        self.assertEqual(len(a), 1)
+        self.assertIn("book the new rate first, then cancel", a[0]["detail"])
+        self.assertEqual(a[0]["anchor"], self.STAY)
+        self.assertEqual(a[0]["primary"]["url"], "https://www.google.com/travel/clk?x=1")
+        self.assertFalse(a[0]["primary"]["manage"])
+
+    def test_small_drop_or_not_refundable_or_deadline_passed(self):
+        self.assertEqual(self.alerts([self.rec(liveTotal=300.0)]), [])
+        nonref = copy.deepcopy(SAMPLE)
+        next(b for b in nonref if b["id"] == self.STAY)["refundable"] = False
+        self.assertEqual(self.alerts([self.rec()], nonref), [])
+        late = datetime(2026, 11, 5, 9, 0, tzinfo=timezone.utc)
+        self.assertEqual(self.alerts([self.rec()], now=late), [])
+
+    def test_fingerprint_ignores_new_price(self):
+        a1, a2 = self.alerts([self.rec()])[0], self.alerts([self.rec(liveTotal=250.0)])[0]
+        self.assertEqual((a1["id"], a1["fingerprint"]), (a2["id"], a2["fingerprint"]))
+        self.assertTrue(a2["detail"].startswith("EUR 68 less."))
+
+    def test_name_match_and_candidates(self):
+        self.assertTrue(stay_check.same_hotel("Casa do Largo (sample)", "Casa do Largo Lisboa"))
+        self.assertFalse(stay_check.same_hotel("Casa do Largo", "Hotel Avenida Palace"))
+        check, skipped = stay_check.candidates(SAMPLE, NOW)
+        ids = [b["id"] for b in check]
+        self.assertIn(self.STAY, ids)
+        later = datetime(2026, 11, 5, 9, 0, tzinfo=timezone.utc)
+        self.assertNotIn(self.STAY, [b["id"] for b in stay_check.candidates(SAMPLE, later)[0]])
+
+    def test_best_offer_needs_free_cancellation(self):
+        resp = {"property": {"featured_offers": [
+            {"source": "A", "has_free_cancellation": False, "total_price": {"extracted_price": 200}},
+            {"source": "B", "has_free_cancellation": True, "total_price": {"extracted_price": 270}, "link": "https://b.example"}],
+            "all_offers": [{"source": "C", "has_free_cancellation": True, "total_price": {"extracted_price": 255},
+                            "tracking_link": "http://insecure.example"}]}}
+        best = stay_check.best_free_cancel_offer(resp)
+        self.assertEqual((best["source"], best["total"], best["link"]), ("C", 255.0, None))
 
 
 if __name__ == "__main__":

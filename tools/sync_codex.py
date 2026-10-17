@@ -18,6 +18,7 @@ SHARED = {
     "scripts/weather.py": "scripts/weather.py",
     "scripts/flight_status.py": "scripts/flight_status.py",
     "scripts/fare_check.py": "scripts/fare_check.py",
+    "scripts/stay_check.py": "scripts/stay_check.py",
     "dashboard/trip.html": "pages/trip.html",
     "dashboard/home.html": "pages/home.html",
     "reference/data-model.md": "reference/data-model.md",

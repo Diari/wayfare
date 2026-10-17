@@ -47,7 +47,10 @@ Read `${CLAUDE_PLUGIN_ROOT}/reference/dashboard-io.md` and
    train, stay or table, following data-model.md exactly (ids, local times
    with the place's UTC offset for that date, total price, travellers).
    Add `manageUrl` only for an `https://` "manage booking" link on the
-   sender's own domain. For a change or cancellation, write the booking with
+   sender's own domain. For a stay, set `refundable` (true when the email says
+   "free cancellation" or "refundable") and `freeCancelUntil` (the last
+   moment you can cancel for free, ISO with offset, or a date) when the
+   email gives it. For a change or cancellation, write the booking with
    the same `confirmation` and the new facts or `status: "cancelled"`.
    Skip facts you are not sure about rather than guessing; note what you
    skipped. Save the list to `wayfare-work/new.json`.

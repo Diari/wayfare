@@ -29,7 +29,15 @@ Explain these limits the first time, in short plain words:
      --bookings wayfare-work/db/home/private/bookings.json \
      --previous wayfare-work/db/home/private/fares.json \
      --out wayfare-work/fares.json --every-days 3 --max-searches 6
+   python3 "$P/scripts/stay_check.py" \
+     --bookings wayfare-work/db/home/private/bookings.json \
+     --previous wayfare-work/fares.json --out wayfare-work/fares.json --every-days 2 --max-stays 4
    ```
+
+   The second command checks refundable stays: the cheapest offer for the
+   same hotel, dates and guests that also has free cancellation (Google
+   Hotels via SearchApi). Only stays with `refundable: true` whose free
+   cancellation has not ended are checked.
 
    Add `--every-days 0` when the user asked for a check right now. If it
    reports an error (no key, network blocked), tell the user the error and

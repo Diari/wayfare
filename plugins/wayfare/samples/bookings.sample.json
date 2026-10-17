@@ -35,7 +35,8 @@
     "travelers": 2,
     "confirmation": "5521089934",
     "price": {"amount": 318.0, "currency": "EUR"},
-    "refundable": true
+    "refundable": true,
+    "freeCancelUntil": "2026-11-04T23:59:00+00:00"
   },
   {
     "id": "dining-taberna-azul-2026-11-06",

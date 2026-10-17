@@ -26,7 +26,10 @@ Read `../../reference/sites-io.md` and `../../reference/data-model.md`
    one booking object per flight leg, train, stay or table, exactly as
    data-model.md says (ids, local times with the place's UTC offset, total
    price, travellers). Add `manageUrl` only for an `https://` "manage
-   booking" link on the sender's own domain. For a change or cancellation,
+   booking" link on the sender's own domain. For a stay, set `refundable` (true when the email says
+   "free cancellation" or "refundable") and `freeCancelUntil` (the last
+   moment you can cancel for free, ISO with offset, or a date) when the
+   email gives it. For a change or cancellation,
    use the same `confirmation` with the new facts or `status: "cancelled"`.
    Skip facts you are not sure about. Save the list to `$WF/new.json`.
 
