@@ -1,0 +1,11 @@
+# Wayfare MCP server (Cloudflare Workers). Deploy: npx wrangler deploy
+name = "wayfare-mcp"
+main = "src/index.js"
+compatibility_date = "2026-09-01"
+workers_dev = true
+
+# For OpenAI's domain check, set the token as a secret (never in this file):
+#   npx wrangler secret put OPENAI_APPS_CHALLENGE
+
+[observability]
+enabled = false   # no request logs: tool input can hold trip details

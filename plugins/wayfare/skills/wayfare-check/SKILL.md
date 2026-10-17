@@ -20,6 +20,16 @@ Modes (the text after the skill name):
 
 Follow `../wayfare-sync/SKILL.md` steps 1 to 4.
 
+## 1b. Tools
+
+When the Wayfare tools are available (the plugin's MCP server):
+- If `scripts/weather.py` cannot reach Open-Meteo, call `get_trip_weather`
+  for each city and dates, and write the days into `$WF/weather.json` in the
+  same shape.
+- To answer "is my trip OK?" in chat, call `check_itinerary` with the trip's
+  bookings. Send only the fields in its schema: never booking codes, prices,
+  names of people, emails or links.
+
 ## 2. Live flight status
 
 ```bash

@@ -15,6 +15,13 @@ The trip in `$WF/sites/<slug>/worker/data.js` (its `trip`: cities, `days`,
 `weather`, items), `$WF/profile.json` (home city and airport), and the
 current `$WF/guides/<slug>.json` if it exists.
 
+When the Wayfare tools are available (the plugin's MCP server), call
+`get_packing_list` with the main city, the trip dates, `international` and
+the plans you know (`business`, `beach`, `hiking`, `skiing`,
+`formal_dinner`, `kids`, `city`). Use its items as the base of `pack`, then
+add what the research shows. If the trip has no `weather`, call
+`get_trip_weather` for each city. Send only city names and dates.
+
 ## 2. When to write
 
 When there is no guide, when the trip's cities changed, or when the guide is

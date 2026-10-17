@@ -1,0 +1,16 @@
+{
+  "name": "wayfare-mcp",
+  "version": "0.10.0",
+  "private": true,
+  "type": "module",
+  "description": "Wayfare MCP server: trip checks, weather and packing lists. No sign-in, no storage.",
+  "license": "MIT",
+  "scripts": {
+    "test": "node --test test/*.test.mjs",
+    "deploy": "wrangler deploy",
+    "dev": "wrangler dev"
+  },
+  "devDependencies": {
+    "wrangler": "^4.0.0"
+  }
+}

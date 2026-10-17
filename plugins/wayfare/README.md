@@ -15,6 +15,20 @@ pays.
 `$wayfare-setup`, `$wayfare-sync`, `$wayfare-check`, `$wayfare-guide`,
 `$wayfare-trip`. Start with "Set up Wayfare for my trips".
 
+## Tools (MCP server)
+
+The plugin connects to the Wayfare MCP server (`mcp-server/` in the
+repository, no sign-in). Its tools are read-only:
+
+- `check_itinerary`: nights with no stay booked, tight connections, late
+  check-ins, dinner conflicts, double bookings, what a schedule change
+  affects.
+- `get_trip_weather`: the forecast, or last year's weather for later dates.
+- `get_packing_list`: a packing list for the dates, weather and plans.
+
+The server stores nothing and keeps no logs of what you send. It drops any
+field it does not need, such as booking codes or prices.
+
 ## What Wayfare does on your account
 
 - **Reads Gmail** with the Gmail plugin, in two passes: sender and subject
@@ -27,6 +41,8 @@ pays.
   person's packing ticks. Full booking codes are shown only to the owner.
 - **Creates scheduled tasks** in the app: a daily check, a check on new
   booking emails, and one-time checks before flights.
+- **Calls the Wayfare MCP server** with trip facts (places, dates, times,
+  flight numbers, hotel names), and nothing else. It stores nothing.
 - **Contacts these services** (optional except Gmail and Sites): Open-Meteo
   (weather: city names and dates), Aviationstack (flight numbers), the public
   Flightradar24 page, SearchApi (Google Flights and Google Hotels: airports,

@@ -180,6 +180,9 @@ plugin, and ask: "Set up Wayfare for my trips" (`$wayfare-setup`).
 
 The Codex plugin is in `plugins/wayfare/` and shares the engine, pages and
 samples with the Claude plugin (`python3 tools/sync_codex.py` copies them).
+It also connects to the Wayfare MCP server in `mcp-server/` (a Cloudflare
+Worker with read-only tools: trip check, weather, packing list; it stores
+nothing). The Claude plugin does not use it.
 
 ## Requirements
 

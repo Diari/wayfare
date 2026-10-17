@@ -35,7 +35,9 @@ def check_interface(errs: list[str], where: str, iface: dict, root: Path | None 
                 errs.append(f"{where}.interface.{k} is required for directory submission")
             else:
                 check_path(errs, root, f"{where}.interface.{k}", iface[k])
-    for k in ("websiteURL", "privacyPolicyURL", "termsOfServiceURL"):
+    for k in ("websiteURL", "supportURL", "privacyPolicyURL", "termsOfServiceURL"):
+        if k not in iface and root is not None:
+            errs.append(f"{where}.interface.{k} is required for directory submission")
         if k in iface and not str(iface[k]).startswith("https://"):
             errs.append(f"{where}.interface.{k} must be an absolute https:// URL")
     prompts = iface.get("defaultPrompt", [])
@@ -85,6 +87,27 @@ def validate_plugin(root: Path) -> list[str]:
         a, b = json.loads(portable.read_text()), json.loads(legacy.read_text())
         if a["version"] != b["version"] or a["name"] != b["name"]:
             errs.append("plugin.json and .codex-plugin/plugin.json disagree on name or version")
+    # MCP server: required for directory submission (skills-only plugins are
+    # not accepted). Both formats must name the same https URL, no headers.
+    urls = set()
+    for name, key in (("mcp.json", "url"), (".mcp.json", "url")):
+        f = root / name
+        if not f.exists():
+            errs.append(f"{root.name}/{name} is missing (run tools/set_mcp_url.py)")
+            continue
+        servers = json.loads(f.read_text(encoding="utf-8")).get("mcpServers") or {}
+        if len(servers) != 1:
+            errs.append(f"{root.name}/{name}: exactly one MCP server")
+        for sname, s in servers.items():
+            if not str(s.get(key, "")).startswith("https://"):
+                errs.append(f"{root.name}/{name}: {sname}.url must be https://")
+            if s.get("headers"):
+                errs.append(f"{root.name}/{name}: {sname}: headers are not allowed")
+            urls.add(s.get(key))
+    if len(urls) > 1:
+        errs.append("mcp.json and .mcp.json name different URLs")
+    if legacy.exists() and json.loads(legacy.read_text()).get("mcpServers") != "./.mcp.json":
+        errs.append(".codex-plugin/plugin.json: mcpServers must be ./.mcp.json")
     skills = sorted((root / "skills").glob("*/SKILL.md"))
     if not skills:
         errs.append("no skills/*/SKILL.md")

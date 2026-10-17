@@ -15,9 +15,14 @@ PLUGIN = ROOT / "plugins" / "wayfare"
 
 
 def main() -> int:
-    out_dir = Path(sys.argv[1]) if len(sys.argv) > 1 else ROOT / "dist"
+    args = [a for a in sys.argv[1:] if not a.startswith("--")]
+    allow_placeholder = "--allow-placeholder" in sys.argv   # tests only
+    out_dir = Path(args[0]) if args else ROOT / "dist"
     out_dir.mkdir(parents=True, exist_ok=True)
     version = json.loads((PLUGIN / "plugin.json").read_text())["version"]
+    if "YOUR-SUBDOMAIN" in (PLUGIN / ".mcp.json").read_text() and not allow_placeholder:
+        print("Deploy mcp-server first, then run: python3 tools/set_mcp_url.py https://<host>/mcp")
+        return 1
     files = subprocess.run(["git", "ls-files", "--cached", "--others", "--exclude-standard", str(PLUGIN)],
                            cwd=ROOT, capture_output=True, text=True, check=True).stdout.split()
     out = out_dir / f"wayfare-codex-{version}.zip"

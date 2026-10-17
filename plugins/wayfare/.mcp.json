@@ -1,0 +1,7 @@
+{
+  "mcpServers": {
+    "wayfare": {
+      "url": "https://wayfare-mcp.YOUR-SUBDOMAIN.workers.dev/mcp"
+    }
+  }
+}

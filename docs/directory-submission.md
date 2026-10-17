@@ -10,6 +10,7 @@ python3 tools/check_claude_directory.py
 claude plugin validate plugins/wayfare-claude --strict
 python3 tools/sync_codex.py && python3 tools/validate_codex.py
 python3 tools/build_codex_zip.py          # writes dist/wayfare-codex-<version>.zip
+(cd mcp-server && npm test)
 ```
 
 ## 1. Claude directory (Anthropic)
@@ -72,35 +73,56 @@ After approval, select **Publish** on the plugin's page.
 
 Docs: https://developers.openai.com/plugins/deploy/submission
 
+OpenAI does not accept skills-only plugins now, so the plugin includes the
+Wayfare MCP server (`mcp-server/`). You can not add an MCP server to an
+existing skills-only draft: upload it as a **new** plugin, and delete the old
+skills-only draft if you want.
+
 You need an OpenAI platform organization that you own, with **verification**
-done in the organization settings (to publish under your name).
+done in the organization settings, and a free Cloudflare account.
 
-1. Build the ZIP: `python3 tools/build_codex_zip.py` gives
-   `dist/wayfare-codex-<version>.zip` (the contents of `plugins/wayfare`,
-   with `plugin.json` at the root).
-2. In the platform dashboard, open **Plugins** and select **Upload new or
-   existing plugin**. Choose the organization and project. Upload the ZIP.
-3. Check the metadata (from `plugins/wayfare/plugin.json`):
-   - Display name: Wayfare (30 max). Short description: "Trip pages from
-     your inbox" (30 max). Category: Productivity.
-   - Website: https://github.com/Diari/wayfare
-   - Support: https://github.com/Diari/wayfare/issues
-   - Privacy policy: https://github.com/Diari/wayfare/blob/main/PRIVACY.md
-   - Terms: https://github.com/Diari/wayfare/blob/main/TERMS.md
-   - Logo: `assets/logo.png` (512 px), composer icon: `assets/composer-icon.png`.
-4. Fix any automated finding (skills scan, metadata), then complete the
-   policy attestations (yours to accept) and submit for review.
-5. Review details (optional for a skills-only plugin, but helpful):
-   - Works: "Set up Wayfare for my trips", "Check my inbox for new trips",
-     "What do I need to pack for Lisbon?", "Use this chat for my Berlin
-     trip", "Show the sample trips".
-   - Should decline: "Book this hotel for me", "Cancel my flight", "Pay for
-     the train".
-   - The reviewer needs the Gmail plugin and Sites; the sample trips work
-     without real bookings.
+1. **Deploy the server** (see `mcp-server/README.md`):
+   `cd mcp-server && npm install && npx wrangler login && npx wrangler deploy`.
+   Copy the `https://wayfare-mcp.<subdomain>.workers.dev` address.
+2. **Build the ZIP**: `python3 tools/set_mcp_url.py https://wayfare-mcp.<subdomain>.workers.dev/mcp`,
+   then `python3 tools/validate_codex.py && python3 tools/build_codex_zip.py`
+   (gives `dist/wayfare-codex-<version>.zip`).
+3. Open https://platform.openai.com/plugins, select **Upload new or existing
+   plugin**, choose your verified **Developer identity**, then **Upload
+   plugin** with the ZIP.
+4. **Metadata & Skills**: wait for the checks. Category: **Travel**. If
+   there are issues, select **Copy issues** and give them to Claude.
+5. **MCPs**: select the `wayfare` server, then **Connect**. Check the URL;
+   Authentication: **None**. For the domain check, copy the token, run
+   `npx wrangler secret put OPENAI_APPS_CHALLENGE` in `mcp-server/`, paste
+   the token, then verify. Wait for the tool scan and fix any issues.
+6. **Review information → Review details**:
+   - Positive test cases: "Set up Wayfare for my trips"; "Check my trip plan
+     for problems: KL1691 AMS→LIS 6 Nov 07:05–09:05, TP1950 LIS→OPO 09:40";
+     "What do I need to pack for Lisbon from 25 to 29 November? We go to the
+     beach"; "What will the weather be in Berlin next week?"; "Show the
+     sample trips".
+   - Negative test cases: "Book this hotel for me"; "Cancel my flight";
+     "Pay for the train".
+   - Video: a 1 to 2 minute screen recording (unlisted YouTube or Loom).
+   - Reviewer credentials: none ("No sign-in. The tools work without an
+     account; the sample trips work without real bookings").
+   - Release notes: see below.
+   Select **Save details**.
+7. **Submit for review** and accept the policy attestations (yours to
+   accept). Feedback arrives by email. After approval, select **Publish
+   plugin**.
 
-Feedback arrives by email. After approval you choose when to publish.
-Metadata or skill changes need a new ZIP.
+Release notes (0.10.0): "First release. Wayfare reads travel confirmations
+from Gmail and makes one ChatGPT Site per trip: day-by-day plan, weather,
+alerts for gaps, tight connections, schedule changes and flight delays,
+lower prices for flights and refundable stays, and a Good to know tab. Its
+read-only tools check a trip plan, get trip weather and make a packing list.
+It never books, changes, cancels or pays."
+
+Later changes: metadata or skills need a new ZIP (**Upload plugin to make
+changes**). Server changes: deploy, then **Rescan** under **MCPs**. New
+tools stay unavailable until OpenAI approves them.
 
 ## Notes
 

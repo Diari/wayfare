@@ -164,11 +164,11 @@ class CodexPackage(unittest.TestCase):
     def test_codex_zip(self):
         import zipfile
         d = Path(tempfile.mkdtemp())
-        subprocess.run([sys.executable, str(ROOT / "tools" / "build_codex_zip.py"), str(d)], check=True, capture_output=True)
+        subprocess.run([sys.executable, str(ROOT / "tools" / "build_codex_zip.py"), str(d), "--allow-placeholder"], check=True, capture_output=True)
         z = zipfile.ZipFile(next(d.glob("wayfare-codex-*.zip")))
         names = z.namelist()
         self.assertEqual(names[0], "plugin.json")
-        for need in (".codex-plugin/plugin.json", "skills/wayfare-setup/SKILL.md", "assets/logo.png", "assets/composer-icon.png", "site/worker/index.js"):
+        for need in (".codex-plugin/plugin.json", "mcp.json", ".mcp.json", "skills/wayfare-setup/SKILL.md", "assets/logo.png", "assets/composer-icon.png", "site/worker/index.js"):
             self.assertIn(need, names)
         self.assertFalse(any("__pycache__" in n or n.endswith(".app.json") or n.startswith("hooks/") for n in names))
         shutil.rmtree(d)

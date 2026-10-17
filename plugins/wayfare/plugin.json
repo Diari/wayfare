@@ -1,8 +1,8 @@
 {
   "$schema": "https://agent-plugins.org/schemas/1.0.0/plugin.schema.json",
   "name": "wayfare",
-  "version": "0.9.1",
-  "description": "Open-source personal travel agent: one ChatGPT Site per trip from your Gmail bookings, with alerts, weather, live flight status and travel tips. Never books or pays.",
+  "version": "0.10.0",
+  "description": "Travel assistant: one ChatGPT Site per trip from your Gmail bookings, with trip checks, weather, live flight status, packing lists and travel tips. Never books or pays.",
   "author": {
     "name": "Wayfare contributors",
     "url": "https://github.com/Diari/wayfare"
@@ -24,14 +24,15 @@
       "interface": {
         "displayName": "Wayfare",
         "shortDescription": "Trip pages from your inbox",
-        "longDescription": "Wayfare reads travel confirmations from your Gmail and gives each trip its own ChatGPT Site: day by day with weather, alerts for unbooked nights, tight connections, schedule changes and live delays, a Good to know tab (what to pack, local tips, getting around), a shared to-do list and a calendar file. It checks every morning and on new booking emails. It never books or pays.",
+        "longDescription": "Travel assistant for your booked trips. Wayfare reads flight, train, hotel and restaurant confirmations from your Gmail and gives each trip its own ChatGPT Site: the trip day by day with the weather, alerts for nights with no stay booked, tight connections, late check-ins, schedule changes and live delays, a Good to know tab (what to pack, local tips, getting around), a shared to-do list and a calendar file. Its tools check a trip plan, get the trip weather and make a packing list. It checks every morning and on new booking emails. It never books, changes, cancels or pays.",
         "developerName": "Wayfare contributors",
-        "category": "Productivity",
+        "category": "Travel",
         "capabilities": [
           "Read",
           "Write"
         ],
         "websiteURL": "https://github.com/Diari/wayfare",
+        "supportURL": "https://github.com/Diari/wayfare/issues",
         "defaultPrompt": [
           "Set up Wayfare for my trips",
           "Check my inbox for new trips",
