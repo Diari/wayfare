@@ -1,0 +1,275 @@
+<title>Wayfare Home</title>
+<meta name="claude:viewport-fit-sides" content="cover">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Figtree:wght@400;500;600;700;800&display=swap">
+<style>
+/* Layout: your trips as a stack of wallet cards, soonest first. Each card shows the journey
+   with mode icons and opens the trip page. Past and sample trips sit below. Owner-only. */
+:root {
+  --bg: #f4f5f7; --surface: #ffffff; --ink: #1c2330; --muted: #687385; --line: #e2e5ea;
+  --flight: #1f6fd1; --train: #1e8a5a; --stay: #6b4bc4; --table: #c2357a; --gap: #b7791f; --urgent: #c8322b;
+  --font: "Figtree", system-ui, -apple-system, "Segoe UI", Roboto, sans-serif;
+}
+@media (prefers-color-scheme: dark) {
+  :root:not([data-theme="light"]) {
+    --bg: #12161c; --surface: #1b212a; --ink: #e8ecf1; --muted: #9aa5b4; --line: #2a323d;
+    --flight: #6aa8f5; --train: #4cc18a; --stay: #a88bf0; --table: #f07ab2; --gap: #e3b04b; --urgent: #f2766c; color-scheme: dark;
+  }
+}
+:root[data-theme="dark"] {
+  --bg: #12161c; --surface: #1b212a; --ink: #e8ecf1; --muted: #9aa5b4; --line: #2a323d;
+  --flight: #6aa8f5; --train: #4cc18a; --stay: #a88bf0; --table: #f07ab2; --gap: #e3b04b; --urgent: #f2766c; color-scheme: dark;
+}
+* { box-sizing: border-box; }
+body {
+  background: var(--bg); color: var(--ink); font: 400 15px/1.5 var(--font); font-variant-numeric: tabular-nums;
+  padding-left: max(16px, env(safe-area-inset-left, 0px)); padding-right: max(16px, env(safe-area-inset-right, 0px));
+  padding-block: 20px 56px;
+}
+h1, h2, h3, p { margin: 0; }
+.page { max-width: 720px; margin: 0 auto; display: grid; gap: 24px; }
+.stack { display: grid; gap: 14px; min-width: 0; }
+.muted { color: var(--muted); }
+svg.i { width: 16px; height: 16px; fill: currentColor; flex: none; }
+h1 { font-size: clamp(34px, 9vw, 48px); font-weight: 800; letter-spacing: -.03em; line-height: 1; }
+h2 { font-size: 18px; font-weight: 800; }
+.row { display: flex; gap: 8px; flex-wrap: wrap; align-items: center; }
+.btn { font: 600 14px/1 var(--font); color: var(--ink); background: var(--surface); border: 1px solid var(--line); border-radius: 999px; padding: 9px 14px; cursor: pointer; }
+.btn[disabled] { opacity: .5; cursor: default; }
+.btn:focus-visible, a:focus-visible { outline: 2px solid var(--ink); outline-offset: 2px; }
+.status { font-size: 13px; color: var(--muted); }
+.status.err { color: var(--urgent); }
+.banner { border: 1px solid var(--gap); background: color-mix(in srgb, var(--gap) 10%, var(--surface)); border-radius: 12px; padding: 10px 14px; font-size: 14px; }
+.trip { display: grid; gap: 10px; background: var(--surface); border: 1px solid var(--line); border-radius: 18px; padding: 16px 18px; color: inherit; text-decoration: none; }
+.trip:hover { border-color: var(--muted); }
+.trip-top { display: flex; justify-content: space-between; align-items: baseline; gap: 12px; flex-wrap: wrap; }
+.trip h3 { font-size: 26px; font-weight: 800; letter-spacing: -.02em; line-height: 1.05; min-width: 0; overflow-wrap: anywhere; }
+.pill { font-weight: 700; font-size: 14px; border: 1px solid var(--line); border-radius: 999px; padding: 3px 10px; white-space: nowrap; }
+.route { display: flex; flex-wrap: wrap; align-items: center; gap: 6px; font-weight: 600; }
+.route .flight { color: var(--flight); } .route .train { color: var(--train); } .route .unknown { color: var(--muted); }
+.meta { display: flex; flex-wrap: wrap; gap: 6px 14px; align-items: center; font-size: 14px; color: var(--muted); }
+.types { display: flex; gap: 10px; }
+.types span { display: inline-flex; gap: 3px; align-items: center; font-weight: 600; }
+.types .flight { color: var(--flight); } .types .train { color: var(--train); } .types .hotel { color: var(--stay); } .types .dining { color: var(--table); }
+.wxline { display: flex; flex-wrap: wrap; gap: 4px 14px; font-size: 14px; }
+.wxline span { display: inline-flex; align-items: center; gap: 5px; }
+.wxline b { font-weight: 700; }
+.wxline svg { width: 18px; height: 18px; fill: none; stroke: currentColor; stroke-width: 1.8; stroke-linecap: round; stroke-linejoin: round; }
+.wxline .note { color: var(--muted); font-size: 13px; }
+.flag { font-weight: 700; font-size: 13px; padding: 3px 9px; border-radius: 999px; }
+.flag.high { color: var(--urgent); border: 1px solid var(--urgent); }
+.flag.medium { color: var(--gap); border: 1px solid var(--gap); }
+.flag.ok { color: var(--train); border: 1px solid var(--train); }
+.open { margin-left: auto; font-weight: 700; color: var(--ink); }
+.list { background: var(--surface); border: 1px solid var(--line); border-radius: 14px; }
+.list a, .list div { display: flex; justify-content: space-between; gap: 12px; padding: 11px 14px; border-bottom: 1px solid var(--line); color: var(--ink); text-decoration: none; flex-wrap: wrap; }
+.list > :last-child { border-bottom: 0; }
+.list span { color: var(--muted); font-size: 14px; }
+.empty { background: var(--surface); border: 1px dashed var(--line); border-radius: 18px; padding: 28px 20px; display: grid; gap: 8px; }
+.foot { color: var(--muted); font-size: 13px; border-top: 1px solid var(--line); padding-top: 16px; display: grid; gap: 6px; }
+</style>
+
+<div class="page">
+  <header class="stack" style="gap:10px">
+    <div class="row" style="justify-content:space-between"><b>Wayfare</b><span class="muted" id="updated">Loading…</span></div>
+    <h1>Your trips</h1>
+  </header>
+  <div id="banners" class="stack"></div>
+  <div id="toolbar" class="stack" style="gap:6px"></div>
+  <main id="main" class="stack">
+    <div class="empty">
+      <h2>Your trips appear here</h2>
+      <p>Each trip gets its own page that you can share with the people who travel with you. This page stays private.</p>
+      <p class="muted">In Claude, run /wayfare:sync.</p>
+    </div>
+  </main>
+  <footer class="foot">
+    <div>Only you can see this page.</div>
+    <div>To change your travel profile, ask Claude: "update my Wayfare profile".</div>
+  </footer>
+</div>
+
+<script>
+(function () {
+  "use strict";
+  var S = { index: null, agent: null, requests: {}, db: null, mcp: null, source: "none" };
+  var ICON = {
+    flight: "M21 16v-2l-8-5V3.5a1.5 1.5 0 0 0-3 0V9l-8 5v2l8-2.5V19l-2 1.5V22l3.5-1 3.5 1v-1.5L13 19v-5.5z",
+    train: "M12 2c-4 0-8 .5-8 4v9.5A3.5 3.5 0 0 0 7.5 19L6 20.5v.5h2.2l2-2h3.6l2 2H18v-.5L16.5 19a3.5 3.5 0 0 0 3.5-3.5V6c0-3.5-4-4-8-4zM7.5 17a1.5 1.5 0 1 1 0-3 1.5 1.5 0 0 1 0 3zm3.5-7H6V6h5v4zm2 0V6h5v4h-5zm3.5 7a1.5 1.5 0 1 1 0-3 1.5 1.5 0 0 1 0 3z",
+    hotel: "M7 13c1.66 0 3-1.34 3-3S8.66 7 7 7s-3 1.34-3 3 1.34 3 3 3zm12-6h-8v7H3V5H1v15h2v-3h18v3h2v-9c0-2.21-1.79-4-4-4z",
+    dining: "M11 9H9V2H7v7H5V2H3v7c0 2.12 1.66 3.84 3.75 3.97V22h2.5v-9.03C11.34 12.84 13 11.12 13 9V2h-2v7zm5-3v8h2.5v8H21V2c-2.76 0-5 2.24-5 4z",
+    other: "M12 2a7 7 0 0 0-7 7c0 5.25 7 13 7 13s7-7.75 7-13a7 7 0 0 0-7-7zm0 9.5a2.5 2.5 0 1 1 0-5 2.5 2.5 0 0 1 0 5z"
+  };
+  ICON.transfer = ICON.train;
+  var TYPE_WORD = { flight: "flights", train: "trains", transfer: "transfers", hotel: "stays", dining: "tables", other: "plans" };
+  function el(tag, attrs, kids) {
+    var n = document.createElement(tag);
+    if (attrs) Object.keys(attrs).forEach(function (k) {
+      var v = attrs[k];
+      if (v === null || v === undefined || v === false) return;
+      if (k === "text") n.textContent = v;
+      else if (k === "class") n.className = v;
+      else if (k === "on") Object.keys(v).forEach(function (ev) { n.addEventListener(ev, v[ev]); });
+      else n.setAttribute(k, v === true ? "" : v);
+    });
+    (kids || []).forEach(function (c) { if (c !== null && c !== undefined && c !== false) n.appendChild(typeof c === "string" ? document.createTextNode(c) : c); });
+    return n;
+  }
+  function icon(name) {
+    var svg = document.createElementNS("http://www.w3.org/2000/svg", "svg");
+    svg.setAttribute("viewBox", "0 0 24 24"); svg.setAttribute("aria-hidden", "true"); svg.setAttribute("class", "i");
+    var p = document.createElementNS("http://www.w3.org/2000/svg", "path"); p.setAttribute("d", ICON[name] || ICON.other);
+    svg.appendChild(p); return svg;
+  }
+  function safeUrl(u) { return typeof u === "string" && /^https:\/\//.test(u) ? u : null; }
+  function ago(iso) {
+    var mins = Math.round((Date.now() - new Date(iso).getTime()) / 60000);
+    if (!iso || isNaN(mins)) return "";
+    if (mins < 2) return "Last sync just now";
+    if (mins < 60) return "Last sync " + mins + " min ago";
+    var h = Math.round(mins / 60);
+    return h < 48 ? "Last sync " + h + " h ago" : "Last sync " + Math.round(h / 24) + " days ago";
+  }
+  function daysUntil(dateStr) { var t = new Date(dateStr + "T00:00:00"); var n = new Date(); n.setHours(0, 0, 0, 0); return Math.round((t - n) / 864e5); }
+  function latest() { var best = null; Object.keys(S.requests).forEach(function (k) { var r = S.requests[k]; if (!best || r.createdAt > best.createdAt) best = r; }); return best; }
+  var REQ = { queued: "Sending to Claude…", sent: "Claude is on it. Your pages update in a few minutes.", running: "Claude is working on it…", done: "Done.", failed: "Failed." };
+
+  function ask(kind) {
+    var rid = "r" + Date.now().toString(36);
+    var req = { kind: kind, slug: null, alertId: null, params: {}, status: "queued", createdAt: new Date().toISOString() };
+    S.requests[rid] = req; render();
+    S.db.doc("requests/" + rid).set(req).then(function () {
+      return S.mcp.callTool("Claude Code Remote", "fire_trigger", { trigger_id: S.agent.triggerId,
+        text: "WAYFARE_REQUEST " + JSON.stringify({ requestId: rid, kind: kind, slug: null, alertId: null, params: {} }) });
+    }).then(function () {
+      S.requests[rid] = Object.assign({}, req, { status: "sent" }); render();
+      return S.db.doc("requests/" + rid).update({ status: "sent" }).catch(function () {});
+    }).catch(function (e) {
+      var code = e && e.code;
+      var msg = code === "server_not_connected" ? "Claude Code Remote is not connected for this account."
+        : code === "approval_required" || code === "not_in_manifest" ? "This page needs your approval to start Claude tasks. Try again and choose Allow."
+        : code === "tool_error" ? "The Wayfare task could not start. Run /wayfare:setup again to repair it."
+        : "Could not reach Claude. Try again in a moment.";
+      S.requests[rid] = Object.assign({}, req, { status: "failed", message: msg });
+      S.db.doc("requests/" + rid).set(S.requests[rid]).catch(function () {});
+      render();
+    });
+  }
+
+  // Weather: same icons and codes as the trip page.
+  var WX = {
+    sun: "M12 8a4 4 0 1 0 0 8 4 4 0 0 0 0-8zM12 2v2M12 20v2M4.9 4.9l1.4 1.4M17.7 17.7l1.4 1.4M2 12h2M20 12h2M4.9 19.1l1.4-1.4M17.7 6.3l1.4-1.4",
+    partly: "M8 2v1.5M3.2 4.2l1 1M1.5 9H3M12.8 4.2l-1 1M5 11.5A3.5 3.5 0 0 1 11 7M9 20h8a3.5 3.5 0 0 0 0-7 5 5 0 0 0-9.6 1.5A2.8 2.8 0 0 0 9 20z",
+    cloud: "M7 18h10a4 4 0 0 0 0-8 6 6 0 0 0-11.3 1.5A3.3 3.3 0 0 0 7 18z",
+    rain: "M7 15h10a4 4 0 0 0 0-8 6 6 0 0 0-11.3 1.5A3.3 3.3 0 0 0 7 15zM9 18l-1 3M13 18l-1 3M17 18l-1 3",
+    snow: "M7 15h10a4 4 0 0 0 0-8 6 6 0 0 0-11.3 1.5A3.3 3.3 0 0 0 7 15zM9 19h.01M13 19h.01M17 19h.01M11 22h.01M15 22h.01",
+    storm: "M7 15h10a4 4 0 0 0 0-8 6 6 0 0 0-11.3 1.5A3.3 3.3 0 0 0 7 15zM13 15l-2 4h3l-2 4",
+    fog: "M4 9h16M4 13h16M6 17h12"
+  };
+  function wxKind(code) {
+    if (code === 0) return ["sun", "Clear"];
+    if (code === 1 || code === 2) return ["partly", "Partly cloudy"];
+    if (code === 3) return ["cloud", "Cloudy"];
+    if (code === 45 || code === 48) return ["fog", "Fog"];
+    if ((code >= 51 && code <= 67) || (code >= 80 && code <= 82)) return ["rain", "Rain"];
+    if ((code >= 71 && code <= 77) || code === 85 || code === 86) return ["snow", "Snow"];
+    if (code >= 95) return ["storm", "Thunderstorms"];
+    return ["cloud", "Cloudy"];
+  }
+  function wxLine(list) {
+    if (!list || !list.length) return null;
+    var line = el("div", { class: "wxline" });
+    list.forEach(function (w) {
+      var k = wxKind(w.code);
+      var svg = document.createElementNS("http://www.w3.org/2000/svg", "svg");
+      svg.setAttribute("viewBox", "0 0 24 24"); svg.setAttribute("aria-hidden", "true");
+      var pth = document.createElementNS("http://www.w3.org/2000/svg", "path"); pth.setAttribute("d", WX[k[0]]); svg.appendChild(pth);
+      line.appendChild(el("span", { title: k[1] }, [svg, el("b", { text: w.city }), w.hi + "° / " + w.lo + "°"]));
+    });
+    if (list.every(function (w) { return w.kind === "lastYear"; })) line.appendChild(el("span", { class: "note", text: "last year on these dates" }));
+    return line;
+  }
+
+  function tripCard(t) {
+    var d = daysUntil(t.startDate), c = t.counts || {};
+    var when = t.status === "ongoing" ? "On the road" : d <= 0 ? "Today" : d === 1 ? "Tomorrow" : "In " + d + " days";
+    var route = el("div", { class: "route", "aria-label": "Journey" });
+    (t.route || []).forEach(function (s, i) {
+      if (i > 0) { var m = s.mode === "transfer" ? "train" : s.mode; var sp = el("span", { class: m || "unknown" }, [icon(m || "other")]); route.appendChild(sp); }
+      route.appendChild(el("span", { text: s.city }));
+    });
+    var types = el("div", { class: "types" });
+    Object.keys(t.types || {}).forEach(function (k) {
+      types.appendChild(el("span", { class: k === "transfer" ? "train" : k, title: t.types[k] + " " + TYPE_WORD[k] }, [icon(k), String(t.types[k])]));
+    });
+    var flags = el("div", { class: "meta" }, [
+      c.high ? el("span", { class: "flag high", text: c.high + " urgent" }) : null,
+      c.medium ? el("span", { class: "flag medium", text: c.medium + " to check" }) : null,
+      !c.high && !c.medium ? el("span", { class: "flag ok", text: "All clear" }) : null,
+      types,
+      safeUrl(t.url) ? el("span", { class: "open", text: "Open trip" }) : el("span", { class: "open", style: "color:var(--muted);font-weight:600", text: "Page not made yet: type /wayfare:sync in a chat" })
+    ]);
+    var kids = [
+      el("div", { class: "trip-top" }, [el("h3", { text: t.title }), el("span", { class: "pill", text: when })]),
+      el("div", { class: "meta" }, [el("b", { style: "color:var(--ink)", text: t.dates }), t.next ? el("span", { text: "Next: " + t.next.title + ", " + t.next.when }) : null]),
+      route.childNodes.length ? route : null,
+      wxLine(t.weather),
+      flags
+    ];
+    var u = safeUrl(t.url);
+    return u ? el("a", { class: "trip", href: u, target: "_blank", rel: "noopener", "aria-label": "Open " + (t.pageTitle || t.title) }, kids) : el("div", { class: "trip" }, kids);
+  }
+
+  function render() {
+    var idx = S.index, trips = (idx && idx.trips) || [];
+    document.getElementById("updated").textContent = idx ? ago(idx.updatedAt) : "";
+    var banners = document.getElementById("banners"); banners.textContent = "";
+    if (trips.some(function (t) { return t.sample && t.status !== "sample"; })) banners.appendChild(el("div", { class: "banner", text: "These are sample trips with made-up bookings. Your real trips get their own pages at the first sync." }));
+    banners.hidden = !banners.childNodes.length;
+    var tb = document.getElementById("toolbar"); tb.textContent = "";
+    if (S.mcp && S.agent && S.agent.triggerId && S.db) {
+      var r = latest();
+      var busy = r && (r.status === "queued" || r.status === "sent" || r.status === "running");
+      tb.appendChild(el("div", { class: "row" }, [
+        el("button", { class: "btn", type: "button", disabled: busy, text: "Check inbox now", on: { click: function () { ask("sync"); } } }),
+        el("button", { class: "btn", type: "button", disabled: busy, text: "Check fares", on: { click: function () { ask("fares"); } } })
+      ]));
+      if (r) tb.appendChild(el("div", { class: "status" + (r.status === "failed" ? " err" : ""), role: "status", text: (REQ[r.status] || r.status) + (r.message ? " " + r.message : "") }));
+    }
+    tb.hidden = !tb.childNodes.length;
+    var main = document.getElementById("main");
+    if (!idx) {
+      if (S.source === "nodb") { main.textContent = ""; main.appendChild(el("div", { class: "empty" }, [el("h2", { text: "Sign in to see your trips" }), el("p", { text: "This page is private to its owner." })])); }
+      return;
+    }
+    main.textContent = "";
+    var upcoming = trips.filter(function (t) { return t.status === "upcoming" || t.status === "ongoing"; }).sort(function (a, b) { return a.startDate < b.startDate ? -1 : 1; });
+    var other = trips.filter(function (t) { return t.status === "past" || t.status === "cancelled" || t.status === "sample"; }).sort(function (a, b) { return a.startDate > b.startDate ? -1 : 1; });
+    if (!upcoming.length) main.appendChild(el("div", { class: "empty" }, [el("h2", { text: "No upcoming trips" }), el("p", { text: "When Wayfare finds a new booking in your inbox, the trip appears here with its own page." })]));
+    upcoming.forEach(function (t) { main.appendChild(tripCard(t)); });
+    if (other.length) {
+      var list = el("div", { class: "list" });
+      other.forEach(function (t) {
+        var u = safeUrl(t.url);
+        var row = [el("b", { text: t.pageTitle || t.title }), el("span", { text: t.status === "cancelled" ? "Cancelled" : t.status === "sample" ? "Sample, no longer updated" : t.dates })];
+        list.appendChild(u ? el("a", { href: u, target: "_blank", rel: "noopener" }, row) : el("div", null, row));
+      });
+      main.appendChild(el("section", { class: "stack", style: "gap:8px" }, [el("h2", { text: "Earlier and cancelled" }), list]));
+    }
+  }
+
+  var staticNode = document.getElementById("wayfare-static");
+  if (staticNode) { try { S.index = JSON.parse(staticNode.textContent).index; } catch (e) {} S.source = "static"; render(); return; }
+  if (!window.claude || typeof window.claude.use !== "function") { S.source = "nodb"; render(); return; }
+  window.claude.use("db").then(function (db) {
+    if (!db) { S.source = "nodb"; render(); return; }
+    S.db = db; S.source = "db";
+    db.doc("index/trips").onSnapshot(function (d) { S.index = d.exists ? d.data() : null; render(); }, function () { render(); });
+    db.doc("private/agent").onSnapshot(function (d) { S.agent = d.exists ? d.data() : null; render(); }, function () {});
+    db.collection("requests").onSnapshot(function (s) { var m = {}; s.docs.forEach(function (d) { if (d.exists) m[d.id] = d.data(); }); S.requests = m; render(); }, function () {});
+  }).catch(function () { render(); });
+  window.claude.use("mcp").then(function (mcp) { S.mcp = mcp; render(); }).catch(function () {});
+  render();
+})();
+</script>
