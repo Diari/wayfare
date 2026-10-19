@@ -242,9 +242,6 @@ class Build(unittest.TestCase):
             self.assertIn({"path": "private", "read": "owner", "write": "owner"}, caps["db"]["rules"])
 
 
-if __name__ == "__main__":
-    unittest.main()
-
 
 class SearchErrors(unittest.TestCase):
     def test_error_is_kept_and_shown(self):
@@ -270,3 +267,12 @@ class SearchErrors(unittest.TestCase):
         page = P.plan_page(PLAN, out, DAY2)
         self.assertIn("does not allow", page["error"])
         self.assertIsNone(P.plan_page(PLAN, rec, DAY2)["error"])
+
+    def test_first_check_fails(self):
+        rec = {"planId": PLAN["id"], "history": {}, "lastError": "blocked", "lastErrorAt": DAY1.isoformat()}
+        page = P.plan_page(PLAN, rec, DAY1)
+        self.assertEqual((page["error"], page["total"], page["alerts"]), ("blocked", None, []))
+
+
+if __name__ == "__main__":
+    unittest.main()

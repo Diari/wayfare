@@ -507,7 +507,7 @@ def plan_alerts(p: dict, rec: dict | None) -> list[dict]:
     for leg, L in fl.items():
         if leg not in labels or not L or booked(p, leg):
             continue
-        r = rec["legs"].get(leg)
+        r = (rec.get("legs") or {}).get(leg)
         if r is None:
             continue
         route = f"{'/'.join(L['from'])} → {'/'.join(L['to'])}"
