@@ -36,7 +36,7 @@ from datetime import date, datetime, timedelta, timezone
 from pathlib import Path
 from typing import Any
 
-ENGINE_VERSION = "0.10.0"
+ENGINE_VERSION = "0.11.0"
 TRANSPORT = {"flight", "train", "transfer"}
 TYPES = TRANSPORT | {"hotel", "dining", "other"}
 STATUSES = {"confirmed", "changed", "cancelled"}
@@ -1482,6 +1482,9 @@ def site_bundle(result: dict, sites_dir: Path, guides_dir: Path | None, urls: di
             e["url"] = None
         index.append(e)
     home = {"kind": "home", "index": {"trips": index, "updatedAt": result["updatedAt"], "engineVersion": ENGINE_VERSION}}
+    plans_index = sites_dir / "plans-index.json"   # written by planner.py site-bundle
+    if plans_index.exists():
+        home["plans"] = json.loads(plans_index.read_text(encoding="utf-8"))
     d = sites_dir / "home"
     changed = write_site(d, template_dir, site_page(home_tpl, "Wayfare Home", shim), home)
     plan["home"] = {"slug": "home", "dir": str(d), "title": "Wayfare Home", "new": not urls.get("home"),

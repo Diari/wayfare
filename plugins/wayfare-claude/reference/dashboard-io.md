@@ -145,11 +145,70 @@ cloud environment's proxy adds to requests for that service's host.
 
 | What | Service | How the key gets to the run |
 |------|---------|-----------------------------|
-| Live fares and stay prices | SearchApi, Google Flights and Google Hotels engines (`www.searchapi.io`) | An **API credential** on the cloud environment for `www.searchapi.io` (Bearer). The agent proxy adds it to each request; the key never reaches Claude or the scripts. |
+| Live fares, stay prices and plan prices | SearchApi, Google Flights and Google Hotels engines (`www.searchapi.io`) | An **API credential** on the cloud environment for `www.searchapi.io` (Bearer). The agent proxy adds it to each request; the key never reaches Claude or the scripts. |
 | Fares with Duffel (optional) | Duffel (`api.duffel.com`) | An API credential for `api.duffel.com` (Bearer). |
 | Flight status | Public flight page (Flightradar24) | No key. The check skill reads the page with the web fetch tool. (Aviationstack takes its key in the URL, so the Claude version does not use it.) |
 | Weather | Open-Meteo (free, no key) | Allow `api.open-meteo.com`, `geocoding-api.open-meteo.com` and `archive-api.open-meteo.com` (Network access: Custom). |
 
+
+## K. Plans (trips not booked yet)
+
+Plans live on Wayfare Home: `private`/`plans` (`{plans: [...]}`, the plan
+objects), `private`/`planprices` (`{results: {<planId>: record}}`, the
+last search and price history) and `index`/`plans` (the cards on Home).
+Each plan has its own plan page; its url is in `index/plans`.
+
+1. **Read.** With section B, on Home (`out_dir: wayfare-work/db/home`):
+   `get` `private`/`plans`, `private`/`planprices`, `index`/`plans`. Write the
+   `plans` array as `{"plans": [...]}` to `wayfare-work/plans.json` (an empty
+   list if there is none). For each plan in `index/plans` with a `url`, `get`
+   `plan`/`data` and `private`/`data` on that page and add the versions to
+   `wayfare-work/versions.json` under `"plans": {"<id>": {"plan/data": 2}}`.
+   Add Home's `index/plans`, `private/plans` and `private/planprices`
+   versions under `"home"`.
+2. **Booked parts** (when `wayfare-work/bookings.json` is up to date):
+
+   ```bash
+   python3 "$P/scripts/planner.py" reconcile --plans wayfare-work/plans.json --bookings wayfare-work/bookings.json
+   ```
+
+   It marks a leg or the stay as booked when a matching booking exists, so
+   the search stops for that part; a plan with every part booked becomes
+   `booked`.
+3. **Search** (needs SearchApi, section J):
+
+   ```bash
+   python3 "$P/scripts/planner.py" search --plans wayfare-work/plans.json \
+     --previous wayfare-work/db/home/private/planprices.json \
+     --out wayfare-work/planprices.json --max-searches 12
+   ```
+
+   Add `--plan <id> --every-hours 0` to check one plan now. Without these,
+   a plan is checked when due (every 3 days while the trip is more than 60
+   days away, otherwise every day). On an error the report says why; keep
+   the old prices (copy `wayfare-work/db/home/private/planprices.json` to
+   `wayfare-work/planprices.json`) and go on.
+4. **Build:**
+
+   ```bash
+   python3 "$P/scripts/planner.py" build --plans wayfare-work/plans.json \
+     --prices wayfare-work/planprices.json \
+     --index wayfare-work/db/home/index/plans.json \
+     --agent wayfare-work/db/home/private/agent.json \
+     --urls wayfare-work/plan-urls.json --versions wayfare-work/versions.json \
+     --out-dir wayfare-work/plans-out
+   ```
+
+5. **New plan pages** (`newPlans` in the output; only when the user is in
+   the chat, never in a scheduled run): `Artifact` publish `file_path` = the
+   entry's `page`, `icon: "map"`, `description: "<title>: flights and stays
+   Wayfare is watching."`, `capabilities` = the JSON in
+   `wayfare-work/plans-out/capabilities-plan.json`, exactly. Save the urls in
+   `wayfare-work/plan-urls.json` as `{"<id>": "<url>"}` and run step 4 again.
+6. **Write.** For each entry in `plans` that has a `url`: `ArtifactData`
+   `batch` on that url with the entry's `batch` file. Then `batch` on Wayfare
+   Home with `wayfare-work/plans-out/home-plans/batch.json`. On a version
+   conflict, read again (step 1), rebuild and write once more.
 
 ## Static fallback (no artifact tools)
 

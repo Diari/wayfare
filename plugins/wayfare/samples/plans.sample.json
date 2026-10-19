@@ -1,0 +1,25 @@
+{"plans": [
+ {
+  "id": "teulada-wedding-2027-06",
+  "title": "Wedding in Teulada",
+  "purpose": "wedding",
+  "status": "watching",
+  "destination": {"city": "Teulada", "country": "Spain", "event": "Wedding"},
+  "travellers": {"adults": 2, "childrenAges": [5, 3]},
+  "currency": "EUR",
+  "flights": {
+   "cabin": "economy", "maxStops": 0, "bags": "checked",
+   "out":  {"from": ["AMS"], "to": ["ALC"], "date": "2027-06-10", "departAfter": "06:00", "departBefore": "12:00"},
+   "back": {"from": ["ALC"], "to": ["AMS"], "date": "2027-06-13", "arriveBefore": "18:00"}
+  },
+  "stay": {
+   "checkIn": "2027-06-10", "checkOut": "2027-06-13",
+   "near": "Pueblo Mascarat, Altea", "city": "Altea",
+   "minStars": 4, "maxDistanceKm": 20, "freeCancellation": true, "rooms": 1,
+   "preferred": ["Pueblo Mascarat"]
+  },
+  "notes": ["The couple recommends Pueblo Mascarat.", "Teulada is about 25 minutes by car from Altea."],
+  "alerts": {"minDropAmount": 20, "minDropPercent": 5},
+  "sample": true
+ }
+]}

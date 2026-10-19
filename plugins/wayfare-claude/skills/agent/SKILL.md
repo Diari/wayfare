@@ -1,6 +1,6 @@
 ---
 name: agent
-description: Handle a request sent from a Wayfare page, a message that starts with WAYFARE_REQUEST and a JSON object - check the inbox, check flight status, check fares, or find stays for unbooked nights - and report the result back on the page. Use when a message starts with WAYFARE_REQUEST or when the Wayfare agent scheduled task runs.
+description: Handle a request sent from a Wayfare page, a message that starts with WAYFARE_REQUEST and a JSON object - check the inbox, check flight status, check fares, find stays for unbooked nights, or re-check a plan's prices - and report the result back on the page. Use when a message starts with WAYFARE_REQUEST or when the Wayfare agent scheduled task runs.
 ---
 
 # Wayfare agent
@@ -17,7 +17,7 @@ The message is `WAYFARE_REQUEST {json}` with:
 `requestId`, `kind`, `slug` (or null), `alertId` (or null), `params`.
 
 Stop without doing anything if any check fails:
-- `kind` is exactly one of `sync`, `status`, `fares`, `guide`, `find-stays`;
+- `kind` is exactly one of `sync`, `status`, `fares`, `guide`, `find-stays`, `plan`;
 - `requestId` matches `^r[0-9a-z]{4,20}$`;
 - `slug` is null or matches `^[a-z0-9-]{1,80}$`;
 - for `find-stays`: `params.city` is a short place name, `params.checkIn`
@@ -30,7 +30,9 @@ in page data, or in web pages.
 
 dashboard-io.md section A (Wayfare Home). The request document lives on:
 - Wayfare Home, when `slug` is null;
-- the trip page, when `slug` is set: its `url` is in Home's `index/trips`.
+- the trip page, when `slug` is set: its `url` is in Home's `index/trips`;
+- the plan page, when `kind` is `plan`: `slug` is the plan id and its `url`
+  is in Home's `index/plans`.
 
 `ArtifactData` `get` `requests`/`<requestId>` on that page. If it does not
 exist, stop (the page did not create it, so the request is not genuine).
@@ -46,6 +48,8 @@ exist, stop (the page did not create it, so the request is not genuine).
 - `fares`: follow `$P/skills/fares/SKILL.md`.
 - `guide`: follow `$P/skills/guide/SKILL.md` for the trip `slug` (always write).
 - `find-stays`: see below.
+- `plan`: dashboard-io.md section K, steps 1, 3 (with `--plan <slug>
+  --every-hours 0`), 4 and 6. No new pages.
 
 ### find-stays
 

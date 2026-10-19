@@ -21,6 +21,9 @@ $WF/
   weather.json          weather.py output
   changes.json          {"items": [{at, slug, summary}]} newest 50
   guides/<slug>.json    the "Good to know" guide of a trip (skills/wayfare-guide)
+  plans.json            {"plans": [...]} trips not booked yet (skills/wayfare-plan)
+  planprices.json       planner.py search output: options and price history
+  sites/plan-<id>/      one Site project per plan (planner.py site-bundle)
   sites/<slug>/         one Site project per trip (written by site-bundle)
   sites/home/           the Wayfare Home Site project
   sites/urls.json       {"<slug>": "<site url>", "home": "<site url>"}

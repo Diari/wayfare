@@ -1,6 +1,6 @@
 ---
 name: check
-description: The Wayfare background check. Daily mode reads Gmail for new bookings and changes, gets live flight status and fares, updates every trip page, plans travel-day watches and tells trip chats about real changes. Watch mode checks one flight close to departure. Use when the "Wayfare daily check" or a "Wayfare watch" scheduled task runs, or when the user runs /wayfare:check.
+description: The Wayfare background check. Daily mode reads Gmail for new bookings and changes, gets live flight status and fares, re-checks the prices of planned (not yet booked) trips, updates every trip and plan page, plans travel-day watches and tells trip chats about real changes. Watch mode checks one flight close to departure. Use when the "Wayfare daily check" or a "Wayfare watch" scheduled task runs, or when the user runs /wayfare:check.
 ---
 
 # Wayfare check
@@ -82,6 +82,17 @@ On success save `{"results": <fares.json>, "checkedAt": "<now>"}` to Home
 `private`/`fares` and to `wayfare-work/db/home/private/fares.json`. On an
 error, keep the old fares and note the error for the report.
 
+## 4c. Plans: the price scanner (daily mode)
+
+If Home has plans (dashboard-io.md K.1), do K steps 2, 3, 4 and 6 (no new
+pages in a scheduled run). This needs SearchApi; on an error keep the old
+prices and note it for the report. A change for section I and step 6 is: a
+new price-drop alert on a plan page (`plan_flight_drop`, `plan_stay_drop`,
+`plan_pref_drop`), a plan with no matching flight or stay any more
+(`plan_no_flights`, `plan_no_stays`), or a plan part that became booked.
+Use the plan id as the `slug`, for example "Wedding in Teulada: the
+outbound flight is now EUR 540 for all 4 (was EUR 620)."
+
 ## 4b. Weather
 
 ```bash
@@ -148,5 +159,5 @@ For each flight that leaves in the next 72 hours and is not cancelled:
 ## 8. Report
 
 dashboard-io.md section G, plus: flights checked live (source), fares
-checked, watches planned, and any error a key or setting can fix (for
+checked, plans checked (and SearchApi searches used), watches planned, and any error a key or setting can fix (for
 example "Allow the Open-Meteo hosts to get the weather").

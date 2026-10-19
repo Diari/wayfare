@@ -68,7 +68,7 @@ Answer about this trip with the page data (`trip`/`data`, owner-only
   data-model.md with `"source": "manual"` and an id that starts with
   `manual-`. Confirm the facts in one line, then do sync steps 5 and 6
   (merge with `--new`, build, write). The page updates.
-- **Change or remove a manual plan**: same flow; a removed plan gets
+- **Change or remove a manual item**: same flow; a removed item gets
   `"status": "cancelled"`. Never change bookings that came from email; tell
   the user to change those with the provider.
 - **Find something** (stays, a restaurant near the hotel, how to get from

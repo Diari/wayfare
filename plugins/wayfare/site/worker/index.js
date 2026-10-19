@@ -71,7 +71,11 @@ async function state(env, me) {
   if (DATA.kind === "home") {
     // Wayfare Home lists every trip: owner only.
     if (!me.isOwner) return { ...out, index: null, denied: true };
-    return { ...out, index: DATA.index, agent: null };
+    return { ...out, index: DATA.index, plans: DATA.plans || null, agent: null };
+  }
+  if (DATA.kind === "plan") {
+    // A trip not booked yet: wishes, options and prices. No booking codes.
+    return { ...out, plan: DATA.plan };
   }
   out.trip = DATA.trip;
   out.guide = DATA.guide || null;

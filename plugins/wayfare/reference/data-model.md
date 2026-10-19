@@ -25,6 +25,9 @@ Home page database (rules: everything owner-only):
 | `private/weather`  | `{days: [{city, date, hi, lo, code, rain, kind}], places, checkedAt}` from `scripts/weather.py`; `kind` is `forecast` (next 16 days) or `lastYear` |
 | `private/changes`  | `{items: [{at, slug, summary}]}`: changes found by background checks, newest 50 |
 | `requests/<id>`    | Sync / fare requests started from this page |
+| `private/plans`    | `{plans: [...]}`: trips not booked yet (see "Plan object") |
+| `private/planprices` | `{results: {<planId>: record}}`: the last plan search and its price history |
+| `index/plans`      | `{plans: [{id, title, dates, startDate, status, url, currency, total, totalLowest, checkedAt, alerts, travellers, trend}]}`: plan cards on Home |
 
 Trip page database:
 
@@ -164,11 +167,62 @@ least `stayDropMinimum`. The alert tells the user to check the room, book
 the new rate first, and then cancel the old booking. Wayfare never books or
 cancels.
 
-## Manual plans
+## Manual items (added in a trip chat)
 
-Plans added in a trip chat use the same booking objects with
+Items (dinners, tours, plans) added in a trip chat use the same booking objects with
 `"source": "manual"` and an id that starts with `manual-`. Only these may be
 changed or removed from a chat.
+
+## Plan object
+
+A trip that is not booked yet. Made with `/wayfare:plan`; checked by
+`scripts/planner.py`. `planner.py validate` checks it.
+
+```json
+{"id": "teulada-2027-06", "title": "Wedding in Teulada", "purpose": "wedding",
+ "status": "watching | paused | booked | ended",
+ "destination": {"city": "Teulada", "country": "Spain", "event": "Wedding"},
+ "travellers": {"adults": 2, "childrenAges": [5, 3]},
+ "currency": "EUR",
+ "flights": {"cabin": "economy | premium_economy | business | first", "maxStops": 0, "bags": "checked",
+   "out":  {"from": ["AMS"], "to": ["ALC"], "date": "2027-06-10", "departAfter": "06:00", "departBefore": "12:00"},
+   "back": {"from": ["ALC"], "to": ["AMS"], "date": "2027-06-13", "arriveBefore": "18:00"}},
+ "stay": {"checkIn": "2027-06-10", "checkOut": "2027-06-13", "near": "Pueblo Mascarat, Altea", "city": "Altea",
+   "nearLat": null, "nearLon": null, "minStars": 4, "maxDistanceKm": 20, "minRating": null,
+   "freeCancellation": true, "rooms": 1, "kind": "hotel | apartment | villa", "preferred": ["Pueblo Mascarat"]},
+ "notes": ["The couple recommends Pueblo Mascarat."],
+ "alerts": {"minDropAmount": 20, "minDropPercent": 5},
+ "booked": {"out": "<bookingId>", "back": null, "stay": null}}
+```
+
+- A plan needs `flights`, `stay`, or both. Each leg is optional. Leg times
+  are local wall-clock times: `departAfter`/`departBefore` limit the
+  departure, `arriveAfter`/`arriveBefore` the arrival (an arrival on the
+  next day never meets `arriveBefore`). `airlines` (IATA codes) limits the
+  airlines. `maxStops` null allows any.
+- Flight prices are for all travellers: under 2 on a lap, 2 to 11 as
+  children, 12 and over as adults. Stay prices are for all nights and all
+  guests (one room in Google Hotels).
+- `preferred` stays are always shown, even when they miss the stars or
+  distance. Up to 2 are searched by name when the area search does not find
+  them.
+- `booked` is set by `planner.py reconcile` from real bookings; those parts
+  are no longer searched.
+
+Price record (`private/planprices` → `results.<planId>`): `checkedAt`,
+`legs.out|back` = `{options, stats, cheapest}`, `stay` = `{options, stats,
+cheapest, nights}`, `total`, and `history` = `{"out": [["2026-10-19", 620],
+...], "back": [...], "stay": [...], "pref:<name>": [...], "total": [...]}`
+(one point a day, newest 90).
+
+Plan page database: `plan/data` (everyone the owner shares with reads it:
+the wishes, options, prices and alerts; no personal data beyond the
+travellers line), `private/data` (owner: `{agent: {triggerId}}`),
+`requests/<id>` (owner). Alerts: `plan_flight_drop`, `plan_stay_drop`,
+`plan_pref_drop` (info: the cheapest matching price fell by at least
+`minDropAmount` and `minDropPercent` since the last check on an earlier
+day), `plan_no_flights` and `plan_no_stays` (medium: nothing matches the
+wishes).
 
 ## Status record
 

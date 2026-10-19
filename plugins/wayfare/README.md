@@ -13,7 +13,8 @@ pays.
 ## Skills
 
 `$wayfare-setup`, `$wayfare-sync`, `$wayfare-check`, `$wayfare-guide`,
-`$wayfare-trip`. Start with "Set up Wayfare for my trips".
+`$wayfare-trip`, `$wayfare-plan` (a trip you have not booked yet: Wayfare
+finds matching flights and stays and watches the prices). Start with "Set up Wayfare for my trips".
 
 ## Tools (MCP server)
 

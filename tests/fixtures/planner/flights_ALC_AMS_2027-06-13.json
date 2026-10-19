@@ -1,0 +1,66 @@
+{
+ "best_flights": [
+  {
+   "flights": [
+    {
+     "departure_airport": {
+      "id": "ALC",
+      "date": "2027-06-13",
+      "time": "10:15"
+     },
+     "arrival_airport": {
+      "id": "AMS",
+      "date": "2027-06-13",
+      "time": "13:00"
+     },
+     "airline": "Transavia",
+     "flight_number": "HV 5132"
+    }
+   ],
+   "total_duration": 165,
+   "price": 590
+  },
+  {
+   "flights": [
+    {
+     "departure_airport": {
+      "id": "ALC",
+      "date": "2027-06-13",
+      "time": "12:55"
+     },
+     "arrival_airport": {
+      "id": "AMS",
+      "date": "2027-06-13",
+      "time": "15:40"
+     },
+     "airline": "KLM",
+     "flight_number": "KL 1544"
+    }
+   ],
+   "total_duration": 165,
+   "price": 700
+  }
+ ],
+ "other_flights": [
+  {
+   "flights": [
+    {
+     "departure_airport": {
+      "id": "ALC",
+      "date": "2027-06-13",
+      "time": "19:10"
+     },
+     "arrival_airport": {
+      "id": "AMS",
+      "date": "2027-06-13",
+      "time": "21:55"
+     },
+     "airline": "Vueling",
+     "flight_number": "VY 8353"
+    }
+   ],
+   "total_duration": 165,
+   "price": 450
+  }
+ ]
+}

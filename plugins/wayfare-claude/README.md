@@ -7,7 +7,10 @@ the trip day by day, with the weather, and flags what needs a check: nights
 with no stay booked, tight connections, schedule changes and what they break,
 live flight delays, double bookings, and lower prices for flights and
 refundable stays. A "Good to know" tab has a packing list for the trip, local
-facts and how to get around. Wayfare never books, changes, cancels or pays.
+facts and how to get around. For trips you have not booked yet, describe the
+trip in your own words: Wayfare asks only what is missing, finds the flights
+and stays that match, and watches the prices for you. Wayfare never books,
+changes, cancels or pays.
 
 ## Install
 
@@ -30,6 +33,7 @@ In the Claude app, find **Wayfare** in the plugin directory, or add
 | `/wayfare:trip <city>` | Makes the current chat the chat for one trip. |
 | `/wayfare:guide` | Writes or refreshes a trip's "Good to know" tab. |
 | `/wayfare:fares` | Looks for lower prices on booked flights and refundable stays. |
+| `/wayfare:plan` | Plans a trip you have not booked yet: finds matching flights and stays, makes a plan page, and watches the prices. |
 | `/wayfare:agent` | Used by the background task to answer page buttons. |
 
 ## Requirements
@@ -63,9 +67,9 @@ So that you can see everything it runs, sends or fetches:
     `archive-api.open-meteo.com`): city names and dates, for weather.
   - Flightradar24 (`www.flightradar24.com`): public flight pages, read
     with web fetch, for live flight status.
-  - SearchApi (`www.searchapi.io`): airports, dates, cabin and travellers
-    (Google Flights), and hotel name, city, dates and guests (Google Hotels),
-    for price checks.
+  - SearchApi (`www.searchapi.io`): airports, dates, cabin and number of
+    travellers (Google Flights), and hotel name or place, dates, guests and
+    children's ages (Google Hotels), for price checks and plans.
   - Duffel (`api.duffel.com`): only if you choose it for fare checks.
   - Web search: city names and travel questions, for guides and stay ideas.
 
@@ -73,7 +77,7 @@ So that you can see everything it runs, sends or fetches:
 
 ## Keys
 
-Price checks need your own SearchApi key (or Duffel key). Add it as an **API
+Price checks and plans need your own SearchApi key (or Duffel key). Add it as an **API
 credential** on your Claude cloud environment, for `www.searchapi.io` (or
 `api.duffel.com`). The cloud environment's proxy adds the key to requests for
 that host, so the key never reaches Claude or Wayfare's scripts. Wayfare

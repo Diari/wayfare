@@ -1,0 +1,100 @@
+{
+ "best_flights": [
+  {
+   "flights": [
+    {
+     "departure_airport": {
+      "id": "AMS",
+      "date": "2027-06-10",
+      "time": "06:45"
+     },
+     "arrival_airport": {
+      "id": "ALC",
+      "date": "2027-06-10",
+      "time": "09:30"
+     },
+     "airline": "Transavia",
+     "flight_number": "HV 5131"
+    }
+   ],
+   "total_duration": 165,
+   "price": 620
+  },
+  {
+   "flights": [
+    {
+     "departure_airport": {
+      "id": "AMS",
+      "date": "2027-06-10",
+      "time": "09:25"
+     },
+     "arrival_airport": {
+      "id": "ALC",
+      "date": "2027-06-10",
+      "time": "12:10"
+     },
+     "airline": "KLM",
+     "flight_number": "KL 1543"
+    }
+   ],
+   "total_duration": 165,
+   "price": 780
+  }
+ ],
+ "other_flights": [
+  {
+   "flights": [
+    {
+     "departure_airport": {
+      "id": "AMS",
+      "date": "2027-06-10",
+      "time": "14:05"
+     },
+     "arrival_airport": {
+      "id": "ALC",
+      "date": "2027-06-10",
+      "time": "16:50"
+     },
+     "airline": "Vueling",
+     "flight_number": "VY 8352"
+    }
+   ],
+   "total_duration": 165,
+   "price": 540
+  },
+  {
+   "flights": [
+    {
+     "departure_airport": {
+      "id": "AMS",
+      "date": "2027-06-10",
+      "time": "07:00"
+     },
+     "arrival_airport": {
+      "id": "MAD",
+      "date": "2027-06-10",
+      "time": "09:30"
+     },
+     "airline": "Iberia",
+     "flight_number": "IB 3701"
+    },
+    {
+     "departure_airport": {
+      "id": "MAD",
+      "date": "2027-06-10",
+      "time": "11:00"
+     },
+     "arrival_airport": {
+      "id": "ALC",
+      "date": "2027-06-10",
+      "time": "12:05"
+     },
+     "airline": "Iberia",
+     "flight_number": "IB 3842"
+    }
+   ],
+   "total_duration": 305,
+   "price": 500
+  }
+ ]
+}

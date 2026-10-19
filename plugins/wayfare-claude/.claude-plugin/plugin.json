@@ -1,8 +1,8 @@
 {
   "name": "wayfare",
   "displayName": "Wayfare",
-  "version": "0.10.0",
-  "description": "Open-source personal travel agent. Reads travel confirmations from your Gmail and gives each trip its own shareable page: day by day with weather, alerts (unbooked nights, tight connections, schedule changes, live delays and gates, double bookings, fare drops), a Good to know tab (what to pack, local tips, getting around), background checks and one chat per trip. Never books or pays.",
+  "version": "0.11.0",
+  "description": "Open-source personal travel agent. Reads travel confirmations from your Gmail and gives each trip its own shareable page: day by day with weather, alerts (unbooked nights, tight connections, schedule changes, live delays and gates, double bookings, fare drops), a Good to know tab (what to pack, local tips, getting around), background checks and one chat per trip. Plans trips you have not booked yet and alerts when flight and hotel prices drop. Never books or pays.",
   "author": {
     "name": "Wayfare contributors",
     "url": "https://github.com/Diari/wayfare"

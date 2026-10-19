@@ -1,0 +1,325 @@
+<title>Wayfare plan</title>
+<meta name="claude:viewport-fit-sides" content="cover">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Figtree:wght@400;500;600;700;800&display=swap">
+<style>
+/* A trip you have not booked yet: the price to beat at the top, then the best matching
+   flights for each leg and the best matching stays. Wayfare re-checks prices and flags drops. */
+:root {
+  --bg: #f4f5f7; --surface: #ffffff; --ink: #1c2330; --muted: #687385; --line: #e2e5ea;
+  --flight: #1f6fd1; --stay: #6b4bc4; --good: #1e8a5a; --gap: #b7791f; --urgent: #c8322b;
+  --font: "Figtree", system-ui, -apple-system, "Segoe UI", Roboto, sans-serif;
+}
+@media (prefers-color-scheme: dark) {
+  :root:not([data-theme="light"]) {
+    --bg: #12161c; --surface: #1b212a; --ink: #e8ecf1; --muted: #9aa5b4; --line: #2a323d;
+    --flight: #6aa8f5; --stay: #a88bf0; --good: #4cc18a; --gap: #e3b04b; --urgent: #f2766c; color-scheme: dark;
+  }
+}
+:root[data-theme="dark"] {
+  --bg: #12161c; --surface: #1b212a; --ink: #e8ecf1; --muted: #9aa5b4; --line: #2a323d;
+  --flight: #6aa8f5; --stay: #a88bf0; --good: #4cc18a; --gap: #e3b04b; --urgent: #f2766c; color-scheme: dark;
+}
+* { box-sizing: border-box; }
+body {
+  background: var(--bg); color: var(--ink); font: 400 15px/1.5 var(--font); font-variant-numeric: tabular-nums;
+  padding-left: max(16px, env(safe-area-inset-left, 0px)); padding-right: max(16px, env(safe-area-inset-right, 0px));
+  padding-block: 20px 56px;
+}
+h1, h2, h3, p { margin: 0; }
+a { color: inherit; }
+.page { max-width: 720px; margin: 0 auto; display: grid; gap: 20px; }
+.stack { display: grid; gap: 12px; min-width: 0; }
+.row { display: flex; gap: 8px; flex-wrap: wrap; align-items: center; }
+.muted { color: var(--muted); }
+h1 { font-size: clamp(30px, 8vw, 44px); font-weight: 800; letter-spacing: -.03em; line-height: 1.02; overflow-wrap: anywhere; }
+h2 { font-size: 18px; font-weight: 800; }
+.pill { font-weight: 700; font-size: 13px; border: 1px solid var(--line); border-radius: 999px; padding: 3px 10px; white-space: nowrap; }
+.pill.watch { color: var(--good); border-color: var(--good); }
+.meta { display: flex; flex-wrap: wrap; gap: 4px 14px; color: var(--muted); font-size: 14px; }
+.meta b { color: var(--ink); }
+.card { background: var(--surface); border: 1px solid var(--line); border-radius: 18px; padding: 16px 18px; display: grid; gap: 12px; min-width: 0; }
+.total { display: grid; grid-template-columns: 1fr auto; gap: 6px 16px; align-items: end; }
+.big { font-size: clamp(34px, 10vw, 48px); font-weight: 800; letter-spacing: -.03em; line-height: 1; }
+.spark { width: 140px; height: 44px; color: var(--flight); }
+.spark path { fill: none; stroke: currentColor; stroke-width: 2; stroke-linecap: round; stroke-linejoin: round; }
+.spark circle { fill: currentColor; }
+.alert { border-left: 4px solid var(--good); background: color-mix(in srgb, var(--good) 8%, var(--surface)); border-radius: 10px; padding: 10px 14px; display: grid; gap: 4px; }
+.alert.medium { border-left-color: var(--gap); background: color-mix(in srgb, var(--gap) 10%, var(--surface)); }
+.alert b { font-weight: 800; }
+.head { display: flex; justify-content: space-between; align-items: baseline; gap: 10px; flex-wrap: wrap; }
+.head h2 { display: flex; gap: 8px; align-items: center; }
+svg.i { width: 18px; height: 18px; fill: currentColor; flex: none; }
+.leg h2 svg { color: var(--flight); } .stays h2 svg { color: var(--stay); }
+.chips { display: flex; flex-wrap: wrap; gap: 6px; }
+.chip { font-size: 13px; color: var(--muted); border: 1px solid var(--line); border-radius: 999px; padding: 2px 9px; }
+.opts { display: grid; border: 1px solid var(--line); border-radius: 12px; overflow: hidden; }
+.opt { display: grid; grid-template-columns: minmax(0, 1fr) auto; gap: 2px 12px; padding: 10px 12px; border-bottom: 1px solid var(--line); align-items: center; }
+.opt:last-child { border-bottom: 0; }
+.opt .t { font-weight: 700; min-width: 0; overflow-wrap: anywhere; }
+.opt .p, .opt .pp { white-space: nowrap; }
+.opt .s { color: var(--muted); font-size: 13px; overflow-wrap: anywhere; }
+.opt .p { font-weight: 800; text-align: right; }
+.opt .pp { color: var(--muted); font-size: 12px; text-align: right; }
+.opt.best { background: color-mix(in srgb, var(--good) 7%, var(--surface)); }
+.tag { font-size: 11px; font-weight: 800; text-transform: uppercase; letter-spacing: .04em; padding: 1px 6px; border-radius: 6px; margin-left: 6px; vertical-align: 1px; }
+.tag.best { color: var(--good); border: 1px solid var(--good); }
+.tag.pref { color: var(--stay); border: 1px solid var(--stay); }
+.foot-links { display: flex; flex-wrap: wrap; gap: 6px 16px; font-size: 14px; font-weight: 600; }
+.foot-links a { color: var(--flight); text-decoration: none; }
+.stays .foot-links a { color: var(--stay); }
+.empty { color: var(--muted); font-size: 14px; }
+.booked { color: var(--good); font-weight: 700; }
+.btn { font: 600 14px/1 var(--font); color: var(--ink); background: var(--surface); border: 1px solid var(--line); border-radius: 999px; padding: 9px 14px; cursor: pointer; }
+.btn[disabled] { opacity: .5; cursor: default; }
+.btn:focus-visible, a:focus-visible { outline: 2px solid var(--ink); outline-offset: 2px; }
+.status { font-size: 13px; color: var(--muted); }
+.status.err { color: var(--urgent); }
+.notes { margin: 0; padding-left: 18px; color: var(--muted); font-size: 14px; display: grid; gap: 4px; }
+.foot { color: var(--muted); font-size: 13px; border-top: 1px solid var(--line); padding-top: 16px; display: grid; gap: 6px; }
+@media (max-width: 420px) { .total { grid-template-columns: 1fr; } .spark { width: 100%; } }
+</style>
+
+<div class="page">
+  <header class="stack" style="gap:10px">
+    <div class="row" style="justify-content:space-between"><b>Wayfare · planning</b><span class="muted" id="updated"></span></div>
+    <h1 id="title">Your plan</h1>
+    <div class="meta" id="meta"></div>
+  </header>
+  <div id="toolbar" class="stack" style="gap:6px" hidden></div>
+  <main id="main" class="stack" style="gap:16px">
+    <div class="card"><p class="muted">Loading the plan…</p></div>
+  </main>
+  <footer class="foot">
+    <div>Not booked. Wayfare never books or pays. You book on the airline or hotel site.</div>
+    <div>Prices are Google Flights and Google Hotels prices at the time of the check, for all travellers together. They change often.</div>
+  </footer>
+</div>
+
+<!--WAYFARE_STATIC_DATA-->
+<script>
+(function () {
+  "use strict";
+  var S = { plan: null, priv: null, requests: {}, db: null, mcp: null, isOwner: false, source: "none" };
+  var ICON = {
+    flight: "M21 16v-2l-8-5V3.5a1.5 1.5 0 0 0-3 0V9l-8 5v2l8-2.5V19l-2 1.5V22l3.5-1 3.5 1v-1.5L13 19v-5.5z",
+    hotel: "M7 13c1.66 0 3-1.34 3-3S8.66 7 7 7s-3 1.34-3 3 1.34 3 3 3zm12-6h-8v7H3V5H1v15h2v-3h18v3h2v-9c0-2.21-1.79-4-4-4z"
+  };
+  function el(tag, attrs, kids) {
+    var n = document.createElement(tag);
+    if (attrs) Object.keys(attrs).forEach(function (k) {
+      var v = attrs[k];
+      if (v === null || v === undefined || v === false) return;
+      if (k === "text") n.textContent = v;
+      else if (k === "class") n.className = v;
+      else if (k === "on") Object.keys(v).forEach(function (ev) { n.addEventListener(ev, v[ev]); });
+      else n.setAttribute(k, v === true ? "" : v);
+    });
+    (kids || []).forEach(function (c) { if (c !== null && c !== undefined && c !== false) n.appendChild(typeof c === "string" ? document.createTextNode(c) : c); });
+    return n;
+  }
+  function icon(name) {
+    var svg = document.createElementNS("http://www.w3.org/2000/svg", "svg");
+    svg.setAttribute("viewBox", "0 0 24 24"); svg.setAttribute("aria-hidden", "true"); svg.setAttribute("class", "i");
+    var p = document.createElementNS("http://www.w3.org/2000/svg", "path"); p.setAttribute("d", ICON[name]); svg.appendChild(p); return svg;
+  }
+  function safeUrl(u) { return typeof u === "string" && /^https:\/\//.test(u) ? u : null; }
+  function link(u, text) { var s = safeUrl(u); return s ? el("a", { href: s, target: "_blank", rel: "noopener noreferrer", text: text }) : null; }
+  function nowIso() { return new Date().toISOString(); }
+  function money(v) {
+    if (typeof v !== "number") return "–";
+    try { return new Intl.NumberFormat(undefined, { style: "currency", currency: (S.plan && S.plan.currency) || "EUR", maximumFractionDigits: 0 }).format(v); }
+    catch (e) { return Math.round(v) + " " + ((S.plan && S.plan.currency) || ""); }
+  }
+  function ago(iso) {
+    if (!iso) return "Not checked yet";
+    var mins = Math.round((Date.now() - new Date(iso).getTime()) / 60000);
+    if (isNaN(mins)) return "";
+    if (mins < 2) return "Prices checked just now";
+    if (mins < 60) return "Prices checked " + mins + " min ago";
+    var h = Math.round(mins / 60);
+    return h < 48 ? "Prices checked " + h + " h ago" : "Prices checked " + Math.round(h / 24) + " days ago";
+  }
+  function dur(m) { return typeof m === "number" ? Math.floor(m / 60) + " h " + (m % 60 ? (m % 60) + " min" : "") : ""; }
+
+  function spark(hist) {
+    if (!hist || hist.length < 2) return null;
+    var vals = hist.map(function (h) { return h[1]; });
+    var lo = Math.min.apply(null, vals), hi = Math.max.apply(null, vals), W = 140, H = 44, pad = 4;
+    var x = function (i) { return pad + i * (W - 2 * pad) / (vals.length - 1); };
+    var y = function (v) { return hi === lo ? H / 2 : pad + (hi - v) * (H - 2 * pad) / (hi - lo); };
+    var svg = document.createElementNS("http://www.w3.org/2000/svg", "svg");
+    svg.setAttribute("viewBox", "0 0 " + W + " " + H); svg.setAttribute("class", "spark");
+    svg.setAttribute("role", "img"); svg.setAttribute("aria-label", "Price trend: " + vals.length + " checks, from " + money(vals[0]) + " to " + money(vals[vals.length - 1]));
+    var d = vals.map(function (v, i) { return (i ? "L" : "M") + x(i).toFixed(1) + " " + y(v).toFixed(1); }).join(" ");
+    var p = document.createElementNS("http://www.w3.org/2000/svg", "path"); p.setAttribute("d", d); svg.appendChild(p);
+    var c = document.createElementNS("http://www.w3.org/2000/svg", "circle");
+    c.setAttribute("cx", x(vals.length - 1)); c.setAttribute("cy", y(vals[vals.length - 1])); c.setAttribute("r", 3); svg.appendChild(c);
+    return svg;
+  }
+
+  // ---------- Ask Claude (owner only) ----------
+  function triggerId() { return S.priv && S.priv.agent && S.priv.agent.triggerId; }
+  function latest() { var b = null; Object.keys(S.requests).forEach(function (k) { var r = S.requests[k]; if (!b || r.createdAt > b.createdAt) b = r; }); return b; }
+  var REQ = { queued: "Sending to Claude…", sent: "Claude is checking prices. This page updates in a few minutes.", running: "Claude is checking prices…", done: "Done.", failed: "Failed." };
+  function ask() {
+    var rid = "r" + Date.now().toString(36);
+    var req = { kind: "plan", slug: S.plan.id, alertId: null, params: {}, status: "queued", createdAt: nowIso() };
+    S.requests[rid] = req; render();
+    S.db.doc("requests/" + rid).set(req).then(function () {
+      return S.mcp.callTool("Claude Code Remote", "fire_trigger", { trigger_id: triggerId(),
+        text: "WAYFARE_REQUEST " + JSON.stringify({ requestId: rid, kind: "plan", slug: S.plan.id, alertId: null, params: {} }) });
+    }).then(function () {
+      S.requests[rid] = Object.assign({}, req, { status: "sent" }); render();
+      return S.db.doc("requests/" + rid).update({ status: "sent" }).catch(function () {});
+    }).catch(function (e) {
+      var code = e && e.code;
+      var msg = code === "server_not_connected" ? "Claude Code Remote is not connected for this account."
+        : code === "approval_required" || code === "not_in_manifest" ? "This page needs your approval to start Claude tasks. Try again and choose Allow."
+        : "Could not reach Claude. Try again in a moment.";
+      S.requests[rid] = Object.assign({}, req, { status: "failed", message: msg });
+      S.db.doc("requests/" + rid).set(S.requests[rid]).catch(function () {});
+      render();
+    });
+  }
+
+  // ---------- sections ----------
+  function totalCard(p) {
+    var parts = [];
+    if (p.legs.length) parts.push("flights");
+    if (p.stay) parts.push(p.stay.nights + " nights' stay");
+    var low = typeof p.totalLowest === "number" && typeof p.total === "number" && p.totalLowest < p.total
+      ? "Lowest seen " + money(p.totalLowest) : typeof p.total === "number" ? "This is the lowest seen so far" : "";
+    return el("section", { class: "card total", "aria-label": "Estimated total" }, [
+      el("div", { class: "stack", style: "gap:4px" }, [
+        el("span", { class: "muted", text: "Cheapest matching total" }),
+        el("span", { class: "big", text: typeof p.total === "number" ? money(p.total) : "–" }),
+        el("span", { class: "muted", style: "font-size:14px", text: (parts.length ? parts.join(" + ") + " · " : "") + p.travellers }),
+        low ? el("span", { style: "font-size:14px;font-weight:600", text: low }) : null
+      ]),
+      spark(p.totalHistory)
+    ]);
+  }
+
+  function alertBox(a) {
+    return el("div", { class: "alert" + (a.level === "medium" ? " medium" : ""), role: "note" }, [
+      el("b", { text: a.title }), el("span", { text: a.detail }), link(a.link, a.kind === "plan_flight_drop" || a.kind === "plan_no_flights" ? "Open on Google Flights" : "See the stays")
+    ]);
+  }
+
+  function flightRow(o, i) {
+    var stops = o.stops === 0 ? "Direct" : o.stops + " stop" + (o.stops > 1 ? "s" : "") + (o.via && o.via.length ? " (" + o.via.join(", ") + ")" : "");
+    return el("div", { class: "opt" + (i === 0 ? " best" : "") }, [
+      el("div", { class: "t" }, [o.dep + " → " + o.arr + (o.arrNextDay ? " +1" : ""), i === 0 ? el("span", { class: "tag best", text: "Cheapest" }) : null]),
+      el("div", { class: "p", text: money(o.price) }),
+      el("div", { class: "s", text: [o.airlines.join(", "), o.flights.join(" + "), stops, dur(o.minutes)].filter(Boolean).join(" · ") }),
+      el("div", { class: "pp", text: "total" })
+    ]);
+  }
+
+  function legCard(L) {
+    var head = el("div", { class: "head" }, [
+      el("h2", null, [icon("flight"), L.title]),
+      el("span", { class: "muted", text: L.label })
+    ]);
+    var kids = [head];
+    if (L.wishes.length) kids.push(el("div", { class: "chips" }, L.wishes.map(function (w) { return el("span", { class: "chip", text: w }); })));
+    if (L.booked) { kids.push(el("p", { class: "booked", text: "Booked. Wayfare stopped searching this flight." })); return el("section", { class: "card leg" }, kids); }
+    if (L.options.length) kids.push(el("div", { class: "opts" }, L.options.map(flightRow)));
+    else kids.push(el("p", { class: "empty", text: L.stats ? "No flight matches your wishes right now." : "Not checked yet." }));
+    var stat = L.stats ? L.stats.matching + " of " + L.stats.found + " flights match your wishes" : "";
+    var low = typeof L.lowest === "number" ? "Lowest seen " + money(L.lowest) : "";
+    kids.push(el("div", { class: "row", style: "justify-content:space-between" }, [
+      el("span", { class: "muted", style: "font-size:13px", text: [stat, low].filter(Boolean).join(" · ") }),
+      el("div", { class: "foot-links" }, [link(L.link, "All flights on Google Flights")])
+    ]));
+    return el("section", { class: "card leg" }, kids);
+  }
+
+  function stayRow(o, i, cheapest) {
+    var bits = [];
+    if (o.stars) bits.push(o.stars + "★");
+    if (typeof o.rating === "number") bits.push(o.rating.toFixed(1) + (o.reviews ? " (" + o.reviews + ")" : ""));
+    if (typeof o.km === "number") bits.push(o.km + " km away");
+    if (o.freeCancel) bits.push("free cancellation");
+    if (o.type && !o.stars) bits.push(o.type);
+    var u = safeUrl(o.link);
+    var name = u ? el("a", { href: u, target: "_blank", rel: "noopener noreferrer", text: o.name }) : el("span", { text: o.name });
+    return el("div", { class: "opt" + (o.total === cheapest ? " best" : "") }, [
+      el("div", { class: "t" }, [name, o.preferred ? el("span", { class: "tag pref", text: "Recommended" }) : null, o.total === cheapest ? el("span", { class: "tag best", text: "Cheapest" }) : null]),
+      el("div", { class: "p", text: money(o.total) }),
+      el("div", { class: "s", text: bits.join(" · ") }),
+      el("div", { class: "pp", text: money(o.perNight) + " / night" })
+    ]);
+  }
+
+  function stayCard(st) {
+    var kids = [el("div", { class: "head" }, [el("h2", null, [icon("hotel"), "Stay"]), el("span", { class: "muted", text: st.label })])];
+    if (st.wishes.length) kids.push(el("div", { class: "chips" }, st.wishes.map(function (w) { return el("span", { class: "chip", text: w }); })));
+    if (st.booked) { kids.push(el("p", { class: "booked", text: "Booked. Wayfare stopped searching stays." })); return el("section", { class: "card stays" }, kids); }
+    if (st.options.length) kids.push(el("div", { class: "opts" }, st.options.map(function (o, i) { return stayRow(o, i, st.cheapest); })));
+    else kids.push(el("p", { class: "empty", text: st.stats ? "No stay matches your wishes right now." : "Not checked yet." }));
+    if (st.preferred.length && !st.options.some(function (o) { return o.preferred; }) && st.stats)
+      kids.push(el("p", { class: "empty", text: "No price found for " + st.preferred.join(", ") + " on these dates. Check its own website." }));
+    var stat = st.stats ? st.stats.matching + " of " + st.stats.found + " places match" : "";
+    var low = typeof st.lowest === "number" ? "Lowest seen " + money(st.lowest) : "";
+    kids.push(el("div", { class: "row", style: "justify-content:space-between" }, [
+      el("span", { class: "muted", style: "font-size:13px", text: [stat, low].filter(Boolean).join(" · ") }),
+      el("div", { class: "foot-links" }, [link(st.links.booking, "Booking.com"), link(st.links.google, "Google Hotels")])
+    ]));
+    return el("section", { class: "card stays" }, kids);
+  }
+
+  function render() {
+    var p = S.plan, main = document.getElementById("main");
+    var tb = document.getElementById("toolbar"); tb.textContent = "";
+    if (!p) {
+      if (S.source === "nodb" || S.source === "db") { main.textContent = ""; main.appendChild(el("div", { class: "card" }, [el("p", { class: "muted", text: S.source === "nodb" ? "Sign in to Claude to see this plan." : "This plan has no data yet." })])); }
+      tb.hidden = true; return;
+    }
+    document.title = p.title + " · plan";
+    document.getElementById("title").textContent = p.title;
+    var st = { watching: ["Watching prices", "pill watch"], paused: ["Paused", "pill"], booked: ["Booked", "pill watch"], ended: ["Ended", "pill"] }[p.status] || [p.status, "pill"];
+    var meta = document.getElementById("meta"); meta.textContent = "";
+    [el("b", { text: p.dates }), el("span", { text: p.travellers }), p.destination && p.destination.city ? el("span", { text: [p.destination.city, p.destination.country].filter(Boolean).join(", ") }) : null, el("span", { class: st[1], text: st[0] })]
+      .forEach(function (n) { if (n) meta.appendChild(n); });
+    document.getElementById("updated").textContent = ago(p.checkedAt);
+    if (S.isOwner && S.mcp && S.db && triggerId() && p.status === "watching") {
+      var r = latest(), busy = r && (r.status === "queued" || r.status === "sent" || r.status === "running");
+      tb.appendChild(el("div", { class: "row" }, [el("button", { class: "btn", type: "button", disabled: busy, text: "Check prices now", on: { click: ask } })]));
+      if (r) tb.appendChild(el("div", { class: "status" + (r.status === "failed" ? " err" : ""), role: "status", text: (REQ[r.status] || r.status) + (r.message ? " " + r.message : "") }));
+    }
+    tb.hidden = !tb.childNodes.length;
+    main.textContent = "";
+    main.appendChild(totalCard(p));
+    (p.alerts || []).forEach(function (a) { main.appendChild(alertBox(a)); });
+    (p.legs || []).forEach(function (L) { main.appendChild(legCard(L)); });
+    if (p.stay) main.appendChild(stayCard(p.stay));
+    if (p.notes && p.notes.length) main.appendChild(el("section", { class: "card" }, [el("h2", { text: "Notes" }), el("ul", { class: "notes" }, p.notes.map(function (n) { return el("li", { text: n }); }))]));
+  }
+
+  var staticNode = document.getElementById("wayfare-static");
+  if (staticNode) { try { S.plan = JSON.parse(staticNode.textContent).plan; } catch (e) {} S.source = "static"; render(); return; }
+  if (!window.claude || typeof window.claude.use !== "function") { S.source = "nodb"; render(); return; }
+  function docsToMap(snap) { var m = {}; snap.docs.forEach(function (d) { if (d.exists) m[d.id] = d.data(); }); return m; }
+  window.claude.use("db").then(function (db) {
+    if (!db) { S.source = "nodb"; render(); return; }
+    S.db = db; S.source = "db";
+    db.doc("plan/data").onSnapshot(function (d) { S.plan = d.exists ? d.data() : null; render(); }, function () { render(); });
+    return window.claude.use("user").then(function (user) {
+      if (!user) return;
+      return user.isOwner().then(function (own) {
+        S.isOwner = !!own;
+        if (S.isOwner) {
+          db.doc("private/data").onSnapshot(function (d) { S.priv = d.exists ? d.data() : null; render(); }, function () {});
+          db.collection("requests").onSnapshot(function (s) { S.requests = docsToMap(s); render(); }, function () {});
+        }
+        render();
+      });
+    });
+  }).catch(function () { render(); });
+  window.claude.use("mcp").then(function (mcp) { S.mcp = mcp; render(); }).catch(function () {});
+  render();
+})();
+</script>

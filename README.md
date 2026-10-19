@@ -13,7 +13,8 @@ Reads your booking emails · one page per trip · alerts when something breaks �
 Wayfare is an open-source personal travel agent. It is a plugin for
 **Claude** (trip pages are Claude artifacts) and for **ChatGPT and Codex**
 (trip pages are ChatGPT Sites). It runs in your own account, with your own
-Gmail. There is no Wayfare server.
+Gmail. The Claude plugin uses no Wayfare server; the ChatGPT and Codex
+plugin calls a small Wayfare MCP server that stores nothing.
 
 ## At a glance
 
@@ -24,6 +25,7 @@ Gmail. There is no Wayfare server.
 | **3. It finds what breaks** | Schedule changes and what they break, nights with no stay, tight connections, double bookings, lower fares. |
 | **4. It keeps watch** | A daily check every morning, live status 24 h and 3 h before each flight, and a phone ping only when something changed. |
 | **5. It is ready to share** | Weather per day, a pack list, local tips, a shared to-do list. Shared viewers never see booking codes or prices. |
+| **6. It plans trips you have not booked** | Describe the trip in your own words ("wedding in Teulada, 2 adults and 2 kids, fly Thursday morning, back by 6pm, 4-star hotel"). Wayfare asks only what is missing, finds the flights and stays that match, and alerts you when the prices drop. |
 
 ## Quick start (Claude)
 

@@ -16,6 +16,9 @@ nothing (see below).
   bookings, schedule changes or cancellations (flights, trains, stays,
   restaurant tables). It ignores personal mail.
 - **Your travel profile**: home airport and city, and preferences you type in.
+- **Your plans**: trips you have not booked yet, as you describe them
+  (places, dates, number of travellers and children's ages, flight times,
+  stay wishes). They are stored with your other Wayfare data.
 
 ## What Wayfare stores, and where
 
@@ -66,7 +69,7 @@ what is needed:
 | Open-Meteo (`open-meteo.com`) | city names, coordinates and trip dates | weather |
 | Aviationstack (`aviationstack.com`) | your flight number | live flight status, Codex plugin only, with your key |
 | Flightradar24 (`flightradar24.com`) | your flight number (a public page is read) | live flight status without a key |
-| SearchApi (`searchapi.io`) | airports, dates, cabin, number of travellers; hotel name, city, dates, number of guests | fare and stay price checks, only with your key |
+| SearchApi (`searchapi.io`) | airports, dates, cabin, number of travellers; hotel name or place, dates, number of guests and children's ages | fare and stay price checks, and plans (trips not booked yet), only with your key |
 | Duffel (`duffel.com`) | airports, dates, cabin, number of travellers | fare checks, only if you choose Duffel and add your key |
 | Web search | city names and travel questions | the "Good to know" tab and stay suggestions |
 | GitHub (`github.com/Diari/wayfare`) | nothing personal; the plugin code is downloaded | Claude scheduled runs, where installed plugins are not loaded |

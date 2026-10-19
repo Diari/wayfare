@@ -63,6 +63,24 @@ python3 "$P/scripts/stay_check.py" --bookings "$WF/bookings.json" \
 The second command finds a lower price with free cancellation for each
 refundable stay (Google Hotels via SearchApi).
 
+## 4c. Plans: the price scanner (daily)
+
+If `$WF/plans.json` has plans:
+
+```bash
+python3 "$P/scripts/planner.py" reconcile --plans "$WF/plans.json" --bookings "$WF/bookings.json"
+python3 "$P/scripts/planner.py" search --plans "$WF/plans.json" \
+  --previous "$WF/planprices.json" --out "$WF/planprices.json" --max-searches 12
+python3 "$P/scripts/planner.py" site-bundle --plans "$WF/plans.json" \
+  --prices "$WF/planprices.json" --sites-dir "$WF/sites" --urls "$WF/sites/urls.json"
+```
+
+Then step 5 also redeploys the plan Sites marked changed in
+`$WF/sites/plans-plan.json` (never create new Sites in a scheduled run). A
+change for step 6 is a new price-drop alert (`plan_flight_drop`,
+`plan_stay_drop`, `plan_pref_drop`), a plan with nothing matching any more,
+or a plan part that became booked; use `plan-<id>` as the slug.
+
 ## 4b. Guides (daily)
 
 For each upcoming trip, follow `../wayfare-guide/SKILL.md` section 2 to

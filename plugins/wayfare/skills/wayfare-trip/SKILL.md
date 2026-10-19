@@ -31,7 +31,7 @@ have not mentioned in this chat yet.
   one booking object per data-model.md with `"source": "manual"` and an id
   that starts with `manual-`, confirm the facts in one line, merge it
   (`wayfare.py merge --new`), build and redeploy the trip Site.
-- **Change or remove a manual plan**: same flow; a removed plan gets
+- **Change or remove a manual item**: same flow; a removed item gets
   `"status": "cancelled"`. Never change bookings from email; tell the user to
   change those with the provider.
 - **Find something** (stays, a restaurant near the hotel, the way from the

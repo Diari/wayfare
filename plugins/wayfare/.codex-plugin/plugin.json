@@ -1,6 +1,6 @@
 {
   "name": "wayfare",
-  "version": "0.10.0",
+  "version": "0.11.0",
   "description": "Travel assistant: one ChatGPT Site per trip from your Gmail bookings, with trip checks, weather, live flight status, packing lists and travel tips. Never books or pays.",
   "author": {
     "name": "Wayfare contributors",
@@ -22,7 +22,7 @@
   "interface": {
     "displayName": "Wayfare",
     "shortDescription": "Trip pages from your inbox",
-    "longDescription": "Travel assistant for your booked trips. Wayfare reads flight, train, hotel and restaurant confirmations from your Gmail and gives each trip its own ChatGPT Site: the trip day by day with the weather, alerts for nights with no stay booked, tight connections, late check-ins, schedule changes and live delays, a Good to know tab (what to pack, local tips, getting around), a shared to-do list and a calendar file. Its tools check a trip plan, get the trip weather and make a packing list. It checks every morning and on new booking emails. It never books, changes, cancels or pays.",
+    "longDescription": "Travel assistant for your booked trips. Wayfare reads flight, train, hotel and restaurant confirmations from your Gmail and gives each trip its own ChatGPT Site: the trip day by day with the weather, alerts for nights with no stay booked, tight connections, late check-ins, schedule changes and live delays, a Good to know tab (what to pack, local tips, getting around), a shared to-do list and a calendar file. For trips you have not booked yet, it finds matching flights and stays and watches the prices. Its tools check a trip plan, get the trip weather and make a packing list. It checks every morning and on new booking emails. It never books, changes, cancels or pays.",
     "developerName": "Wayfare contributors",
     "category": "Travel",
     "capabilities": [

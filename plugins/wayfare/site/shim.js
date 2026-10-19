@@ -21,6 +21,8 @@
     if (path === "private/data") return cache.private;
     if (path === "guide/data") return cache.guide;
     if (path === "index/trips") return cache.index;
+    if (path === "index/plans") return cache.plans;
+    if (path === "plan/data") return cache.plan;
     if ((m = path.match(/^actions\/(.+)$/))) return cache.actions && cache.actions[m[1]];
     if ((m = path.match(/^todos\/(.+)$/))) return (cache.todos || []).filter(function (t) { return t.id === m[1]; })[0];
     if (/^data\/users\/[^/]+\/packing$/.test(path)) return { done: cache.packing || [] };

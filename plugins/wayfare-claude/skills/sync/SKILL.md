@@ -71,6 +71,9 @@ Read `${CLAUDE_PLUGIN_ROOT}/reference/dashboard-io.md` and
    bookings were all cancelled shows a "cancelled" banner. Sample pages stop
    updating; if the build lists any with status `sample`, offer once to
    delete them (only on the user's yes).
+6b. **Plans**: if Home has plans (dashboard-io.md K.1), do K steps 2, 4 and
+   6, so a plan shows which parts are now booked. Say so in the report
+   ("Your Teulada flights are booked; Wayfare keeps watching the stay").
 
 7. **Report** (section G): new trip pages, new, changed and cancelled
    bookings; urgent open alerts first; emails checked and ignored; anything

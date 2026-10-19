@@ -1,0 +1,55 @@
+{
+ "properties": [
+  {
+   "name": "Hotel Cap Negret",
+   "property_token": "t1",
+   "extracted_hotel_class": 4,
+   "rating": 4.3,
+   "reviews": 2100,
+   "total_price": {
+    "extracted_lowest": 720
+   },
+   "price_per_night": {
+    "extracted_lowest": 240
+   },
+   "gps_coordinates": {
+    "latitude": 38.6,
+    "longitude": -0.05
+   },
+   "link": "https://capnegret.example/"
+  },
+  {
+   "name": "SH Villa Gadea",
+   "property_token": "t2",
+   "hotel_class": "5-star hotel",
+   "rating": 4.6,
+   "reviews": 3400,
+   "total_price": {
+    "extracted_lowest": 1290
+   },
+   "gps_coordinates": {
+    "latitude": 38.58,
+    "longitude": -0.06
+   }
+  },
+  {
+   "name": "Hotel Altaya",
+   "property_token": "t3",
+   "extracted_hotel_class": 3,
+   "rating": 4.1,
+   "total_price": {
+    "extracted_lowest": 450
+   }
+  },
+  {
+   "name": "Pueblo Mascarat Apartments",
+   "property_token": "t4",
+   "type": "vacation rental",
+   "rating": 4.4,
+   "total_price": {
+    "extracted_lowest": 680
+   },
+   "link": "http://insecure.example/"
+  }
+ ]
+}
