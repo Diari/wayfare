@@ -210,6 +210,20 @@ Each plan has its own plan page; its url is in `index/plans`.
    Home with `wayfare-work/plans-out/home-plans/batch.json`. On a version
    conflict, read again (step 1), rebuild and write once more.
 
+### The price scanner routine
+
+Chat scheduled tasks reach only the domains in Settings › Capabilities and
+cannot hold API keys. So plan searches run in a separate **cloud routine**
+("Wayfare price scanner", Claude Code, with the `Diari/wayfare` repository
+and a cloud environment that has the SearchApi network secret). Its id is in
+Home `private`/`agent` as `scannerTriggerId`; the plan pages' "Check prices
+now" button fires it. In that routine, `$P` is `plugins/wayfare-claude` in
+the cloned repository. It does K steps 1, 3, 4 and 6 and section I for
+price-drop alerts. When its run text holds `WAYFARE_REQUEST` with `kind`
+`plan`, it checks and validates the request as the agent skill (steps 1 and
+2) says, searches that plan with `--plan <slug> --every-hours 0`, and
+reports on the request document.
+
 ## Static fallback (no artifact tools)
 
 ```bash

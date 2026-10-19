@@ -85,7 +85,10 @@ error, keep the old fares and note the error for the report.
 ## 4c. Plans: the price scanner (daily mode)
 
 If Home has plans (dashboard-io.md K.1), do K steps 2, 3, 4 and 6 (no new
-pages in a scheduled run). This needs SearchApi; on an error keep the old
+pages in a scheduled run). If Home `private`/`agent` has a
+`scannerTriggerId`, skip step 3: the "Wayfare price scanner" routine does
+the searches (it runs in a cloud environment that holds the SearchApi key),
+and this check only rebuilds the plan pages from the stored prices. This needs SearchApi; on an error keep the old
 prices and note it for the report. A change for section I and step 6 is: a
 new price-drop alert on a plan page (`plan_flight_drop`, `plan_stay_drop`,
 `plan_pref_drop`), a plan with no matching flight or stay any more

@@ -818,8 +818,9 @@ def cmd_build(a) -> int:
             result["newPlans"].append({"id": p["id"], "page": str((pdir / "page.html").resolve()), "title": p["title"]})
         b = W.Batch(pdir / "docs", (versions.get("plans") or {}).get(p["id"], {}))
         b.add("set", "plan", "data", page)
-        if agent.get("triggerId"):
-            b.add("set", "private", "data", {"agent": {"triggerId": agent["triggerId"]}})
+        tid = agent.get("scannerTriggerId") or agent.get("triggerId")   # "Check prices now" fires this task
+        if tid:
+            b.add("set", "private", "data", {"agent": {"triggerId": tid}})
         b.save(pdir / "batch.json")
         result["plans"].append({"id": p["id"], "url": url, "batch": str((pdir / "batch.json").resolve()),
                                 "alerts": [x["title"] for x in page["alerts"]]})
