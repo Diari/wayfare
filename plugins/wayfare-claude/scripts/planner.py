@@ -436,8 +436,20 @@ def search_plan(p: dict, prev: dict | None, now: datetime, fetch=searchapi_get, 
             except (urllib.error.URLError, OSError, ValueError):
                 near = None
         nights = (date.fromisoformat(st["checkOut"]) - date.fromisoformat(st["checkIn"])).days
-        opts = parse_stays(fetch(stay_params(p)), nights, near)
+        # Google Hotels can answer nothing when the stars and free-cancellation
+        # filters are combined (seen live, October 2026). Then search again with
+        # fewer filters; the stars are also checked here, on each result.
+        relaxed: list[str] = []
+        q = stay_params(p)
+        opts = parse_stays(fetch(q), nights, near)
         used += 1
+        for drop_key, label in (("free_cancellation", "free cancellation"), ("hotel_class", "stars")):
+            if opts or drop_key not in q:
+                continue
+            q = {k: v for k, v in q.items() if k != drop_key}
+            relaxed.append(label)
+            opts = parse_stays(fetch(q), nights, near)
+            used += 1
         for pref in (st.get("preferred") or [])[:2]:
             if not any(same_hotel(o["name"], pref) for o in opts):
                 q = dict(stay_params(p), q=pref)
@@ -446,6 +458,7 @@ def search_plan(p: dict, prev: dict | None, now: datetime, fetch=searchapi_get, 
                 used += 1
         top, stats = rank_stays(opts, st)
         cheapest = min((o["total"] for o in top), default=None)
+        stats["relaxed"] = relaxed
         rec["stay"] = {"options": top, "stats": stats, "cheapest": cheapest, "nights": nights,
                        "nearFound": near is not None}
         rec["history"]["stay"] = push_history(list(rec["history"].get("stay") or []), at, cheapest)
@@ -642,6 +655,9 @@ def stay_view(p: dict, rec: dict | None) -> dict | None:
         wish.append(f"within {st['maxDistanceKm']} km")
     if st.get("freeCancellation"):
         wish.append("free cancellation")
+    s0 = (rec or {}).get("stay") or {}
+    if "free cancellation" in ((s0.get("stats") or {}).get("relaxed") or []):
+        wish.append("free cancellation: check each place (the search filter found nothing)")
     if st.get("rooms", 1) > 1:
         wish.append(f"{st['rooms']} rooms")
     if st.get("notes"):
