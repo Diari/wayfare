@@ -244,3 +244,29 @@ class Build(unittest.TestCase):
 
 if __name__ == "__main__":
     unittest.main()
+
+
+class SearchErrors(unittest.TestCase):
+    def test_error_is_kept_and_shown(self):
+        import urllib.error
+        rec, _, _ = search()
+
+        def boom(params):
+            raise urllib.error.URLError("Tunnel connection failed: 403 Forbidden")
+        orig = P.searchapi_get
+        P.searchapi_get = boom
+        try:
+            with tempfile.TemporaryDirectory() as d:
+                d = Path(d)
+                (d / "plans.json").write_text(json.dumps({"plans": [PLAN]}))
+                (d / "prev.json").write_text(json.dumps({"results": {PLAN["id"]: rec}}))
+                P.main(["search", "--plans", str(d / "plans.json"), "--previous", str(d / "prev.json"),
+                        "--out", str(d / "out.json"), "--every-hours", "0", "--now", "2026-10-22T08:00:00+00:00"])
+                out = json.loads((d / "out.json").read_text())[PLAN["id"]]
+        finally:
+            P.searchapi_get = orig
+        self.assertIn("does not allow www.searchapi.io", out["lastError"])
+        self.assertEqual(out["total"], rec["total"])                       # last good prices stay
+        page = P.plan_page(PLAN, out, DAY2)
+        self.assertIn("does not allow", page["error"])
+        self.assertIsNone(P.plan_page(PLAN, rec, DAY2)["error"])

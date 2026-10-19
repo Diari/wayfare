@@ -673,6 +673,8 @@ def plan_page(p: dict, rec: dict | None, now: datetime) -> dict:
         "alerts": plan_alerts(p, rec),
         "notes": p.get("notes") or [],
         "checkedAt": (rec or {}).get("checkedAt"),
+        "error": (rec or {}).get("lastError") if (rec or {}).get("lastErrorAt", "") > ((rec or {}).get("checkedAt") or "") else None,
+        "errorAt": (rec or {}).get("lastErrorAt"),
         "updatedAt": now.isoformat(timespec="seconds"), "engineVersion": W.ENGINE_VERSION,
     }
 
@@ -753,12 +755,21 @@ def cmd_search(a) -> int:
         try:
             rec, used = search_plan(p, prev, now, fetch, near)
         except urllib.error.HTTPError as e:
-            report["error"] = f"SearchApi returned HTTP {e.code}." + (
+            report["error"] = f"SearchApi answered HTTP {e.code}." + (
                 " " + keys.missing("searchapi", "www.searchapi.io") if e.code in (401, 403) else "")
-            break
         except (urllib.error.URLError, TimeoutError, OSError) as e:
-            report["error"] = f"Cannot reach SearchApi ({e}). " + keys.missing("searchapi", "www.searchapi.io")
+            blocked = "403" in str(e) or "Tunnel" in str(e)
+            report["error"] = ("This run's network does not allow www.searchapi.io. " if blocked else
+                               f"Cannot reach SearchApi ({e}). ") + keys.missing("searchapi", "www.searchapi.io")
+        if report["error"]:
+            # Keep the last good prices; say on the page why this check failed.
+            for q in plans:
+                if (not a.plan or q["id"] == a.plan) and q.get("status", "watching") == "watching":
+                    old = dict(prices.get(q["id"]) or {"planId": q["id"], "history": {}})
+                    old.update(lastError=report["error"], lastErrorAt=now.isoformat(timespec="seconds"))
+                    prices[q["id"]] = old
             break
+        rec.pop("lastError", None); rec.pop("lastErrorAt", None)
         prices[p["id"]] = rec
         report["searches"] += used
         report["checked"].append({"plan": p["id"], "total": rec["total"],

@@ -1,6 +1,6 @@
 {
   "name": "wayfare-site",
-  "version": "0.11.0",
+  "version": "0.11.1",
   "private": true,
   "type": "module",
   "description": "A Wayfare trip page for ChatGPT Sites (Cloudflare Worker-compatible, D1 binding DB).",

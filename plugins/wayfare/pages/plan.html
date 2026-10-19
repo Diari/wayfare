@@ -292,6 +292,7 @@ svg.i { width: 18px; height: 18px; fill: currentColor; flex: none; }
     }
     tb.hidden = !tb.childNodes.length;
     main.textContent = "";
+    if (p.error) main.appendChild(el("div", { class: "alert medium", role: "status" }, [el("b", { text: "The last price check did not work" }), el("span", { text: p.error })]));
     main.appendChild(totalCard(p));
     (p.alerts || []).forEach(function (a) { main.appendChild(alertBox(a)); });
     (p.legs || []).forEach(function (L) { main.appendChild(legCard(L)); });

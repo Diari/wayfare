@@ -1,6 +1,6 @@
 {
   "name": "wayfare",
-  "version": "0.11.0",
+  "version": "0.11.1",
   "description": "Travel assistant: one ChatGPT Site per trip from your Gmail bookings, with trip checks, weather, live flight status, packing lists and travel tips. Never books or pays.",
   "author": {
     "name": "Wayfare contributors",
