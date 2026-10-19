@@ -274,5 +274,29 @@ class SearchErrors(unittest.TestCase):
         self.assertEqual((page["error"], page["total"], page["alerts"]), ("blocked", None, []))
 
 
+class StayFallback(unittest.TestCase):
+    def test_relax_filters_when_empty(self):
+        def empty_with_filters(params, r):
+            if params["engine"] == "google_hotels" and ("free_cancellation" in params or "hotel_class" in params) \
+                    and params["q"].startswith("hotels near"):
+                r["properties"] = []
+        rec, used, calls = search(change=empty_with_filters)
+        hotel_calls = [c for c in calls if c["engine"] == "google_hotels"]
+        self.assertEqual(len(hotel_calls), 3)
+        self.assertNotIn("hotel_class", hotel_calls[-1])
+        self.assertEqual(rec["stay"]["stats"]["relaxed"], ["free cancellation", "stars"])
+        names = [o["name"] for o in rec["stay"]["options"]]
+        self.assertNotIn("Hotel Altaya", names)            # stars still checked on each result
+        page = P.plan_page(PLAN, rec, DAY1)
+        self.assertTrue(any("check each place" in w for w in page["stay"]["wishes"]))
+
+    def test_live_price_fields(self):
+        resp = {"properties": [{"name": "Hotel X", "extracted_hotel_class": 4,
+                                "total_price": {"price": "€ 735", "extracted_price": 735},
+                                "price_per_night": {"price": "€ 245", "extracted_price": 245}}]}
+        o = P.parse_stays(resp, 3, None)[0]
+        self.assertEqual((o["total"], o["perNight"]), (735.0, 245.0))
+
+
 if __name__ == "__main__":
     unittest.main()
