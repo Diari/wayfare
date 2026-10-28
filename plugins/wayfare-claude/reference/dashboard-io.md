@@ -113,12 +113,20 @@ outside APIs unless the environment allows them (dashboard-io.md J).
 Before anything else:
 
 1. If the `/wayfare:...` skills are available, use them.
-2. Otherwise read `repo` from Wayfare Home `private`/`agent` (for example
-   `owner/wayfare`) and run `git clone --depth 1 https://github.com/<repo>.git
-   wayfare-plugin`. Then `$P` is `wayfare-plugin/plugins/wayfare-claude`, and
-   you follow the skill files in `$P/skills/` directly.
-3. If neither works, stop and report "The Wayfare plugin is not available in
-   scheduled runs" in the request status or the task output.
+2. Otherwise, if the task has the Wayfare repository attached, it is already
+   cloned in the working folder: look for `plugins/wayfare-claude/skills/` in
+   the working folder. Then `$P` is that `plugins/wayfare-claude` folder, and
+   you follow the skill files in `$P/skills/` directly. Do not clone or
+   download the repository again: in auto mode, the safety check blocks
+   scripts from code that the run downloaded itself ("Code from External").
+3. Only if the working folder has no copy: read `repo` from Wayfare Home
+   `private`/`agent` (for example `owner/wayfare`) and run
+   `git clone --depth 1 https://github.com/<repo>.git wayfare-plugin`. Then
+   `$P` is `wayfare-plugin/plugins/wayfare-claude`. If the safety check then
+   blocks a script, do not try to work around it: report that the task needs
+   the Wayfare repository attached.
+4. If none of these works, stop and report "The Wayfare plugin is not
+   available in scheduled runs" in the request status or the task output.
 
 Never ask questions. Never book, pay, change or cancel anything.
 
