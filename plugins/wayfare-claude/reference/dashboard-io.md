@@ -267,7 +267,8 @@ now" button fires it. In that routine, `$P` is `plugins/wayfare-claude` in
 the cloned repository. It does K steps 1, 3, 4 and 6 and section I for
 price-drop alerts, and keeps a run record (section L, `--mode scanner`, step
 names: `state`, `planSearch`, `planPages`, `changes`). A plan that is not due
-yet makes `planSearch` `skipped`; a search error makes it `failed`. Its last
+yet makes `planSearch` `skipped`; a search error makes it `failed`. `planPages`
+is K steps 4 and 6, writing to the existing pages: `done` when they are written. Its last
 message follows the same rule as the check skill's final step. When its run text holds `WAYFARE_REQUEST` with `kind`
 `plan`, it checks and validates the request as the agent skill (steps 1 and
 2) says, searches that plan with `--plan <slug> --every-hours 0`, and

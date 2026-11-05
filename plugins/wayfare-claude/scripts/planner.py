@@ -388,7 +388,8 @@ def rank_stays(opts: list[dict], st: dict) -> tuple[list[dict], dict]:
         else:
             keep.append(o)
     pref = [o for o in keep if o["preferred"]]
-    rest = [o for o in keep if not o["preferred"]][:TOP_STAYS]
+    # A place that meets the stars comes before one where they are unknown.
+    rest = sorted((o for o in keep if not o["preferred"]), key=lambda o: o["starsUnknown"])[:TOP_STAYS]
     return pref + rest, {"found": len(seen), "matching": len(keep), "excluded": why}
 
 
@@ -473,9 +474,10 @@ def search_plan(p: dict, prev: dict | None, now: datetime, fetch=searchapi_get, 
                     o["freeCancel"] = True
             priced = {o["name"] for o in got}
             props = resp.get("properties") or []
+            unpriced = [h for h in props if h.get("name") and str(h["name"])[:120] not in priced]
             log.append({"for": why, "query": q["q"], "filters": [k for k in ("free_cancellation", "hotel_class") if k in q],
-                        "returned": len(props), "priced": len(got),
-                        "noPrice": [str(h["name"])[:60] for h in props if h.get("name") and str(h["name"])[:120] not in priced][:5]})
+                        "returned": len(props), "priced": len(got), "noPrice": [str(h["name"])[:60] for h in unpriced][:5],
+                        "noPriceFields": sorted(unpriced[0])[:30] if unpriced else []})
             return got
 
         q = stay_params(p)
@@ -499,7 +501,10 @@ def search_plan(p: dict, prev: dict | None, now: datetime, fetch=searchapi_get, 
         top, stats = rank_stays(opts, st)
         for o in top:
             o["freeCancelUnconfirmed"] = bool(st.get("freeCancellation") and not o["freeCancel"])
-        cheapest = min((o["total"] for o in top), default=None)
+        # Places with unknown stars are listed but do not set the price to beat:
+        # the plan's wishes may rule them out, so one must not look like a price drop.
+        sure = [o for o in top if o["preferred"] or not o["starsUnknown"]]
+        cheapest = min((o["total"] for o in sure or top), default=None)
         stats["relaxed"] = relaxed
         stats["searches"] = log
         rec["stay"] = {"options": top, "stats": stats, "cheapest": cheapest, "nights": nights,

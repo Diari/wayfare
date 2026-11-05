@@ -289,6 +289,31 @@ class HotelSearchFixes(unittest.TestCase):
         self.assertFalse(by_name["SH Villa Gadea"]["starsUnknown"])
         self.assertNotIn("Hotel Altaya", by_name)      # a known 3 stars still fails
 
+    def test_unknown_stars_do_not_set_the_price_to_beat(self):
+        def cheap_rental(params, r):
+            if params["engine"] == "google_hotels" and params["q"].startswith("hotels near"):
+                r["properties"].append({"name": "Cheap Loft", "type": "vacation_rental", "total_price": {"extracted_lowest": 100}})
+        rec, _, _ = search(change=cheap_rental)
+        names = [o["name"] for o in rec["stay"]["options"]]
+        self.assertIn("Cheap Loft", names)                      # still listed
+        self.assertLess(names.index("Hotel Cap Negret"), names.index("Cheap Loft"))
+        self.assertEqual(rec["stay"]["cheapest"], 680.0)        # the preferred stay, not the unrated rental
+        self.assertEqual(rec["total"], 620 + 590 + 680)
+
+    def test_unknown_stars_count_when_nothing_else_is_left(self):
+        def only_unrated(params, r):
+            if params["engine"] == "google_hotels":
+                r["properties"] = [{"name": "Cheap Loft", "total_price": {"extracted_lowest": 100}}]
+        rec, _, _ = search(change=only_unrated)
+        self.assertEqual(rec["stay"]["cheapest"], 100)
+
+    def test_log_names_the_fields_of_an_unpriced_place(self):
+        def unpriced(params, r):
+            if params["engine"] == "google_hotels":
+                r["properties"] = [{"name": "Hotel X", "rate": {"amount": 1}}]
+        rec, _, _ = search(change=unpriced)
+        self.assertEqual(rec["stay"]["stats"]["searches"][0]["noPriceFields"], ["name", "rate"])
+
     def test_city_search_when_few_found_nearby(self):
         def few(params, r):
             if params["engine"] == "google_hotels" and params["q"].startswith("hotels near"):
