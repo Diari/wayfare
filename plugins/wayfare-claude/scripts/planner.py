@@ -15,9 +15,10 @@ Commands
   build      Write the plan page batches and Home's index/plans.
   link       Print search links for one plan (no network).
 
-Cost: about 3-4 SearchApi searches per plan per check (one per flight leg
-and airport pair, one for stays, one per preferred stay). Plans more than
-60 days away are checked every 3 days, closer plans every day.
+Cost: about 4-7 SearchApi searches per plan per check (one per flight leg
+and airport pair, one to three for stays, one more when few stays are found
+near the place, one per preferred stay that is missing). Plans more than 60
+days away are checked every 3 days, closer plans every day.
 """
 from __future__ import annotations
 
@@ -43,6 +44,7 @@ STATUSES = {"watching", "paused", "booked", "ended"}
 HISTORY_MAX = 90
 TOP_FLIGHTS = 5
 TOP_STAYS = 6
+MIN_STAY_RESULTS = 3    # fewer than this near the place: search the whole city too
 DEFAULT_ALERTS = {"minDropAmount": 20, "minDropPercent": 5}
 HHMM = re.compile(r"^\d{2}:\d{2}$")
 IATA = re.compile(r"^[A-Z]{3}$")
@@ -195,11 +197,28 @@ def stay_params(p: dict) -> dict:
     return q
 
 
+def stay_kind(st: dict) -> str:
+    return {"apartment": "apartments", "villa": "villas"}.get(st.get("kind", "hotel"), "hotels")
+
+
 def stay_query(p: dict) -> str:
     st = p["stay"]
-    kind = {"apartment": "apartments", "villa": "villas"}.get(st.get("kind", "hotel"), "hotels")
     place = st.get("near") or st.get("city")
-    return f"{kind} near {place}"
+    return f"{stay_kind(st)} near {place}"
+
+
+def city_query(p: dict) -> str | None:
+    """A wider search than stay_query, or None when it would be the same place."""
+    st = p["stay"]
+    city, near = st.get("city"), st.get("near")
+    if not city or not near or near.strip().lower() == city.strip().lower():
+        return None
+    return f"{stay_kind(st)} in {city}"
+
+
+def preferred_query(pref: str, city: str | None) -> str:
+    """A hotel's bare name can match places elsewhere, so add the city."""
+    return f"{pref} {city}" if city and city.lower() not in pref.lower() else pref
 
 
 def hhmm(v: Any) -> str:
@@ -355,9 +374,10 @@ def rank_stays(opts: list[dict], st: dict) -> tuple[list[dict], dict]:
             continue
         seen.add(k)
         o["preferred"] = any(same_hotel(o["name"], p) for p in prefs)
+        o["starsUnknown"] = bool(minst and o["stars"] is None)   # rentals and guesthouses often have no class
         reason = None
         if not o["preferred"]:
-            if minst and (o["stars"] is None or o["stars"] < minst):
+            if minst and o["stars"] is not None and o["stars"] < minst:
                 reason = "stars"
             elif maxkm and o["km"] is not None and o["km"] > maxkm:
                 reason = "distance"
@@ -390,7 +410,7 @@ def due(p: dict, prev: dict | None, now: datetime, every_hours: float | None) ->
         days_away = (date.fromisoformat(plan_start(p)) - now.date()).days
         every_hours = 72 if days_away > 60 else 20
     last = datetime.fromisoformat(prev["checkedAt"])
-    return now - last >= timedelta(hours=every_hours)
+    return now - last >= timedelta(hours=every_hours) - W.SCHEDULE_SLACK
 
 
 def push_history(hist: list, at: str, value: float | None) -> list:
@@ -440,25 +460,48 @@ def search_plan(p: dict, prev: dict | None, now: datetime, fetch=searchapi_get, 
         # filters are combined (seen live, October 2026). Then search again with
         # fewer filters; the stars are also checked here, on each result.
         relaxed: list[str] = []
+        log: list[dict] = []
+
+        def ask(q: dict, why: str) -> list[dict]:
+            """One stay search. Logged, so an empty result explains itself."""
+            nonlocal used
+            resp = fetch(q)
+            used += 1
+            got = parse_stays(resp, nights, near)
+            if "free_cancellation" in q:
+                for o in got:
+                    o["freeCancel"] = True
+            priced = {o["name"] for o in got}
+            props = resp.get("properties") or []
+            log.append({"for": why, "query": q["q"], "filters": [k for k in ("free_cancellation", "hotel_class") if k in q],
+                        "returned": len(props), "priced": len(got),
+                        "noPrice": [str(h["name"])[:60] for h in props if h.get("name") and str(h["name"])[:120] not in priced][:5]})
+            return got
+
         q = stay_params(p)
-        opts = parse_stays(fetch(q), nights, near)
-        used += 1
+        opts = ask(q, "near")
         for drop_key, label in (("free_cancellation", "free cancellation"), ("hotel_class", "stars")):
             if opts or drop_key not in q:
                 continue
             q = {k: v for k, v in q.items() if k != drop_key}
             relaxed.append(label)
-            opts = parse_stays(fetch(q), nights, near)
-            used += 1
+            opts = ask(q, "near")
+        wider = city_query(p)
+        if len(opts) < MIN_STAY_RESULTS and wider:
+            opts += ask(dict(q, q=wider), "city")
         for pref in (st.get("preferred") or [])[:2]:
             if not any(same_hotel(o["name"], pref) for o in opts):
-                q = dict(stay_params(p), q=pref)
-                q.pop("hotel_class", None)
-                opts += [o for o in parse_stays(fetch(q), nights, near) if same_hotel(o["name"], pref)][:1]
-                used += 1
+                # Its own search takes no filters: the stars and cancellation
+                # terms are not what decides whether the user wants this one.
+                q = {k: v for k, v in stay_params(p).items() if k not in ("hotel_class", "free_cancellation")}
+                q["q"] = preferred_query(pref, st.get("city"))
+                opts += [o for o in ask(q, "preferred") if same_hotel(o["name"], pref)][:1]
         top, stats = rank_stays(opts, st)
+        for o in top:
+            o["freeCancelUnconfirmed"] = bool(st.get("freeCancellation") and not o["freeCancel"])
         cheapest = min((o["total"] for o in top), default=None)
         stats["relaxed"] = relaxed
+        stats["searches"] = log
         rec["stay"] = {"options": top, "stats": stats, "cheapest": cheapest, "nights": nights,
                        "nearFound": near is not None}
         rec["history"]["stay"] = push_history(list(rec["history"].get("stay") or []), at, cheapest)
@@ -540,10 +583,17 @@ def plan_alerts(p: dict, rec: dict | None) -> list[dict]:
     s = rec.get("stay")
     if st and s and not booked(p, "stay"):
         if not s["options"]:
+            place, found = st.get("near") or st.get("city"), s["stats"]["found"]
+            why = (f"{found} places with a price found near {place}, none with your stars, distance and rating. "
+                   "Lower the stars or widen the distance." if found else
+                   f"No places with a price found near {place} for these dates. "
+                   "Hotels may not have rates this far ahead; Wayfare keeps checking.")
+            seen = (rec.get("history") or {}).get("stay") or []
+            if seen:
+                why += f" Last price seen: {cur} {seen[-1][1]:.0f} on {W.day_label(date.fromisoformat(seen[-1][0]))}."
             out.append({"level": "medium", "kind": "plan_no_stays", "id": "plan_no_stays",
                         "title": "No stay matches your wishes",
-                        "detail": f"{s['stats']['found']} places found near {st.get('near') or st.get('city')}, none with "
-                                  "your stars, distance and rating. Lower the stars or widen the distance.",
+                        "detail": why,
                         "link": booking_url(p)})
         else:
             cheapest_is_pref = any(o["preferred"] and o["total"] == s["cheapest"] for o in s["options"])
@@ -664,12 +714,29 @@ def stay_view(p: dict, rec: dict | None) -> dict | None:
         wish.append(str(st["notes"])[:80])
     s = (rec or {}).get("stay")
     hist = ((rec or {}).get("history") or {}).get("stay") or []
+    seen = hist[-1] if hist and s and not s.get("options") else None
     return {"label": f"{W.range_label(ci, co)} · near {st.get('near') or st.get('city')}",
             "nights": (co - ci).days, "wishes": wish, "booked": booked(p, "stay"),
             "preferred": st.get("preferred") or [],
             "options": (s or {}).get("options", []), "stats": (s or {}).get("stats"),
             "cheapest": (s or {}).get("cheapest"), "lowest": lowest(hist), "history": hist[-30:],
+            "lastSeen": {"date": seen[0], "price": seen[1]} if seen else None,
             "links": {"booking": booking_url(p), "google": google_hotels_url(p)}}
+
+
+def estimated_total(p: dict, rec: dict | None) -> float | None:
+    """When no stay matches now: today's flights plus the last stay price seen.
+    Shown as an estimate and never added to the price history."""
+    if not rec or rec.get("total") is not None or not p.get("stay") or booked(p, "stay"):
+        return None
+    seen = (rec.get("history") or {}).get("stay") or []
+    if not seen:
+        return None
+    parts = [seen[-1][1]]
+    for leg, L in (p.get("flights") or {}).items():
+        if leg in ("out", "back") and L and not booked(p, leg):
+            parts.append(((rec.get("legs") or {}).get(leg) or {}).get("cheapest"))
+    return round(sum(parts), 2) if all(x is not None for x in parts) else None
 
 
 def plan_page(p: dict, rec: dict | None, now: datetime) -> dict:
@@ -685,7 +752,8 @@ def plan_page(p: dict, rec: dict | None, now: datetime) -> dict:
         "cabin": (p.get("flights") or {}).get("cabin", "economy"), "currency": p.get("currency", "EUR"),
         "legs": [v for v in (leg_view(p, "out", rec), leg_view(p, "back", rec)) if v],
         "stay": stay_view(p, rec),
-        "total": (rec or {}).get("total"), "totalLowest": lowest(hist), "totalHistory": hist[-30:],
+        "total": (rec or {}).get("total"), "estimatedTotal": estimated_total(p, rec),
+        "totalLowest": lowest(hist), "totalHistory": hist[-30:],
         "alerts": plan_alerts(p, rec),
         "notes": p.get("notes") or [],
         "checkedAt": (rec or {}).get("checkedAt"),
@@ -698,7 +766,7 @@ def plan_page(p: dict, rec: dict | None, now: datetime) -> dict:
 def index_entry(page: dict, url: str | None) -> dict:
     return {"id": page["id"], "title": page["title"], "dates": page["dates"], "startDate": page["startDate"],
             "status": page["status"], "url": url, "currency": page["currency"], "total": page["total"],
-            "totalLowest": page["totalLowest"], "checkedAt": page["checkedAt"],
+            "estimatedTotal": page["estimatedTotal"], "totalLowest": page["totalLowest"], "checkedAt": page["checkedAt"],
             "alerts": len(page["alerts"]), "travellers": page["travellers"],
             "trend": [h[1] for h in page["totalHistory"][-14:]]}
 

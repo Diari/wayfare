@@ -235,7 +235,7 @@ h2 { font-size: 18px; font-weight: 800; }
       el("div", { class: "trip-top" }, [el("h3", { text: p.title }), el("span", { class: "pill", text: p.status === "booked" ? "Booked" : "Planning" })]),
       el("div", { class: "meta" }, [el("b", { style: "color:var(--ink)", text: p.dates }), el("span", { text: p.travellers })]),
       el("div", { class: "meta" }, [
-        el("span", { class: "price", style: "color:var(--ink)", text: typeof p.total === "number" ? money(p.total, p.currency) : "Not checked yet" }),
+        el("span", { class: "price", style: "color:var(--ink)", text: typeof p.total === "number" ? money(p.total, p.currency) : typeof p.estimatedTotal === "number" ? "About " + money(p.estimatedTotal, p.currency) : p.checkedAt ? "No full price yet" : "Not checked yet" }),
         low ? el("span", { text: low }) : null,
         p.alerts ? el("span", { class: "flag watch", text: p.alerts + " price " + (p.alerts === 1 ? "update" : "updates") }) : null,
         safeUrl(p.url) ? el("span", { class: "open", text: "Open plan" }) : null
@@ -245,11 +245,27 @@ h2 { font-size: 18px; font-weight: 800; }
     return u ? el("a", { class: "trip plan", href: u, target: "_blank", rel: "noopener", "aria-label": "Open plan " + p.title }, kids) : el("div", { class: "trip plan" }, kids);
   }
 
+  // One line on the last background checks; red when a check failed or stopped running.
+  function healthLine() {
+    var runs = [["Inbox check", S.healthDaily], ["Price check", S.healthScanner]].filter(function (r) { return r[1]; });
+    if (!runs.length) return null;
+    var bad = [], fine = [];
+    runs.forEach(function (r) {
+      var h = r[1], hours = (Date.now() - new Date(h.finishedAt).getTime()) / 36e5, when = ago(h.finishedAt).replace("Last sync ", "");
+      if (h.ok === false) bad.push(r[0] + " had a problem " + when + ": " + (h.problems || []).join("; "));
+      else if (hours > 36) bad.push(r[0] + " last ran " + when);
+      else fine.push(r[0] + " " + when);
+    });
+    return el("div", { class: "status" + (bad.length ? " err" : ""), role: "status", text: bad.concat(fine).join(" · ") + (bad.length ? "" : ". No problems.") });
+  }
+
   function render() {
     var idx = S.index, trips = (idx && idx.trips) || [];
     document.getElementById("updated").textContent = idx ? ago(idx.updatedAt) : "";
     var banners = document.getElementById("banners"); banners.textContent = "";
     if (trips.some(function (t) { return t.sample && t.status !== "sample"; })) banners.appendChild(el("div", { class: "banner", text: "These are sample trips with made-up bookings. Your real trips get their own pages at the first sync." }));
+    var health = healthLine();
+    if (health) banners.appendChild(health);
     banners.hidden = !banners.childNodes.length;
     var tb = document.getElementById("toolbar"); tb.textContent = "";
     if (S.mcp && S.agent && S.agent.triggerId && S.db) {
@@ -297,6 +313,8 @@ h2 { font-size: 18px; font-weight: 800; }
     db.doc("index/trips").onSnapshot(function (d) { S.index = d.exists ? d.data() : null; render(); }, function () { render(); });
     db.doc("index/plans").onSnapshot(function (d) { S.plans = d.exists ? d.data() : null; render(); }, function () {});
     db.doc("private/agent").onSnapshot(function (d) { S.agent = d.exists ? d.data() : null; render(); }, function () {});
+    db.doc("private/health-daily").onSnapshot(function (d) { S.healthDaily = d.exists ? d.data() : null; render(); }, function () {});
+    db.doc("private/health-scanner").onSnapshot(function (d) { S.healthScanner = d.exists ? d.data() : null; render(); }, function () {});
     db.collection("requests").onSnapshot(function (s) { var m = {}; s.docs.forEach(function (d) { if (d.exists) m[d.id] = d.data(); }); S.requests = m; render(); }, function () {});
   }).catch(function () { render(); });
   window.claude.use("mcp").then(function (mcp) { S.mcp = mcp; render(); }).catch(function () {});

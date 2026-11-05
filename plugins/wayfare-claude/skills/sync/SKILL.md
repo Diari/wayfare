@@ -24,17 +24,20 @@ Read `${CLAUDE_PLUGIN_ROOT}/reference/dashboard-io.md` and
 
 1. **Read the state**: dashboard-io.md sections A and B.
 
-2. **Pick the search window.** Last sync = `updatedAt` in `index/trips`.
-   If there is a last sync and `private/bookings` exists: search from 2 days
-   before it (`after:YYYY/MM/DD`). Otherwise (first real sync, also after
-   sample trips): `newer_than:180d`.
+2. **Get the search window and queries.** They come from the script, so every
+   run searches the same way (2 days before the last sync, or `newer_than:180d`
+   at the first real sync):
+
+   ```bash
+   python3 "$P/scripts/wayfare.py" gmail-queries \
+     --index wayfare-work/db/home/index/trips.json \
+     --bookings wayfare-work/db/home/private/bookings.json
+   ```
 
 3. **Pass 1, headers only.** Use the Gmail search tool (`search_threads`)
    with its minimal view (subject, sender, snippet), `pageSize` 50, up to 3
-   pages per query, with the window added to each query:
-   - `category:reservations`
-   - `subject:(confirmation OR confirmed OR itinerary OR booking OR reservation OR e-ticket OR "schedule change" OR "flight change" OR "time change" OR cancelled OR cancellation) -category:promotions -category:social`
-   - `from:(booking.com OR airbnb OR opentable OR resy OR thefork OR expedia OR hotels.com OR trainline OR ns.nl OR bahn OR eurostar)`
+   pages per query. Run each printed query exactly as written: do not reword
+   it or add to it.
 
    Keep a thread only if sender and subject show a real booking, change or
    cancellation for travel: flight, train, coach, ferry, stay, restaurant

@@ -21,6 +21,10 @@ Commands
   capabilities   Print the runtime capabilities for a trip or home page.
   render-static  Write standalone HTML pages (for Claude Code in a terminal,
                  or for local testing).
+  gmail-queries  Print the inbox search window and the exact Gmail queries.
+  check-plan     Start a run record: the steps this run must account for.
+  step           Record one step's outcome in the run record.
+  finish-run     Close the run record and say what the run must report.
 """
 from __future__ import annotations
 
@@ -36,7 +40,7 @@ from datetime import date, datetime, timedelta, timezone
 from pathlib import Path
 from typing import Any
 
-ENGINE_VERSION = "0.11.2"
+ENGINE_VERSION = "0.11.3"
 TRANSPORT = {"flight", "train", "transfer"}
 TYPES = TRANSPORT | {"hotel", "dining", "other"}
 STATUSES = {"confirmed", "changed", "cancelled"}
@@ -50,6 +54,7 @@ DEFAULT_PROFILE = {
     "stayDropMinimum": 30,
 }
 STATUS_MAX_AGE_HOURS = 18
+SCHEDULE_SLACK = timedelta(hours=6)   # a daily run starts a few minutes earlier or later; "every 3 days" must not slip to 4
 WEEKDAYS = ["Mon", "Tue", "Wed", "Thu", "Fri", "Sat", "Sun"]
 MONTHS = ["Jan", "Feb", "Mar", "Apr", "May", "Jun", "Jul", "Aug", "Sep", "Oct", "Nov", "Dec"]
 
@@ -1525,6 +1530,129 @@ def cmd_site_bundle(a: argparse.Namespace) -> int:
     return 0
 
 
+# ----------------------------------------------------------------- inbox queries
+
+GMAIL_SUBJECT_WORDS = [
+    "confirmation", "confirmed", "itinerary", "booking", "reservation", "e-ticket", '"schedule change"',
+    '"flight change"', '"time change"', "cancelled", "cancellation",
+    "bevestiging", "boeking", "boekingsbevestiging", "reservering", "reserveringsbevestiging",
+    "annulering", "geannuleerd", "vluchtwijziging",
+]
+GMAIL_SENDERS = [
+    "booking.com", "airbnb", "opentable", "resy", "thefork", "expedia", "hotels.com", "trainline", "ns.nl", "bahn",
+    "eurostar", "ba.com", "klm", "transavia", "vueling", "easyjet", "ryanair", "flytap", "lufthansa", "iberia",
+    "airfrance",
+]
+
+
+def gmail_window(index: dict, has_bookings: bool, now: datetime) -> str:
+    """Two days before the last sync, or the first-sync window."""
+    last = (index or {}).get("updatedAt")
+    if last and has_bookings:
+        try:
+            return "after:" + (parse_dt(last) - timedelta(days=2)).strftime("%Y/%m/%d")
+        except ValueError:
+            pass
+    return "newer_than:180d"
+
+
+def gmail_queries(window: str) -> list[str]:
+    return [f"{q} {window}" for q in (
+        "category:reservations",
+        "subject:(" + " OR ".join(GMAIL_SUBJECT_WORDS) + ") -category:promotions -category:social",
+        "from:(" + " OR ".join(GMAIL_SENDERS) + ")",
+    )]
+
+
+def cmd_gmail_queries(a: argparse.Namespace) -> int:
+    if a.first_sync:
+        window = "newer_than:180d"
+    elif a.since:
+        window = "after:" + a.since.replace("-", "/")
+    else:
+        stored = unwrap(load_json(a.bookings, None))
+        window = gmail_window(unwrap(load_json(a.index, {})), stored is not None, get_now(a.now))
+    print(json.dumps({"window": window, "queries": gmail_queries(window)}, indent=1))
+    return 0
+
+
+# ----------------------------------------------------------------- run record
+
+RUN_STEPS = {
+    "daily": ["state", "inbox", "flightStatus", "fares", "plans", "weather", "pages", "guides", "changes", "watches"],
+    "watch": ["state", "flightStatus", "pages", "changes"],
+    "scanner": ["state", "planSearch", "planPages", "changes"],
+}
+STEP_STATUSES = {"done", "skipped", "failed"}
+
+
+def cmd_check_plan(a: argparse.Namespace) -> int:
+    """Start a run: every listed step must end up done, skipped or failed."""
+    steps: dict[str, dict] = {s: {"status": "pending"} for s in RUN_STEPS[a.mode]}
+    profile = unwrap(load_json(a.profile, {})) or {}
+    if "fares" in steps and not profile.get("fareChecks"):
+        steps["fares"] = {"status": "skipped", "detail": "fareChecks is off in the profile"}
+    index = unwrap(load_json(a.index, {})) or {}
+    read = [{"slug": e["slug"], "url": e["url"]} for e in index.get("trips", [])
+            if e.get("status") in ("upcoming", "ongoing") and e.get("url")]
+    run = {"mode": a.mode, "startedAt": get_now(a.now).isoformat(timespec="seconds"), "steps": steps, "tripsToRead": read}
+    Path(a.out).parent.mkdir(parents=True, exist_ok=True)
+    Path(a.out).write_text(json.dumps(run, indent=1), encoding="utf-8")
+    print(json.dumps({"steps": [s for s, v in steps.items() if v["status"] == "pending"],
+                      "alreadySkipped": {s: v["detail"] for s, v in steps.items() if v["status"] == "skipped"},
+                      "tripsToRead": read}, indent=1))
+    return 0
+
+
+def cmd_step(a: argparse.Namespace) -> int:
+    run = load_json(a.run, None)
+    if not run or a.step not in run["steps"]:
+        print(f"Unknown step {a.step!r}: not in this run's record.", file=sys.stderr)
+        return 1
+    if a.status != "done" and not a.detail:
+        print(f"Say why with --detail: a {a.status} step needs a reason.", file=sys.stderr)
+        return 1
+    rec: dict[str, Any] = {"status": a.status}
+    if a.detail:
+        rec["detail"] = " ".join(a.detail.split())[:200]
+    run["steps"][a.step] = rec
+    Path(a.run).write_text(json.dumps(run, indent=1), encoding="utf-8")
+    print(f"{a.step}: {a.status}")
+    return 0
+
+
+def finish_run(run: dict, changes: int, now: datetime) -> dict:
+    """The document for Home, and the rule for the run's last message."""
+    problems = []
+    for name, st in run["steps"].items():
+        if st["status"] == "pending":
+            problems.append(f"{name} did not report")
+        elif st["status"] == "failed":
+            problems.append(f"{name} failed: {st.get('detail', 'no reason given')}")
+    message = None
+    if problems:
+        message = "Wayfare check problem: " + "; ".join(problems)
+    elif not changes:
+        message = "No changes."
+    doc = {"mode": run["mode"], "startedAt": run["startedAt"], "finishedAt": now.isoformat(timespec="seconds"),
+           "ok": not problems, "problems": problems, "changes": changes, "steps": run["steps"],
+           "engineVersion": ENGINE_VERSION}
+    return {"doc": doc, "message": message}
+
+
+def cmd_finish_run(a: argparse.Namespace) -> int:
+    run = load_json(a.run, None)
+    if not run:
+        print(f"No run record at {a.run}.", file=sys.stderr)
+        return 1
+    done = finish_run(run, a.changes, get_now(a.now))
+    Path(a.out).parent.mkdir(parents=True, exist_ok=True)
+    Path(a.out).write_text(json.dumps(done["doc"], indent=1), encoding="utf-8")
+    print(json.dumps({"ok": done["doc"]["ok"], "problems": done["doc"]["problems"], "message": done["message"],
+                      "healthDoc": None if run["mode"] == "watch" else f"private/health-{run['mode']}", "file": a.out}, indent=1))
+    return 0
+
+
 def main(argv: list[str] | None = None) -> int:
     p = argparse.ArgumentParser(prog="wayfare", description=__doc__, formatter_class=argparse.RawDescriptionHelpFormatter)
     sub = p.add_subparsers(dest="cmd", required=True)
@@ -1577,6 +1705,23 @@ def main(argv: list[str] | None = None) -> int:
     r.add_argument("--out-dir", required=True)
     r.add_argument("--owner", action="store_true", help="include full codes and prices (do not share the files)")
     r.set_defaults(fn=cmd_render_static)
+    g = sub.add_parser("gmail-queries", help="print the inbox search window and the exact Gmail queries")
+    g.add_argument("--index", help="home index/trips doc"); g.add_argument("--bookings", help="home private/bookings doc")
+    g.add_argument("--since", help="search from this date (YYYY-MM-DD) instead")
+    g.add_argument("--first-sync", action="store_true", help="search the last 180 days"); g.add_argument("--now")
+    g.set_defaults(fn=cmd_gmail_queries)
+    cp = sub.add_parser("check-plan", help="start a run record: the steps this run must account for")
+    cp.add_argument("--mode", choices=sorted(RUN_STEPS), required=True); cp.add_argument("--profile"); cp.add_argument("--index")
+    cp.add_argument("--out", required=True); cp.add_argument("--now")
+    cp.set_defaults(fn=cmd_check_plan)
+    st = sub.add_parser("step", help="record one step's outcome in the run record")
+    st.add_argument("--run", required=True); st.add_argument("--step", required=True)
+    st.add_argument("--status", choices=sorted(STEP_STATUSES), required=True); st.add_argument("--detail")
+    st.set_defaults(fn=cmd_step)
+    fr = sub.add_parser("finish-run", help="close the run record and say what the run must report")
+    fr.add_argument("--run", required=True); fr.add_argument("--changes", type=int, default=0)
+    fr.add_argument("--out", required=True); fr.add_argument("--now")
+    fr.set_defaults(fn=cmd_finish_run)
     a = p.parse_args(argv)
     return a.fn(a)
 

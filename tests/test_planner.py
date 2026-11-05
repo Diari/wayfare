@@ -101,9 +101,10 @@ class Search(unittest.TestCase):
             if params["engine"] == "google_hotels" and params["q"].startswith("hotels near"):
                 r["properties"] = [h for h in r["properties"] if "Mascarat" not in h["name"]]
         rec, used, calls = search(change=drop_pref)
-        named = [c for c in calls if c["engine"] == "google_hotels" and c["q"] == "Pueblo Mascarat"]
+        named = [c for c in calls if c["engine"] == "google_hotels" and c["q"] == "Pueblo Mascarat Altea"]
         self.assertEqual(len(named), 1)
         self.assertNotIn("hotel_class", named[0])
+        self.assertNotIn("free_cancellation", named[0])
         self.assertEqual(used, 4)
 
     def test_booked_parts_are_not_searched(self):
@@ -272,6 +273,90 @@ class SearchErrors(unittest.TestCase):
         rec = {"planId": PLAN["id"], "history": {}, "lastError": "blocked", "lastErrorAt": DAY1.isoformat()}
         page = P.plan_page(PLAN, rec, DAY1)
         self.assertEqual((page["error"], page["total"], page["alerts"]), ("blocked", None, []))
+
+
+class HotelSearchFixes(unittest.TestCase):
+    """A plan must not lose its stay price because one search came back thin."""
+
+    def test_unknown_stars_kept_and_labelled(self):
+        def no_class(params, r):
+            for h in r.get("properties", []):
+                if h["name"] == "Hotel Cap Negret":
+                    h.pop("extracted_hotel_class", None); h.pop("hotel_class", None)
+        rec, _, _ = search(change=no_class)
+        by_name = {o["name"]: o for o in rec["stay"]["options"]}
+        self.assertTrue(by_name["Hotel Cap Negret"]["starsUnknown"])
+        self.assertFalse(by_name["SH Villa Gadea"]["starsUnknown"])
+        self.assertNotIn("Hotel Altaya", by_name)      # a known 3 stars still fails
+
+    def test_city_search_when_few_found_nearby(self):
+        def few(params, r):
+            if params["engine"] == "google_hotels" and params["q"].startswith("hotels near"):
+                r["properties"] = r["properties"][:1]
+            if params["engine"] == "google_hotels" and params["q"] == "hotels in Altea":
+                r["properties"] = [{"name": "Hotel Altea Mar", "extracted_hotel_class": 4, "total_price": {"extracted_lowest": 600}}]
+        rec, _, calls = search(change=few)
+        self.assertTrue(any(c.get("q") == "hotels in Altea" for c in calls))
+        self.assertIn("Hotel Altea Mar", [o["name"] for o in rec["stay"]["options"]])
+
+    def test_no_city_search_when_enough_found(self):
+        _, _, calls = search()
+        self.assertFalse(any(c.get("q") == "hotels in Altea" for c in calls))
+
+    def test_preferred_without_free_cancellation_is_flagged(self):
+        def by_name(params, r):
+            if params["engine"] != "google_hotels":
+                return
+            if params["q"].startswith("hotels near"):
+                r["properties"] = [h for h in r["properties"] if "Mascarat" not in h["name"]]
+            elif params["q"] == "Pueblo Mascarat Altea":
+                r["properties"] = [{"name": "Pueblo Mascarat Apartments", "total_price": {"extracted_lowest": 492}}]
+        rec, _, _ = search(change=by_name)
+        pref = [o for o in rec["stay"]["options"] if o["preferred"]][0]
+        self.assertEqual(pref["total"], 492)
+        self.assertTrue(pref["freeCancelUnconfirmed"])
+        filtered = [o for o in rec["stay"]["options"] if not o["preferred"]][0]
+        self.assertFalse(filtered["freeCancelUnconfirmed"])     # came from the filtered search
+
+    def test_each_search_is_logged_with_unpriced_places(self):
+        def unpriced(params, r):
+            if params["engine"] == "google_hotels":
+                r["properties"] = [{"name": "Pueblo Mascarat Apartments"}]
+        rec, _, _ = search(change=unpriced)
+        log = rec["stay"]["stats"]["searches"]
+        self.assertEqual(log[0]["for"], "near")
+        self.assertEqual((log[0]["returned"], log[0]["priced"]), (1, 0))
+        self.assertEqual(log[0]["noPrice"], ["Pueblo Mascarat Apartments"])
+        self.assertEqual({e["for"] for e in log}, {"near", "city", "preferred"})
+
+    def test_last_seen_and_estimated_total_when_nothing_matches(self):
+        first, _, _ = search()
+        def none(params, r):
+            if params["engine"] == "google_hotels":
+                r["properties"] = []
+        later = DAY2
+        rec, _, _ = search(prev=first, now=later, change=none)
+        self.assertIsNone(rec["total"])
+        page = P.plan_page(PLAN, rec, later)
+        self.assertEqual(page["stay"]["lastSeen"], {"date": DAY1.date().isoformat(), "price": 680.0})
+        self.assertEqual(page["estimatedTotal"], 620 + 590 + 680)
+        self.assertEqual(P.index_entry(page, None)["estimatedTotal"], 620 + 590 + 680)
+        alert = [a for a in page["alerts"] if a["kind"] == "plan_no_stays"][0]
+        self.assertIn("Last price seen: EUR 680", alert["detail"])
+        self.assertIn("No places with a price", alert["detail"])
+        self.assertEqual(len(rec["history"]["total"]), 1)       # the estimate is never stored as history
+
+    def test_no_estimate_while_a_stay_matches(self):
+        rec, _, _ = search()
+        page = P.plan_page(PLAN, rec, DAY1)
+        self.assertIsNone(page["estimatedTotal"])
+        self.assertIsNone(page["stay"]["lastSeen"])
+
+    def test_check_due_despite_a_later_start_last_time(self):
+        last = datetime(2026, 10, 27, 6, 23, tzinfo=timezone.utc)
+        rec = {"checkedAt": last.isoformat()}
+        self.assertTrue(P.due(PLAN, rec, datetime(2026, 10, 30, 6, 21, tzinfo=timezone.utc), None))    # 2 min short of 72 h
+        self.assertFalse(P.due(PLAN, rec, datetime(2026, 10, 29, 6, 21, tzinfo=timezone.utc), None))   # a day early
 
 
 class StayFallback(unittest.TestCase):

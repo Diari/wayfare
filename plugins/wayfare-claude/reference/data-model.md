@@ -24,6 +24,7 @@ Home page database (rules: everything owner-only):
 | `private/chats`    | `{chats: {"<slug>": {triggerId, url, createdAt}}}`: trip chats made with `/wayfare:trip` |
 | `private/weather`  | `{days: [{city, date, hi, lo, code, rain, kind}], places, checkedAt}` from `scripts/weather.py`; `kind` is `forecast` (next 16 days) or `lastYear` |
 | `private/changes`  | `{items: [{at, slug, summary}]}`: changes found by background checks, newest 50 |
+| `private/health-daily`, `private/health-scanner` | `{mode, startedAt, finishedAt, ok, problems, changes, steps, engineVersion}`: how the last daily check and price scanner run went |
 | `requests/<id>`    | Sync / fare requests started from this page |
 | `private/plans`    | `{plans: [...]}`: trips not booked yet (see "Plan object") |
 | `private/planprices` | `{results: {<planId>: record}}`: the last plan search and its price history |
