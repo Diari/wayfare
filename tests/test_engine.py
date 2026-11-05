@@ -1,5 +1,7 @@
 """Run: python3 -m unittest discover -s tests -v"""
+import contextlib
 import copy
+import io
 import json
 import sys
 import tempfile
@@ -508,6 +510,106 @@ class StayPrices(unittest.TestCase):
                             "tracking_link": "http://insecure.example"}]}}
         best = stay_check.best_free_cancel_offer(resp)
         self.assertEqual((best["source"], best["total"], best["link"]), ("C", 255.0, None))
+
+
+class ScheduleSlack(unittest.TestCase):
+    def test_fare_check_due_despite_a_later_start(self):
+        now = datetime(2026, 10, 30, 6, 21, tzinfo=timezone.utc)
+        prev = {"b": {"checkedAt": "2026-10-27T06:23:00+00:00"}}
+        self.assertFalse(fare_check.recently_checked(prev, "b", now, 3))
+        self.assertTrue(fare_check.recently_checked(prev, "b", now, 4))
+
+
+class GmailQueries(unittest.TestCase):
+    def test_window(self):
+        self.assertEqual(wayfare.gmail_window({"updatedAt": "2026-11-04T06:46:42+00:00"}, True, NOW), "after:2026/11/02")
+        self.assertEqual(wayfare.gmail_window({"updatedAt": "2026-11-04T06:46:42+00:00"}, False, NOW), "newer_than:180d")
+        self.assertEqual(wayfare.gmail_window({}, True, NOW), "newer_than:180d")
+
+    def test_first_sync_flag(self):
+        buf = io.StringIO()
+        with contextlib.redirect_stdout(buf):
+            wayfare.main(["gmail-queries", "--first-sync"])
+        self.assertEqual(json.loads(buf.getvalue())["window"], "newer_than:180d")
+
+    def test_queries_cover_airlines_and_dutch(self):
+        q = wayfare.gmail_queries("after:2026/11/02")
+        self.assertEqual(len(q), 3)
+        self.assertTrue(all(x.endswith("after:2026/11/02") for x in q))
+        self.assertIn("bevestiging", q[1])
+        for sender in ("ba.com", "klm", "transavia", "vueling"):
+            self.assertIn(sender, q[2])
+
+
+class RunRecord(unittest.TestCase):
+    def start(self, d, mode="daily", profile=None, index=None):
+        (d / "profile.json").write_text(json.dumps(profile if profile is not None else {"fareChecks": True}))
+        (d / "index.json").write_text(json.dumps(index or {"trips": []}))
+        wayfare.main(["check-plan", "--mode", mode, "--profile", str(d / "profile.json"), "--index", str(d / "index.json"),
+                      "--out", str(d / "run.json"), "--now", "2026-11-05T06:45:00+00:00"])
+        return d / "run.json"
+
+    def finish_all(self, run, status="done", detail=None):
+        for s in json.loads(run.read_text())["steps"]:
+            args = ["step", "--run", str(run), "--step", s, "--status", status]
+            if json.loads(run.read_text())["steps"][s]["status"] == "pending":
+                wayfare.main(args + (["--detail", detail] if detail else []))
+
+    def test_quiet_success_says_no_changes(self):
+        with tempfile.TemporaryDirectory() as t:
+            run = self.start(Path(t)); self.finish_all(run)
+            done = wayfare.finish_run(json.loads(run.read_text()), 0, NOW)
+            self.assertEqual(done["message"], "No changes.")
+            self.assertTrue(done["doc"]["ok"])
+
+    def test_change_leaves_the_message_to_the_run(self):
+        with tempfile.TemporaryDirectory() as t:
+            run = self.start(Path(t)); self.finish_all(run)
+            self.assertIsNone(wayfare.finish_run(json.loads(run.read_text()), 2, NOW)["message"])
+
+    def test_skipped_step_is_not_a_problem(self):
+        with tempfile.TemporaryDirectory() as t:
+            run = self.start(Path(t))
+            wayfare.main(["step", "--run", str(run), "--step", "weather", "--status", "skipped", "--detail", "no cities"])
+            self.finish_all(run)
+            self.assertEqual(wayfare.finish_run(json.loads(run.read_text()), 0, NOW)["message"], "No changes.")
+
+    def test_failed_step_is_never_no_changes(self):
+        with tempfile.TemporaryDirectory() as t:
+            run = self.start(Path(t))
+            wayfare.main(["step", "--run", str(run), "--step", "inbox", "--status", "failed", "--detail", "Gmail not available"])
+            self.finish_all(run)
+            done = wayfare.finish_run(json.loads(run.read_text()), 0, NOW)
+            self.assertFalse(done["doc"]["ok"])
+            self.assertEqual(done["message"], "Wayfare check problem: inbox failed: Gmail not available")
+
+    def test_forgotten_step_is_a_problem(self):
+        with tempfile.TemporaryDirectory() as t:
+            run = self.start(Path(t), mode="scanner")
+            wayfare.main(["step", "--run", str(run), "--step", "state", "--status", "done"])
+            done = wayfare.finish_run(json.loads(run.read_text()), 0, NOW)
+            self.assertIn("planSearch did not report", done["doc"]["problems"])
+            self.assertTrue(done["message"].startswith("Wayfare check problem"))
+
+    def test_skip_and_fail_need_a_reason(self):
+        with tempfile.TemporaryDirectory() as t:
+            run = self.start(Path(t))
+            self.assertEqual(wayfare.main(["step", "--run", str(run), "--step", "inbox", "--status", "failed"]), 1)
+            self.assertEqual(wayfare.main(["step", "--run", str(run), "--step", "nope", "--status", "done"]), 1)
+
+    def test_fares_off_is_skipped_up_front(self):
+        with tempfile.TemporaryDirectory() as t:
+            steps = json.loads(self.start(Path(t), profile={}).read_text())["steps"]
+            self.assertEqual(steps["fares"]["status"], "skipped")
+
+    def test_sample_trips_are_not_read(self):
+        index = {"trips": [{"slug": "lisbon", "status": "sample", "url": "https://x/1"},
+                           {"slug": "rome", "status": "upcoming", "url": "https://x/2"},
+                           {"slug": "oslo", "status": "past", "url": "https://x/3"},
+                           {"slug": "kyoto", "status": "upcoming"}]}
+        with tempfile.TemporaryDirectory() as t:
+            read = json.loads(self.start(Path(t), index=index).read_text())["tripsToRead"]
+            self.assertEqual(read, [{"slug": "rome", "url": "https://x/2"}])
 
 
 class NoMachineCredentials(unittest.TestCase):

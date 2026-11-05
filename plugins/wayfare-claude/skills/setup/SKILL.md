@@ -83,8 +83,9 @@ Claude and the background checks stay off, and skip to step 5. Read Home
    > Run /wayfare:check daily. If the Wayfare skills are not available,
    > follow the "Unattended runs" section of the Wayfare plugin's
    > reference/dashboard-io.md. Work unattended: do not ask questions; skip
-   > emails you are unsure about and list them at the end. End with "No
-   > changes." when nothing changed.
+   > emails you are unsure about and list them at the end. End with the last
+   > message the skill's final step says: a problem comes first, and "No
+   > changes." only when nothing changed and every step worked.
 
    Each run uses some Claude usage, and the daily check also plans one-time
    "Wayfare watch" tasks 24 and 3 hours before each flight.

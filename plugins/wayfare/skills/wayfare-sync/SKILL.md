@@ -12,10 +12,10 @@ Read `../../reference/sites-io.md` and `../../reference/data-model.md`
    before it (`after:YYYY/MM/DD`). Otherwise `newer_than:180d`.
 
 2. **Pass 1, headers only.** With the Gmail plugin, search (sender, subject
-   and snippet only, up to 150 results per query, window added to each):
-   - `category:reservations`
-   - `subject:(confirmation OR confirmed OR itinerary OR booking OR reservation OR e-ticket OR "schedule change" OR "flight change" OR "time change" OR cancelled OR cancellation) -category:promotions -category:social`
-   - `from:(booking.com OR airbnb OR opentable OR resy OR thefork OR expedia OR hotels.com OR trainline OR ns.nl OR bahn OR eurostar)`
+   and snippet only, up to 150 results per query). Print the queries with
+   `python3 ../../scripts/wayfare.py gmail-queries` (relative to this file),
+   adding `--since <window date as YYYY-MM-DD>`, or `--first-sync` when there
+   is no `lastSync`. Run each printed query as written.
 
    Keep a thread only if sender and subject show a real booking, change or
    cancellation for travel: flight, train, coach, ferry, stay, restaurant

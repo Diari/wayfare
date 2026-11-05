@@ -29,7 +29,8 @@ Home (`out_dir: wayfare-work/db/home`):
 and `index`/`trips`.
 
 For each trip in `index/trips` whose `status` is `upcoming` or `ongoing` and
-that has a `url`, on that trip page (`out_dir: wayfare-work/db/trips/<slug>`):
+that has a `url` (never `sample`, `past` or `cancelled`: those pages no longer
+update), on that trip page (`out_dir: wayfare-work/db/trips/<slug>`):
 `get` `trip`/`data`, `get` `private`/`data`, `list` `actions`.
 
 A missing document is normal. Each result shows the document `version`.
@@ -159,6 +160,43 @@ cloud environment's proxy adds to requests for that service's host.
 | Weather | Open-Meteo (free, no key) | Allow `api.open-meteo.com`, `geocoding-api.open-meteo.com` and `archive-api.open-meteo.com` (Network access: Custom). |
 
 
+## L. The run record (scheduled and watch runs)
+
+So that a quiet day and a failed run never look the same, each run lists what
+it must do and accounts for every step. `<mode>` is `daily`, `watch` or
+`scanner`.
+
+1. **Start**, right after reading the state:
+
+   ```bash
+   python3 "$P/scripts/wayfare.py" check-plan --mode <mode> \
+     --profile wayfare-work/db/home/private/profile.json \
+     --index wayfare-work/db/home/index/trips.json --out wayfare-work/run.json
+   ```
+
+   It prints the steps to do and the trip pages to read (`tripsToRead`).
+2. **After each step:**
+
+   ```bash
+   python3 "$P/scripts/wayfare.py" step --run wayfare-work/run.json \
+     --step <name> --status done|skipped|failed [--detail "<why or counts>"]
+   ```
+
+   `skipped` and `failed` need a detail. Details are counts and error text
+   only, never email content, names or booking codes.
+3. **Finish**, as the last thing before the final message. `<n>` is how many
+   changes you recorded in section I:
+
+   ```bash
+   python3 "$P/scripts/wayfare.py" finish-run --run wayfare-work/run.json \
+     --changes <n> --out wayfare-work/health.json
+   ```
+
+   `set` the file on Home as the `healthDoc` it names (`private`/`health-daily`
+   or `private`/`health-scanner`; pass `if_version` if it exists). In watch mode
+   it names none, so skip this write. Home shows the result as its "last check"
+   line. A step still pending counts as a problem.
+
 ## K. Plans (trips not booked yet)
 
 Plans live on Wayfare Home: `private`/`plans` (`{plans: [...]}`, the plan
@@ -227,7 +265,10 @@ and a cloud environment that has the SearchApi network secret). Its id is in
 Home `private`/`agent` as `scannerTriggerId`; the plan pages' "Check prices
 now" button fires it. In that routine, `$P` is `plugins/wayfare-claude` in
 the cloned repository. It does K steps 1, 3, 4 and 6 and section I for
-price-drop alerts. When its run text holds `WAYFARE_REQUEST` with `kind`
+price-drop alerts, and keeps a run record (section L, `--mode scanner`, step
+names: `state`, `planSearch`, `planPages`, `changes`). A plan that is not due
+yet makes `planSearch` `skipped`; a search error makes it `failed`. Its last
+message follows the same rule as the check skill's final step. When its run text holds `WAYFARE_REQUEST` with `kind`
 `plan`, it checks and validates the request as the agent skill (steps 1 and
 2) says, searches that plan with `--plan <slug> --every-hours 0`, and
 reports on the request document.

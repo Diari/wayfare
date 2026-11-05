@@ -33,6 +33,7 @@ from datetime import datetime, timezone
 from pathlib import Path
 
 import keys
+from wayfare import SCHEDULE_SLACK
 
 API = "https://api.duffel.com/air/offer_requests?return_offers=true&supplier_timeout=20000"
 SEARCHAPI = "https://www.searchapi.io/api/v1/search"
@@ -172,7 +173,7 @@ def recently_checked(previous: dict[str, dict], booking_id: str, now: datetime, 
     if not r:
         return False
     try:
-        return now - datetime.fromisoformat(r["checkedAt"].replace("Z", "+00:00")) < timedelta(days=every_days)
+        return now - datetime.fromisoformat(r["checkedAt"].replace("Z", "+00:00")) < timedelta(days=every_days) - SCHEDULE_SLACK
     except (KeyError, ValueError):
         return False
 

@@ -33,6 +33,7 @@ from datetime import date, datetime, timedelta, timezone
 from pathlib import Path
 
 import keys
+from wayfare import SCHEDULE_SLACK
 
 SEARCHAPI = "https://www.searchapi.io/api/v1/search"
 STOP = {"hotel", "the", "and", "&", "rooms", "room", "guesthouse", "guest", "house", "hostel", "apartments",
@@ -151,7 +152,7 @@ def main(argv: list[str] | None = None) -> int:
     for b in check:
         r = previous.get(b["id"])
         try:
-            recent = r and now - datetime.fromisoformat(r["checkedAt"].replace("Z", "+00:00")) < timedelta(days=a.every_days)
+            recent = r and now - datetime.fromisoformat(r["checkedAt"].replace("Z", "+00:00")) < timedelta(days=a.every_days) - SCHEDULE_SLACK
         except (KeyError, ValueError):
             recent = False
         if recent:

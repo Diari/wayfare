@@ -184,6 +184,11 @@ svg.i { width: 18px; height: 18px; fill: currentColor; flex: none; }
     });
   }
 
+  function shortDate(d) {
+    var x = new Date(d + "T12:00:00");
+    return isNaN(x) ? d : x.toLocaleDateString(undefined, { day: "numeric", month: "short" });
+  }
+
   // ---------- sections ----------
   function totalCard(p) {
     var parts = [];
@@ -191,11 +196,13 @@ svg.i { width: 18px; height: 18px; fill: currentColor; flex: none; }
     if (p.stay) parts.push(p.stay.nights + " nights' stay");
     var low = typeof p.totalLowest === "number" && typeof p.total === "number" && p.totalLowest < p.total
       ? "Lowest seen " + money(p.totalLowest) : typeof p.total === "number" ? "This is the lowest seen so far" : "";
+    var est = typeof p.total !== "number" && typeof p.estimatedTotal === "number" && p.stay && p.stay.lastSeen;
     return el("section", { class: "card total", "aria-label": "Estimated total" }, [
       el("div", { class: "stack", style: "gap:4px" }, [
-        el("span", { class: "muted", text: "Cheapest matching total" }),
-        el("span", { class: "big", text: typeof p.total === "number" ? money(p.total) : "–" }),
+        el("span", { class: "muted", text: est ? "Estimated total" : "Cheapest matching total" }),
+        el("span", { class: "big", text: typeof p.total === "number" ? money(p.total) : est ? "About " + money(p.estimatedTotal) : "–" }),
         el("span", { class: "muted", style: "font-size:14px", text: (parts.length ? parts.join(" + ") + " · " : "") + p.travellers }),
+        est ? el("span", { class: "muted", style: "font-size:14px", text: "Uses the last stay price seen, on " + shortDate(p.stay.lastSeen.date) + "." }) : null,
         low ? el("span", { style: "font-size:14px;font-weight:600", text: low }) : null
       ]),
       spark(p.totalHistory)
@@ -243,6 +250,8 @@ svg.i { width: 18px; height: 18px; fill: currentColor; flex: none; }
     if (typeof o.rating === "number") bits.push(o.rating.toFixed(1) + (o.reviews ? " (" + o.reviews + ")" : ""));
     if (typeof o.km === "number") bits.push(o.km + " km away");
     if (o.freeCancel) bits.push("free cancellation");
+    if (o.freeCancelUnconfirmed) bits.push("check the cancellation terms");
+    if (o.starsUnknown && !o.stars) bits.push("stars unknown");
     if (o.type && !o.stars) bits.push(o.type);
     var u = safeUrl(o.link);
     var name = u ? el("a", { href: u, target: "_blank", rel: "noopener noreferrer", text: o.name }) : el("span", { text: o.name });
@@ -259,7 +268,7 @@ svg.i { width: 18px; height: 18px; fill: currentColor; flex: none; }
     if (st.wishes.length) kids.push(el("div", { class: "chips" }, st.wishes.map(function (w) { return el("span", { class: "chip", text: w }); })));
     if (st.booked) { kids.push(el("p", { class: "booked", text: "Booked. Wayfare stopped searching stays." })); return el("section", { class: "card stays" }, kids); }
     if (st.options.length) kids.push(el("div", { class: "opts" }, st.options.map(function (o, i) { return stayRow(o, i, st.cheapest); })));
-    else kids.push(el("p", { class: "empty", text: st.stats ? "No stay matches your wishes right now." : "Not checked yet." }));
+    else kids.push(el("p", { class: "empty", text: !st.stats ? "Not checked yet." : "No stay matches your wishes right now." + (st.lastSeen ? " Last price seen: " + money(st.lastSeen.price) + " on " + shortDate(st.lastSeen.date) + "." : "") }));
     if (st.preferred.length && !st.options.some(function (o) { return o.preferred; }) && st.stats)
       kids.push(el("p", { class: "empty", text: "No price found for " + st.preferred.join(", ") + " on these dates. Check its own website." }));
     var stat = st.stats ? st.stats.matching + " of " + st.stats.found + " places match" : "";
